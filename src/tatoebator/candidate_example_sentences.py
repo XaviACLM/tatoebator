@@ -1,0 +1,152 @@
+import logging
+from enum import Enum
+from typing import Optional, List
+
+import regex as re
+
+from .lexical_analysis import lexical_content
+from .translator import translate
+
+
+class CandidateExampleSentence:
+    """
+    class holding a (japanese) example sentence w/ translation that has not yet gone through quality control
+     ( quality control will make it into a different class b/c this process also appends some new data )
+
+    about the fields
+
+    sentence is the sentence in japanese. This is the only necessary field on instantiation
+
+    translation is the english translation. This may be None and can be generated (google) with generate_translation()
+
+    lexical content is a list of the dictionary form of lexical words in the sentence.
+    may or may not be passed to the constructor (usually not passed). is generated on the spot
+
+    audio_fileid points to a file containing a readout of the sentence.
+    will usually be created later (in ExampleSentence, not here), but might be found while crawling
+    """
+
+    def __init__(self,
+                 sentence: str,
+                 translation: Optional[str] = None,
+                 lexical_words: Optional[List[str]] = None,
+                 audio_fileid: Optional[str] = None,
+                 ):
+        self.sentence = sentence
+
+        self._lexical_words = lexical_words
+        self.translation = translation
+        self.audio_fileid = audio_fileid
+
+    # the performance loss computing this on init would be minimal
+    # but it might save us trouble from calling mecab/sudachi on jumbled up sentences
+    @property
+    def lexical_words(self):
+        if self._lexical_words is None:
+            self._lexical_words = lexical_content(self.sentence)
+        return self._lexical_words
+
+    def generate_translation(self):
+        self.translation = translate(self.sentence)
+
+    # these used to be cached
+    # (in fact they used to be in an entirely different class that served only to hold caches on Candidates
+    # but surely the overhead is insignificant
+    @property
+    def sentence_len(self):
+        return len(self.sentence)
+
+    @property
+    def n_lexical_words(self):
+        return len(self.lexical_words)
+
+
+discarded_sentences_logger = logging.getLogger("tatoebator.discarded_sentences")
+discarded_sentences_logger.setLevel(logging.INFO)
+# mode 'w' because i expect this to be rerun a lot on the same sentences during testing - might change later
+discarded_sentences_logger.addHandler(logging.FileHandler("discarded_sentences.log", mode='w', encoding='utf-8'))
+
+
+strictly_japanese_chars_matcher = re.compile(r"[\p{IsHira}\p{IsKatakana}\p{IsHan}ー]")
+format_tags_matcher = re.compile(
+    r"nbsp|&quot;|<(?:html|head|body|div|span|h\d|p|br|hr|strong|em|b|i|u|ul|ol|li|a|img|label|tr|td)")
+# english_punctuation = ".,!?;:()[]{}'\"“”‘’@#$%^&*-_/+=<>|\\~–—"
+english_punctuation = r" .,!?;:()\[\]%'\"“”‘’#$%&-/~–—"
+# full width characters here - incl the first space and the numbers
+japanese_punctuation = "　。、！？・：％「」『』（）〔〕［］《》【】…‥ー〜〃／―０１２３４５６７８９"
+other_full_width_chars = "０１２３４５６７８９　ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺ！＂＇：；～"
+newline_or_tab_matcher = re.compile(r"[\n\t]")
+known_characters_text_matcher = re.compile(
+    r"[a-zA-Z0-9\p{IsHira}\p{IsKatakana}\p{IsHan}" + english_punctuation + japanese_punctuation + other_full_width_chars + "]+")
+known_japanese_text_matcher = re.compile(r"[\p{IsHira}\p{IsKatakana}\p{IsHan}" + japanese_punctuation + other_full_width_chars + "]+")
+known_english_text_matcher = re.compile(r"[a-zA-Z0-9" + english_punctuation + "]+")
+
+
+class QualityEvaluationResult(Enum):
+    UNSUITABLE = -1
+    SUITABLE = 0
+    GOOD = 1
+
+
+class ExampleSentenceQualityEvaluator:
+
+    pre_translation_filters = {
+        "Not too short": lambda s: s.sentence_len > 5,
+        "Not too long": lambda s: s.sentence_len <= 140,
+        "Sufficient japanese characters": lambda s: (len(
+            re.findall(strictly_japanese_chars_matcher, s.sentence)) / s.sentence_len) > 0.7,
+        "No weird format tags": lambda s: re.search(format_tags_matcher, s.sentence) is None,
+        "No linebreaks or tabs": lambda s: re.search(newline_or_tab_matcher, s.sentence) is None,
+        "No unknown characters": lambda s: re.fullmatch(known_characters_text_matcher, s.sentence) is not None,
+    }
+
+    post_translation_filters = {
+        "No japanese in translation": lambda s: re.search(strictly_japanese_chars_matcher, s.translation) is None,
+        "No weird format tags in translation": lambda s: re.search(format_tags_matcher, s.translation) is None,
+        "No linebreaks or tabs in translation": lambda s: re.search(newline_or_tab_matcher, s.translation) is None,
+        "No unknown characters in translation": lambda s: re.fullmatch(known_characters_text_matcher,
+                                                                       s.translation) is not None,
+        "At least two lexical words": lambda s: s.n_lexical_words >= 2,
+    }
+
+    extra_quality_filters = {
+        "Not too many lexical words": lambda s: s.n_lexical_words <= 20,
+        "No english characters": lambda s: re.fullmatch(known_japanese_text_matcher, s.sentence) is not None,
+        "No japanese characters in translation": lambda s: re.fullmatch(known_english_text_matcher,
+                                                                       s.translation) is not None,
+    }
+
+    def __init__(self, generate_missing_translations=True):
+        self.generate_missing_translations = generate_missing_translations
+
+    def evaluate_quality(self, example_sentence: CandidateExampleSentence) -> QualityEvaluationResult:
+
+        for filter_name, filter_fun in self.pre_translation_filters.items():
+            if not filter_fun(example_sentence):
+                discarded_sentences_logger.info(f'{filter_name} :: {example_sentence.sentence}')
+                return QualityEvaluationResult.UNSUITABLE
+
+        # meant to cover translation being empty, but also might be "-" or something like that
+        has_translation = example_sentence.translation is not None and len(example_sentence.translation) > 10
+        if not (has_translation or self.generate_missing_translations):
+            discarded_sentences_logger.info(
+                f'Translation must be present :: {example_sentence.sentence} / {example_sentence.translation}'
+            )
+            return QualityEvaluationResult.UNSUITABLE
+
+        for filter_name, filter_fun in self.post_translation_filters.items():
+            if not filter_fun(example_sentence):
+                discarded_sentences_logger.info(f'{filter_name} :: {example_sentence.sentence} / {example_sentence.translation}')
+                return QualityEvaluationResult.UNSUITABLE
+
+        # we now know the sentence is good enough. now to see if it goes through the extra checks to be called good
+
+        if not has_translation: return QualityEvaluationResult.SUITABLE
+        for filter_name, filter_fun in self.extra_quality_filters.items():
+            if not filter_fun(example_sentence):
+                return QualityEvaluationResult.SUITABLE
+
+        return QualityEvaluationResult.GOOD
+
+
+

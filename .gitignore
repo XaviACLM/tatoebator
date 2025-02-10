@@ -1,0 +1,10 @@
+sentences.db
+tests/discarded_sentences.log
+backup/
+fake_media_dir/*
+lib/*
+old tests/
+src/tatoebator/temp_files/*
+src/tatoebator/tts2.py
+__pycache__/
+.idea/
