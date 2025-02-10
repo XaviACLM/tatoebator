@@ -31,32 +31,10 @@ from tatoebator.db.manager import SentenceDbManager
 # TODO maybe aspm only inserts new sentences if MORE than one word is underrepresented in the db
 
 # TODO be a good boy:
-# ManyThings-Tatoeba is CC-BY 2.0 : we can do anything as long as we credit properly, indicate changes, and propagate the license
+# CC-BY 2.0 : we can do anything as long as we credit properly, indicate changes, and propagate the license
 # A note on propagating the license - from what I understand this doesnt' mean the whole project has to be CC-BY 2.0, just the data
-# kanshudo and tangorin robots.txt place no restrictions on us
-# sentence search seems dubious in its sourcing, actually
 
-# tangorin says all its example sentences are from tatoeba? tatoeba will be CC-BY 2.0 too
-# this seems true. Considering tangorin data is tatoeba and robots.txt allows us to crawl, tangorin is just a nicer interface to tatoeba
-# but is it complete? I don't really think so, meaning we will waste the same amount of time crawling through tatoeba later to drop all examples
-# hmmm... but obviously we can just read all of them from our db if we push them in earlier. man!
-# actually tangorin... well first of all their page system doesn't work but you can do the normal query with &offset= a multiple of 50
-# doing this it looks like tangorin has almost everything in tatoeba, missing maybe 5% - possibly they have an older copy of the database?
-# importantly this is with tangorin eating EVERYTHING, orphaned and unapproved sentences all the same. note that they also say:
-sentence_db_manager = SentenceDbManager()
 
-#ok a lot of things end up going back to tatoeba actually. how big is tatoeba? maybe its practical to just keep it locally
-#its 28.2MB, very reasonable. But - how many sentences are there in there actually?
-
-# ManyThings-Tatoeba is just tatoeba (but quality controlled, let's somehow tell the db we like it more)
-# tatoeba-OA means tatoeba but accepting orphans and non-accepted sentences. our tatoeba is not this (but it can be)
-# tangorin is just tatoeba-OA
-# kanshudo is almost entirely (~90%) tatoeba-OA, possibly more w/ modified tatoeba sentences.
-# jisho also says "most example sentences in jisho come from the tatoeba project). only other sentence source listed is jreibun and only 407 of its sentences come from there
-# about jreibun - website says '2,797 items, 4,892 example sentences created (with English translation)', but nowhere to download them
-# ss-neocities is the only one that might be more complex, actually. however it lists a ton of sources and it really seems like it made no effort to check whether they had a license
-# let's test how much stuff in it is not in tatoeba. We'll check against ManyThings-Tatoeba bc it's what we got right now
-# wow, only 5% of ss-neocities is in manythings-tatoeba. Shame about the license - we'll see if it's necessary or not, but better not touch it i suppose
 
 # ok so here's the plan
 # spms: all of them out the window. forget tangorin, kanshudo, jisho - and instead of the tatoeba website we'll use the tatoeba api (duh)
@@ -67,16 +45,13 @@ sentence_db_manager = SentenceDbManager()
 # https://www.phontron.com/japanese-translation-data.php
 # https://www.kaggle.com/discussions/general/39500
 # https://www.kaggle.com/code/vennaa/notebook-accessing-the-data/notebook
-# further extend ExampleSentence to CreditedExampleSentence - this will carry license and credit info (one string each)
-# spms/aspms now return creditedExampleSentences. DB has two new fields to store this data. DB getter methods however
-# return only ExampleSentences, no credit into - the credit info is never used, only kept there because it's nice
+# add another field to ExampleSentence, a credit. nullable. Stored in db. Possibly used in the ui, semitransparent below the sentences
+# in a license file, add some instructions re: how to get from a source tag (in the DB) to a license: e.g. everything with the tatoeba or manythings-tatoeba tag is CC-BY 2.0 Fr
 # there will also be an option (---> a method in the manager) to delete the credit info, in case...
-# well i don't really know why you'd be that pressed for space, but in case.
-# and actually maybe it might not be a bad idea to use CreditedExampleSentences everywhere - would be nice to put a small semitransparent credit on sentences in the UI
-# hm... but if this is the case, do we just add new fields to ExampleSentence, instead of extending it? i'm a bit afraid to do that
-# seems like you might want to do operations on them without caring about the license data at times
-# actually that probably makes sense...
-# i don't know, we'll consider it
+# well i don't really know why you'd be that pressed for space, but, in case.
+
+
+sentence_db_manager = SentenceDbManager()
 
 def word_test(word="煙"):
     _, sentences = sentence_db_manager.get_sentences(word, 5, ensure_audio=False)
