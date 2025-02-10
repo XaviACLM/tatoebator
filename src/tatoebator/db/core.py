@@ -21,6 +21,7 @@ class Sentence(Base):
     audio_file_id = Column(String(32), nullable=True)
     source_tag = Column(SmallInteger, nullable=False)
     trusted = Column(Boolean, nullable=False)
+    credit = Column(Text, nullable=True)
 
     # redundant but useful for querying
     n_keywords = Column(SmallInteger, nullable=True)  # Total words in the sentence
@@ -144,6 +145,7 @@ class SentenceDbInterface:
             audio_file_id=sentence.audio_fileid,
             source_tag=sentence.source_tag,
             trusted=sentence.trusted,
+            credit=sentence.credit,
             n_keywords=sentence.n_lexical_words,
             n_known_words=sentence.n_known_words,
             n_unknown_words=sentence.n_unknown_words,
@@ -157,6 +159,7 @@ class SentenceDbInterface:
                                audio_fileid=row.audio_file_id,
                                source_tag=row.source_tag,
                                trusted=row.trusted,
+                               credit=row.credit,
                                n_known_words=row.n_known_words)
 
     def get_sentences_by_word(self, word, max_desired_amt: int = None):

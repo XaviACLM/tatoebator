@@ -122,3 +122,8 @@ class SentenceDbManager:
         orphaned_ids = existing_audio_ids-referenced_audio_ids
         for orphaned_id in orphaned_ids:
             self.media_manager.remove_by_id(orphaned_id)
+
+    def update_known(self):
+        # TODO insert some info from the anki db to get the Keywords.known data
+        # and then we call...
+        self.sentence_db_interface.update_known_unknown_counts()

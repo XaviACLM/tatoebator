@@ -45,6 +45,7 @@ from tatoebator.db.manager import SentenceDbManager
 # https://www.phontron.com/japanese-translation-data.php
 # https://www.kaggle.com/discussions/general/39500
 # https://www.kaggle.com/code/vennaa/notebook-accessing-the-data/notebook
+
 # add another field to ExampleSentence, a credit. nullable. Stored in db. Possibly used in the ui, semitransparent below the sentences
 # in a license file, add some instructions re: how to get from a source tag (in the DB) to a license: e.g. everything with the tatoeba or manythings-tatoeba tag is CC-BY 2.0 Fr
 # there will also be an option (---> a method in the manager) to delete the credit info, in case...
@@ -54,7 +55,7 @@ from tatoebator.db.manager import SentenceDbManager
 sentence_db_manager = SentenceDbManager()
 
 def word_test(word="煙"):
-    _, sentences = sentence_db_manager.get_sentences(word, 5, ensure_audio=False)
+    _, sentences = sentence_db_manager.get_sentences(word, 40, ensure_audio=False)
     print("returned",len(sentences),"sentences")
     for example_sentence in sentences:
         print(example_sentence.sentence)
@@ -63,7 +64,10 @@ def word_test(word="煙"):
         print(example_sentence.audio_fileid)
         print(example_sentence.source_tag)
         print(example_sentence.trusted)
+        print(example_sentence.n_lexical_words)
+        print(example_sentence.n_known_words)
         print(example_sentence.n_unknown_words)
+        print(example_sentence.credit)
         print("")
 
 def common_words_test():
@@ -80,11 +84,14 @@ def common_words_test():
         print(word, len(sentences))
 
 # sentence_db_manager._produce_new_sentences_arbitrarily(10000)
+sentence_db_manager.update_known()
 word_test()
 # common_words_test()
 
-import pandas as pd
 
+"""
+# testing known words update stuff
+import pandas as pd
 keywords_to_update=['火','煙']
 from sqlalchemy import update
 from tatoebator.db.core import Keyword
@@ -104,3 +111,4 @@ sentence_db_manager.sentence_db_interface.update_known_unknown_counts()
 
 sentence_table = pd.read_sql_table(table_name='sentences',con=sentence_db_manager.sentence_db_interface.engine)
 print(sentence_table.to_string())
+"""
