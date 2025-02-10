@@ -1,12 +1,13 @@
 import os
 import re
+import zipfile
 from typing import Iterator, Dict
 
 import requests
 from bs4 import BeautifulSoup, NavigableString
 
 from .candidate_example_sentences import ExampleSentenceQualityEvaluator, QualityEvaluationResult
-from .constants import CACHE_DIR
+from .constants import CACHE_DIR, TEMP_FILES_DIR
 from .example_sentences import CandidateExampleSentence, ExampleSentence
 
 
@@ -184,6 +185,9 @@ def example_sentences_from_tatoeba(word: str, page: int) -> tuple[int, list[tupl
     url = f'https://tatoeba.org/en/sentences/search?from=jpn&orphans=no&query={word}'\
           + f'&sort=random&to=eng&trans_filter=limit&trans_to=eng&unapproved=no'\
           + f'&word_count_min=6&rand_seed=JKwY&page={page}&sort=random'
+    url_unrestricted = f'https://tatoeba.org/en/sentences/search?from=jpn&orphans=any&query={word}'\
+          + f'&sort=random&to=eng&trans_filter=limit&trans_to=eng&unapproved=any'\
+          + f'&word_count_min=6&rand_seed=JKwY&page={page}&sort=random'
     response = requests_session.get(url)
 
     if response.status_code != 200:
@@ -226,11 +230,14 @@ class SentenceSearchNeocitiesASPM(ArbitrarySentenceProductionMethod):
     def __init__(self):
         self.filepath = os.path.join(CACHE_DIR, 'ssneocities_data.json')
         if not os.path.exists(self.filepath):
-            url = 'https://sentencesearch.neocities.org/data/all_v11.json'
-            response = requests.get(url)
-            response.raise_for_status()
-            with open(self.filepath, 'wb') as file:
-                file.write(response.content)
+            self._download_data_to_cache()
+
+    def _download_data_to_cache(self):
+        url = 'https://sentencesearch.neocities.org/data/all_v11.json'
+        response = requests.get(url)
+        response.raise_for_status()
+        with open(self.filepath, 'wb') as file:
+            file.write(response.content)
 
     def yield_sentences(self):
         # sometimes a space precedes the newline (?)
@@ -254,17 +261,48 @@ class SentenceSearchNeocitiesASPM(ArbitrarySentenceProductionMethod):
                     yield CandidateExampleSentence(jap_text, translation=eng_text)
 
 
+class ManyThingsTatoebaASPM(ArbitrarySentenceProductionMethod):
+    def __init__(self):
+        self.filepath = os.path.join(CACHE_DIR, 'manythings_tatoeba.txt')
+        if not os.path.exists(self.filepath):
+            self._download_data_to_cache()
+
+    def _download_data_to_cache(self):
+        zip_filepath = os.path.join(TEMP_FILES_DIR, 'jpn-eng.zip')
+        if not os.path.exists(zip_filepath):
+            url = 'https://www.manythings.org/anki/jpn-eng.zip'
+            response = requests_session.get(url)
+            with open(zip_filepath, 'wb') as file:
+                file.write(response.content)
+        with zipfile.ZipFile(zip_filepath, 'r') as zip_ref:
+            with zip_ref.open('jpn.txt') as orig, open(self.filepath, 'wb') as dest:
+                dest.write(orig.read())
+        os.remove(zip_filepath)
+
+    def yield_sentences(self):
+        line_matcher = re.compile(r'([^\t]+)\t([^\t]+)\t([^\t]+)')
+        license_matcher = re.compile(r'CC-BY 2\.0 \(France\) Attribution: tatoeba\.org #\d+ \(.+\) & #\d+ \(.+\)\n')
+        with open(self.filepath, 'r', encoding='utf-8') as file:
+            for line in file:
+                line_match = line_matcher.match(line)
+                eng_text, jap_text, license = line_match.groups()
+                license_match = license_matcher.match(license)
+                # TODO license license license
+                yield CandidateExampleSentence(jap_text, translation=eng_text)
+
+
 class SentenceProductionManager:
 
-    spms_by_tag : Dict[int, SentenceProductionMethod] = {
+    spms_by_tag: Dict[int, SentenceProductionMethod] = {
         1: KanshudoSPM(),
         2: TangorinSPM(),
         3: JishoSPM(),
         4: TatoebaSPM(),
     }
 
-    aspms_by_tag : Dict[int, ArbitrarySentenceProductionMethod] = {
-        101: SentenceSearchNeocitiesASPM()
+    aspms_by_tag: Dict[int, ArbitrarySentenceProductionMethod] = {
+        101: SentenceSearchNeocitiesASPM(),
+        102: ManyThingsTatoebaASPM(),
     }
 
     # TODO trust score from source
@@ -284,12 +322,9 @@ class SentenceProductionManager:
         yielders_by_tag = {tag:spm.yield_sentences() for tag, spm in self.aspms_by_tag.items()} if word is None\
             else {tag:spm.yield_sentences(word) for tag, spm in self.spms_by_tag.items()}
 
-        c=0
         for tag, yielder in yielders_by_tag.items():
             for s in yielder:
-                c+=1
                 evaluation = self.quality_control.evaluate_quality(s)
                 if evaluation is QualityEvaluationResult.UNSUITABLE:
                     continue
                 yield ExampleSentence.from_candidate(s, tag, evaluation is QualityEvaluationResult.GOOD)
-        print(c)
