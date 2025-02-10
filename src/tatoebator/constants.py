@@ -4,6 +4,7 @@ import os
 #TODO: an actually reliable way to know where the addon is installed - start this from __init__ with __file__, maybe
 ADDON_NAME = 'tatoebator'
 TEMP_FILES_DIR = os.path.join(Path.home(),"AppData","Roaming","Anki2","addons21",ADDON_NAME,"src",ADDON_NAME, "temp_files")
+CACHE_DIR = os.path.join(Path.home(),"AppData","Roaming","Anki2","addons21",ADDON_NAME,"src",ADDON_NAME, "cached_files")
 PATH_TO_DATABASE = os.path.join(Path.home(),"AppData","Roaming","Anki2","addons21", ADDON_NAME,"sentences.db")
 DATABASE_URL = f'sqlite:///{PATH_TO_DATABASE}'
 SENTENCES_PER_CARD = 20

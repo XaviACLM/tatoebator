@@ -6,7 +6,7 @@ import requests
 from bs4 import BeautifulSoup, NavigableString
 
 from .candidate_example_sentences import ExampleSentenceQualityEvaluator, QualityEvaluationResult
-from .constants import TEMP_FILES_DIR
+from .constants import CACHE_DIR
 from .example_sentences import CandidateExampleSentence, ExampleSentence
 
 
@@ -224,7 +224,7 @@ class TatoebaSPM(LexicalCheckSPM):
 
 class SentenceSearchNeocitiesASPM(ArbitrarySentenceProductionMethod):
     def __init__(self):
-        self.filepath = os.path.join(TEMP_FILES_DIR, 'ssneocities_data.json')
+        self.filepath = os.path.join(CACHE_DIR, 'ssneocities_data.json')
         if not os.path.exists(self.filepath):
             url = 'https://sentencesearch.neocities.org/data/all_v11.json'
             response = requests.get(url)

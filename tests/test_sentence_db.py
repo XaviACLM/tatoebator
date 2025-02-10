@@ -29,7 +29,6 @@ from tatoebator.db.manager import SentenceDbManager
 # https://ejje.weblio.jp/content/%E3%82%84%E3%82%8B%E3%81%9B%E3%81%AA%E3%81%84
 
 # TODO decide on the logic for when to call update_known_unknown_words
-# TODO github
 # TODO switch to regular SQL queries?
 
 sentence_db_manager = SentenceDbManager()

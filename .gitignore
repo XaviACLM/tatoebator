@@ -5,6 +5,7 @@ fake_media_dir/*
 lib/*
 old tests/
 src/tatoebator/temp_files/*
+src/tatoebator/cached_files/*
 src/tatoebator/tts2.py
 __pycache__/
 .idea/
