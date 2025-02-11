@@ -1,10 +1,10 @@
+import itertools
 import os
 import re
 import zipfile
 from typing import Iterator, Dict
 
 import requests
-from bs4 import BeautifulSoup, NavigableString
 
 from .candidate_example_sentences import ExampleSentenceQualityEvaluator, QualityEvaluationResult
 from .constants import CACHE_DIR, TEMP_FILES_DIR
@@ -14,31 +14,6 @@ from .example_sentences import CandidateExampleSentence, ExampleSentence
 class SentenceProductionMethod:
     def yield_sentences(self, word: str) -> Iterator[CandidateExampleSentence]:
         raise NotImplementedError()
-
-
-class StandardSPM(SentenceProductionMethod):
-    def yield_sentences(self, word):
-        yield from iter(self._produce_sentence_list(word))
-
-    def _produce_sentence_list(self, word):
-        raise NotImplementedError()
-
-
-class LexicalCheckStandardSPM(SentenceProductionMethod):
-    def yield_sentences(self, word):
-        yield from filter(lambda sentence: word in sentence.lexical_words, self._produce_unchecked_sentence_list(word))
-
-    def _produce_unchecked_sentence_list(self, word):
-        raise NotImplementedError()
-
-
-class LexicalCheckSPM(SentenceProductionMethod):
-    def yield_sentences(self, word):
-        yield from filter(lambda sentence: word in sentence.lexical_words, self._yield_unchecked_sentences(word))
-
-    def _yield_unchecked_sentences(self, word):
-        raise NotImplementedError()
-
 
 class ArbitrarySentenceProductionMethod():
     def yield_sentences(self) -> Iterator[CandidateExampleSentence]:
@@ -51,179 +26,42 @@ requests_session.headers.update({
 })
 
 
-# chatgpt wrote this
-# led me to learn chatgpt is kinda ass at writing crawlers
-# but i'm too lazy to rewrite it for now
-def example_sentences_from_kanshudo(word: str) -> list[tuple[str]]:
-    url = f'https://www.kanshudo.com/searcht?q={word}'
-    response = requests_session.get(url)
+class TatoebaSPM(SentenceProductionMethod):
+    get_sentence_url = "https://api.tatoeba.org/unstable/sentences"
+    default_params = "lang=jpn&trans%3Alang=eng&sort=created"
+    stringent_params = "&is_orphan=no&is_unapproved=no&trans%3Ais_direct=yes&trans%3Ais_unapproved=no&trans%3Ais_orphan=no"
+    lax_params = "&q=買&limit=10"
+    block_size = 30
 
-    if response.status_code != 200:
-        raise Exception(f"Something went wrong with the kanshudo request - status code {response.status_code}")
+    def __init__(self, stringent=True):
+        self.query_string = f"{self.get_sentence_url}?{self.default_params}{self.stringent_params if stringent else ''}&limit={self.block_size}"
 
-    soup = BeautifulSoup(response.content, 'html.parser')
-
-    # Function to extract text from tatvoc_stop elements
-    def extract_tatvoc_stop_text(element):
-        return element.get_text(strip=True)
-
-    # Function to extract text from tatvoc elements
-    def extract_tatvoc_text(element):
-        extracted_text = ''
-        for child in element.children:
-            if isinstance(child, NavigableString):
-                extracted_text += child.strip()
-            elif child.name == 'span' and all(cls in child.get('class', []) for cls in ['f_container', 'noflip']):
-                f_kanji_elements = child.find_all('div', class_='f_kanji')
-                for f_kanji in f_kanji_elements:
-                    extracted_text += f_kanji.get_text(strip=True)
-        return extracted_text.strip()
-
-    # Function to extract text from tat_eng elements
-    def extract_tat_eng_text(element):
-        tat_eng_span = element.find('span', class_='tat_eng')
-        if tat_eng_span:
-            text_span = tat_eng_span.find('span', class_='text')
-            if text_span:
-                return text_span.get_text(strip=True)
-        return ''
-
-    sentence_translation_pairs = []
-
-    for tatoeba_div in soup.find_all('div', class_='tatoeba'):
-        extracted_text = []
-
-        elements = tatoeba_div.find_all(['a', 'span'])
-        for element in elements:
-            if 'tatvoc-stop' in element.get('class', []):
-                extracted_text.append(extract_tatvoc_stop_text(element))
-            elif 'tatvoc' in element.get('class', []):
-                extracted_text.append(extract_tatvoc_text(element))
-
-        extracted_text = ''.join(extracted_text)
-        tat_eng_text = extract_tat_eng_text(tatoeba_div)
-        sentence_translation_pairs.append((extracted_text, tat_eng_text))
-
-    return sentence_translation_pairs
+    def yield_sentences(self, word):
+        for page in itertools.count(1):
+            url = f"{self.query_string}&q={word}&page={page}"
+            data = requests_session.get(url).json()['data']
+            for item in data:
+                jp_text = item['text']
+                if item['license'] != 'CC BY 2.0 FR':
+                    raise Exception(f"Something in Tatoeba has an unexpected license: {item['license']}")
+                jp_owner = item['owner']
+                for translation in itertools.chain(*item['translations']):
+                    if translation['lang']=='eng':
+                        break
+                else:
+                    # sometimes the return doesn't have a translation in the language we want
+                    # why? that's weird. filed a big report
+                    continue
+                en_text = translation['text']
+                en_owner = translation['owner']
+                yield CandidateExampleSentence(jp_text, en_text, credit=f"{jp_owner}, {en_owner} (Tatoeba)")
 
 
-class KanshudoSPM(LexicalCheckStandardSPM):
-    def _produce_unchecked_sentence_list(self, word):
-        return [CandidateExampleSentence(sentence, translation=translation)
-                for sentence, translation
-                in example_sentences_from_kanshudo(word)]
-
-
-def example_sentences_from_tangorin(word: str) -> list[tuple[str]]:
-    url = f'https://tangorin.com/sentences?search={word}'
-    response = requests_session.get(url)
-
-    if response.status_code != 200:
-        raise Exception(f"Something went wrong with the tangorin request - status code {response.status_code}")
-
-    soup = BeautifulSoup(response.content, 'html.parser')
-
-    sentence_translation_pairs = []
-
-    for entry_elem in soup.find_all('div', class_='entry entry-border sentences undefined'):
-        jp_elem = entry_elem.find("dt")
-        en_elem = entry_elem.find("dd")
-        sentence_translation_pairs.append((jp_elem.text, en_elem.text))
-
-    return sentence_translation_pairs
-
-
-class TangorinSPM(LexicalCheckStandardSPM):
-    def _produce_unchecked_sentence_list(self, word):
-        return [CandidateExampleSentence(sentence, translation=translation)
-                for sentence, translation
-                in example_sentences_from_tangorin(word)]
-
-
-def example_sentences_from_jisho(word: str) -> list[tuple[str]]:
-    url = f'https://jisho.org/search/{word}%20%23sentences'
-    response = requests_session.get(url)
-
-    if response.status_code != 200:
-        raise Exception(f"Something went wrong with the jisho request - status code {response.status_code}")
-
-    soup = BeautifulSoup(response.content, 'html.parser')
-
-    sentence_translation_pairs = []
-
-    for entry_elem in soup.find_all('div', class_='sentence_content'):
-        jp_elem = entry_elem.find("ul", class_='japanese_sentence japanese japanese_gothic clearfix')
-        jp_str = []
-        for child in jp_elem.children:
-            if isinstance(child, NavigableString):
-                jp_str.append(child.strip())
-            elif child.name == 'li':
-                f_kanji_elements = child.find_all('span', class_='unlinked')
-                for f_kanji in f_kanji_elements:
-                    jp_str.append(f_kanji.get_text(strip=True))
-        jp_str = "".join(jp_str)
-        en_elem = entry_elem.find("div", class_='english_sentence clearfix').find("span", class_='english')
-        en_str = en_elem.text
-        sentence_translation_pairs.append((jp_str, en_str))
-
-    return sentence_translation_pairs
-
-
-class JishoSPM(LexicalCheckStandardSPM):
-    def _produce_unchecked_sentence_list(self, word):
-        return [CandidateExampleSentence(sentence, translation=translation)
-                for sentence, translation
-                in example_sentences_from_jisho(word)]
-
-
-tatoeba_jpn_matcher = re.compile(r'"text":"(.*)","lang":"jpn"')
-tatoeba_eng_matcher = re.compile(r'"text":"(.*?)","lang":"eng"')
-
-
-def example_sentences_from_tatoeba(word: str, page: int) -> tuple[int, list[tuple[str, str]]]:
-    # takes the page to search. also returns the number of pages
-    url = f'https://tatoeba.org/en/sentences/search?from=jpn&orphans=no&query={word}'\
-          + f'&sort=random&to=eng&trans_filter=limit&trans_to=eng&unapproved=no'\
-          + f'&word_count_min=6&rand_seed=JKwY&page={page}&sort=random'
-    url_unrestricted = f'https://tatoeba.org/en/sentences/search?from=jpn&orphans=any&query={word}'\
-          + f'&sort=random&to=eng&trans_filter=limit&trans_to=eng&unapproved=any'\
-          + f'&word_count_min=6&rand_seed=JKwY&page={page}&sort=random'
-    response = requests_session.get(url)
-
-    if response.status_code != 200:
-        raise Exception(f"Something went wrong with the jisho request - status code {response.status_code}")
-
-    soup = BeautifulSoup(response.content, 'html.parser')
-
-    paging_elem = soup.find('ul', class_='paging')
-    if paging_elem is None:
-        last_page = 1
-    else:
-        last_pg_elem = paging_elem.find_all('li')[-2]
-        last_page = int(last_pg_elem.text)
-
-    sentence_translation_pairs = []
-
-    for elem in soup.find_all('div', attrs={'flex': True, 'sentence-and-translations': True}):
-        text = elem.get('ng-init')
-        jp_match = re.search(tatoeba_jpn_matcher, text)
-        en_match = re.search(tatoeba_eng_matcher, text[jp_match.end():])
-        jp_str = jp_match.group(1).encode().decode('unicode_escape')
-        en_str = en_match.group(1)
-        sentence_translation_pairs.append((jp_str, en_str))
-
-    return last_page, sentence_translation_pairs
-
-
-class TatoebaSPM(LexicalCheckSPM):
-    def _yield_unchecked_sentences(self, word):
-        max_page, sentences = example_sentences_from_tatoeba(word, 1)
-        for sentence, translation in sentences:
-            yield CandidateExampleSentence(sentence, translation=translation)
-        for page in range(2, max_page + 1):
-            _, sentences = example_sentences_from_tatoeba(word, page)
-            for sentence, translation in sentences:
-                yield CandidateExampleSentence(sentence, translation=translation)
+class TatoebaASPM(ArbitrarySentenceProductionMethod):
+    def __init__(self):
+        self.filepath = os.path.join(CACHE_DIR, 'ssneocities_data.json')
+        if not os.path.exists(self.filepath):
+            self._download_data_to_cache()
 
 
 class SentenceSearchNeocitiesASPM(ArbitrarySentenceProductionMethod):
@@ -294,9 +132,6 @@ class ManyThingsTatoebaASPM(ArbitrarySentenceProductionMethod):
 class SentenceProductionManager:
 
     spms_by_tag: Dict[int, SentenceProductionMethod] = {
-        1: KanshudoSPM(),
-        2: TangorinSPM(),
-        3: JishoSPM(),
         4: TatoebaSPM(),
     }
 
@@ -324,7 +159,7 @@ class SentenceProductionManager:
 
         for tag, yielder in yielders_by_tag.items():
             for s in yielder:
-                evaluation = self.quality_control.evaluate_quality(s)
+                evaluation = self.quality_control.evaluate_quality(s, word=word)
                 if evaluation is QualityEvaluationResult.UNSUITABLE:
                     continue
                 yield ExampleSentence.from_candidate(s, tag, evaluation is QualityEvaluationResult.GOOD)

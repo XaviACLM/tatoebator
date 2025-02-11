@@ -31,12 +31,14 @@ class CandidateExampleSentence:
                  translation: Optional[str] = None,
                  lexical_words: Optional[List[str]] = None,
                  audio_fileid: Optional[str] = None,
+                 credit: Optional[str] = None
                  ):
         self.sentence = sentence
 
         self._lexical_words = lexical_words
         self.translation = translation
         self.audio_fileid = audio_fileid
+        self.source = credit
 
     # the performance loss computing this on init would be minimal
     # but it might save us trouble from calling mecab/sudachi on jumbled up sentences
@@ -119,12 +121,16 @@ class ExampleSentenceQualityEvaluator:
     def __init__(self, generate_missing_translations=True):
         self.generate_missing_translations = generate_missing_translations
 
-    def evaluate_quality(self, example_sentence: CandidateExampleSentence) -> QualityEvaluationResult:
+    def evaluate_quality(self, example_sentence: CandidateExampleSentence, word: str = None) -> QualityEvaluationResult:
 
         for filter_name, filter_fun in self.pre_translation_filters.items():
             if not filter_fun(example_sentence):
                 discarded_sentences_logger.info(f'{filter_name} :: {example_sentence.sentence}')
                 return QualityEvaluationResult.UNSUITABLE
+
+        if word is not None and word not in example_sentence.lexical_words:
+            discarded_sentences_logger.info(f'Requested word not in lexical content :: {example_sentence.sentence}')
+            return QualityEvaluationResult.UNSUITABLE
 
         # meant to cover translation being empty, but also might be "-" or something like that
         has_translation = example_sentence.translation is not None and len(example_sentence.translation) > 10

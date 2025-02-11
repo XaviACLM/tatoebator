@@ -36,9 +36,7 @@ from tatoebator.db.manager import SentenceDbManager
 
 
 
-# ok so here's the plan
-# spms: all of them out the window. forget tangorin, kanshudo, jisho - and instead of the tatoeba website we'll use the tatoeba api (duh)
-# https://api.dev.tatoeba.org/unstable#?route=get-/unstable/sentences
+
 
 # aspms: keep the neocities one just in case but don't use it. Have manythings-tatoeba and all of tatoeba - figure out how
 # to introduce logic (and more stuff in the DB) to figure out which one to use. later on also include other corpora:

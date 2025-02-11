@@ -13,10 +13,9 @@ class ExampleSentence(CandidateExampleSentence):
                  trusted: bool,
                  credit: Optional[str] = None,
                  n_known_words: Optional[int] = None):
-        super().__init__(sentence, translation, lexical_words, audio_fileid)
+        super().__init__(sentence, translation, lexical_words, audio_fileid, credit)
         self.source_tag = source_tag
         self.trusted = trusted
-        self.credit = credit
         self.n_known_words = n_known_words
 
     @classmethod
