@@ -1,0 +1,7 @@
+This file contains the mappings from the source_tag column in the database to the actual sources, as well as the licenses of the material in these sources.
+This file is updated programmatically.
+
+SOURCE_TAG;SOURCE_NAME;LICENSE
+2;ManyThings.org Sentence Pairs;CC-BY 2.0 Fr
+3;Tatoeba (via API);CC-BY 2.0 Fr
+4;Tatoeba (via DB download);CC-BY 2.0 Fr

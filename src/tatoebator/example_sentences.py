@@ -19,10 +19,10 @@ class ExampleSentence(CandidateExampleSentence):
         self.n_known_words = n_known_words
 
     @classmethod
-    def from_candidate(cls, s: CandidateExampleSentence, source_tag: int, trusted: bool,
-                       credit: Optional[str] = None, n_known_words: Optional[int] = None):
+    def from_candidate(cls, s: CandidateExampleSentence,
+                       source_tag: int, trusted: bool, n_known_words: Optional[int] = None):
         return cls(s.sentence, s.translation, s.lexical_words, s.audio_fileid,
-                   source_tag, trusted, credit, n_known_words)
+                   source_tag, trusted, s.credit, n_known_words)
 
     @property
     def n_unknown_words(self):

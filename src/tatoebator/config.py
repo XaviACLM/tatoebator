@@ -22,3 +22,5 @@ VOICEPEAK_DIR = os.path.join("C:", os.sep, "Program Files", "Voicepeak")
 VOICEPEAK_EXE = os.path.join(VOICEPEAK_DIR, "voicepeak.exe")
 
 AUDIO_BITRATE = '64k'
+
+SEVENZIP_EXE = os.path.join("C:", os.sep, "Program Files", "7-Zip", "7z.exe")

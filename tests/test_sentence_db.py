@@ -82,7 +82,7 @@ def common_words_test():
         print(word, len(sentences))
 
 # sentence_db_manager._produce_new_sentences_arbitrarily(10000)
-sentence_db_manager.update_known()
+
 word_test()
 # common_words_test()
 

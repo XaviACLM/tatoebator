@@ -38,7 +38,7 @@ class CandidateExampleSentence:
         self._lexical_words = lexical_words
         self.translation = translation
         self.audio_fileid = audio_fileid
-        self.source = credit
+        self.credit = credit
 
     # the performance loss computing this on init would be minimal
     # but it might save us trouble from calling mecab/sudachi on jumbled up sentences
