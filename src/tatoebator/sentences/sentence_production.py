@@ -1,5 +1,6 @@
 import csv
 import itertools
+import logging
 import os
 import re
 import subprocess
@@ -83,11 +84,23 @@ class TatoebaSPM(SentenceProductionMethod):
         self.query_string = f"{self.get_sentence_url}?{self.default_params}{self.stringent_params if stringent else ''}&limit={self.block_size}"
 
     def yield_sentences(self, word):
-        for page in itertools.count(1):
-            url = f"{self.query_string}&q={word}&page={page}"
-            from aqt.utils import showInfo
-            showInfo(url)
-            response_json = requests_session.get(url).json()
+        # this api is quite buggy, actually - shame, have to make the code uglier
+        #  translation field is sometimes empty
+        #   so we continue to the next sentence if it is
+        #  for some words, searching for them seems to return random sentences
+        #   so we implemented that the ProductionManager skips spms if they return too many unsuitable sentences
+        #  some specific queries (seemingly for particularly high pages) return 500 consistently for no apparent reason
+        #   so we check and return if so
+        url = f"{self.query_string}&q={word}&page=1"
+        while url:
+            response = requests_session.get(url)
+            if response.status_code == 500: return
+            try:
+                response_json = response.json()
+            except:
+                from aqt.utils import showInfo
+                showInfo(f"bad status code {response.status_code} on url {url}")
+                raise Exception()
             data = response_json['data']
             paging = response_json['paging']
             for item in data:
@@ -99,14 +112,42 @@ class TatoebaSPM(SentenceProductionMethod):
                     if translation['lang'] == 'eng':
                         break
                 else:
-                    # sometimes the return doesn't have a translation in the language we want
-                    # why? that's weird. filed a bug report
                     continue
+
                 en_text = translation['text']
                 en_owner = translation['owner'] or 'unknown'
 
                 yield CandidateExampleSentence(jp_text, en_text, credit=f"{jp_owner}, {en_owner} (Tatoeba)")
-            if not paging: break
+            url = paging and 'next' in paging and paging['next']
+        return
+        for page in itertools.count(1):
+            url = f"{self.query_string}&q={word}&page={page}"
+            response = requests_session.get(url)
+            if response.status_code == 500: return
+            try:
+                response_json = response.json()
+            except:
+                from aqt.utils import showInfo
+                showInfo(f"bad status code {response.status_code} on url {url}")
+                raise Exception()
+            data = response_json['data']
+            paging = response_json['paging']
+            for item in data:
+                jp_text = item['text']
+                if item['license'] != 'CC BY 2.0 FR':
+                    raise Exception(f"Something in Tatoeba has an unexpected license: {item['license']}")
+                jp_owner = item['owner'] or 'unknown'
+                for translation in itertools.chain(*item['translations']):
+                    if translation['lang'] == 'eng':
+                        break
+                else:
+                    continue
+
+                en_text = translation['text']
+                en_owner = translation['owner'] or 'unknown'
+
+                yield CandidateExampleSentence(jp_text, en_text, credit=f"{jp_owner}, {en_owner} (Tatoeba)")
+            if not paging: return
 
 
 class TatoebaASPM(ArbitrarySentenceProductionMethod):
@@ -313,13 +354,6 @@ class TatoebaASPM(ArbitrarySentenceProductionMethod):
             yield CandidateExampleSentence(jp_text, en_text, credit=f"{jp_owner}, {en_owner} (Tatoeba)")
 
 
-
-
-
-
-
-
-
 class SentenceSearchNeocitiesASPM(ArbitrarySentenceProductionMethod):
     source_name = "sentencesearch.neocities.org"
     license = "Unknown"
@@ -392,6 +426,12 @@ class ManyThingsTatoebaASPM(ArbitrarySentenceProductionMethod):
                 yield CandidateExampleSentence(jap_text, eng_text, credit=f"{jp_owner}, {en_owner} (Tatoeba)")
 
 
+skipped_spms_logger = logging.getLogger("tatoebator.skipped_spms")
+skipped_spms_logger.setLevel(logging.INFO)
+# mode 'w' because i expect this to be rerun a lot on the same sentences during testing - might change later
+skipped_spms_logger.addHandler(logging.FileHandler("skipped_spms.log", mode='w', encoding='utf-8'))
+
+
 class SentenceProductionManager:
     spms = [TatoebaSPM()]
 
@@ -419,8 +459,13 @@ class SentenceProductionManager:
             else [(aspm.source_tag, aspm.yield_sentences()) for aspm in self.aspms]
 
         for tag, yielder in tagged_yielders:
-            for s in yielder:
+            n_bad = 0
+            for n_total,s in enumerate(yielder):
                 evaluation = self.quality_control.evaluate_quality(s, word=word)
                 if evaluation is QualityEvaluationResult.UNSUITABLE:
+                    n_bad += 1
+                    if n_bad > 0.8*n_total+20:
+                        skipped_spms_logger.info(f"{yielder.__name__} deactivated on word {word} - {n_bad}/{n_total} unsuitable sentences")
+                        break
                     continue
                 yield ExampleSentence.from_candidate(s, tag, evaluation is QualityEvaluationResult.GOOD)

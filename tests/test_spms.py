@@ -1,7 +1,7 @@
 import regex as re
 
 from tatoebator.sentences import SentenceProductionManager
-from tatoebator.sentences.sentence_production import TatoebaASPM
+from tatoebator.sentences.sentence_production import TatoebaASPM, TatoebaSPM
 
 kana_matcher = re.compile(r"([\p{IsHira}\p{IsKatakana}ー–—]+)", re.UNICODE)
 kanji_matcher = re.compile(r"([\p{IsHan}]+)", re.UNICODE)
@@ -47,9 +47,10 @@ for item in spm.yield_sentences("買う"):
 """
 
 
-aspm = TatoebaASPM()
+#aspm = TatoebaASPM()
+aspm = TatoebaSPM()
 #aspm = ManyThingsTatoebaASPM()
-for sentence in aspm.yield_sentences():
+for sentence in aspm.yield_sentences('アイツ'):
     print(sentence.sentence, sentence.credit)
 
 """

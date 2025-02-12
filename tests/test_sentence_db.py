@@ -104,8 +104,8 @@ def common_words_test():
 
 # sentence_db_manager._produce_new_sentences_arbitrarily(1000000)
 
-# word_test()
-common_words_test()
+word_test()
+# common_words_test()
 
 
 """
