@@ -95,12 +95,7 @@ class TatoebaSPM(SentenceProductionMethod):
         while url:
             response = requests_session.get(url)
             if response.status_code == 500: return
-            try:
-                response_json = response.json()
-            except:
-                from aqt.utils import showInfo
-                showInfo(f"bad status code {response.status_code} on url {url}")
-                raise Exception()
+            response_json = response.json()
             data = response_json['data']
             paging = response_json['paging']
             for item in data:
@@ -119,35 +114,6 @@ class TatoebaSPM(SentenceProductionMethod):
 
                 yield CandidateExampleSentence(jp_text, en_text, credit=f"{jp_owner}, {en_owner} (Tatoeba)")
             url = paging and 'next' in paging and paging['next']
-        return
-        for page in itertools.count(1):
-            url = f"{self.query_string}&q={word}&page={page}"
-            response = requests_session.get(url)
-            if response.status_code == 500: return
-            try:
-                response_json = response.json()
-            except:
-                from aqt.utils import showInfo
-                showInfo(f"bad status code {response.status_code} on url {url}")
-                raise Exception()
-            data = response_json['data']
-            paging = response_json['paging']
-            for item in data:
-                jp_text = item['text']
-                if item['license'] != 'CC BY 2.0 FR':
-                    raise Exception(f"Something in Tatoeba has an unexpected license: {item['license']}")
-                jp_owner = item['owner'] or 'unknown'
-                for translation in itertools.chain(*item['translations']):
-                    if translation['lang'] == 'eng':
-                        break
-                else:
-                    continue
-
-                en_text = translation['text']
-                en_owner = translation['owner'] or 'unknown'
-
-                yield CandidateExampleSentence(jp_text, en_text, credit=f"{jp_owner}, {en_owner} (Tatoeba)")
-            if not paging: return
 
 
 class TatoebaASPM(ArbitrarySentenceProductionMethod):
