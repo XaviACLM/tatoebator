@@ -1,7 +1,8 @@
-from pathlib import Path
 import os
+from pathlib import Path
 
-SUDACHI_EXE = os.path.join(Path.home(), "AppData", "Local", "Programs", "Python", "Python310", "Scripts", "sudachipy.exe")
+SUDACHI_EXE = os.path.join(Path.home(), "AppData", "Local", "Programs", "Python", "Python310", "Scripts",
+                           "sudachipy.exe")
 MECAB_DIR = os.path.join("C:", os.sep, "Program Files", "MeCab")
 MECAB_EXE = os.path.join(MECAB_DIR, "bin", "mecab.exe")
 

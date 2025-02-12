@@ -1,15 +1,12 @@
 import os
 from typing import Set
 
-from ..example_sentences import ExampleSentence
-from ..util import deterministic_hash
-from ..audio.tts2 import DefaultTTSManager
-from ..constants import TEMP_FILES_DIR, ADDON_NAME, MEDIA_DIR
+from ..sentences import ExampleSentence
 from ..config import AUDIO_BITRATE
-from ..audio.ffmpeg_interface import convert_bitrate
-
-
-
+from ..constants import TEMP_FILES_DIR, ADDON_NAME, MEDIA_DIR
+from ..util import deterministic_hash
+from .ffmpeg_interface import convert_bitrate
+from .tts2 import DefaultTTSManager
 
 
 class MediaManager:
@@ -35,7 +32,8 @@ class MediaManager:
         sentence.audio_fileid = self.create_audio_file(sentence.sentence, speed, desired_id)
 
     def get_all_audio_ids(self) -> Set[str]:
-        return set((filename[len(ADDON_NAME)+1:-4] for filename in os.listdir(MEDIA_DIR) if filename.endswith(".mp3")))
+        return set(
+            (filename[len(ADDON_NAME) + 1:-4] for filename in os.listdir(MEDIA_DIR) if filename.endswith(".mp3")))
 
     def remove_by_id(self, sentence_id: str):
         os.remove(os.path.join(MEDIA_DIR, self._filename_from_id(sentence_id)))

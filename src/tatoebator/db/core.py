@@ -1,13 +1,11 @@
-import itertools
+import atexit
 from typing import List, Set, Dict
 
 from sqlalchemy import create_engine, Column, Integer, SmallInteger, String, Text, ForeignKey, Index, func, Boolean, \
     case
-from sqlalchemy.orm import declarative_base, relationship, sessionmaker
+from sqlalchemy.orm import declarative_base, relationship, sessionmaker, joinedload
 
-import atexit
-
-from ..example_sentences import ExampleSentence
+from tatoebator.sentences import ExampleSentence
 from ..constants import DATABASE_URL
 
 Base = declarative_base()
@@ -31,6 +29,23 @@ class Sentence(Base):
     keywords = relationship("SentenceKeyword", back_populates="sentence")
 
 
+class SentenceKeyword(Base):
+    """Association table between sentences and keywords."""
+    __tablename__ = 'sentence_keywords'
+    id = Column(Integer, primary_key=True)
+    sentence_id = Column(Integer, ForeignKey('sentences.id'), nullable=False, index=True)
+    keyword_id = Column(Integer, ForeignKey('keywords.id'), nullable=False, index=True)
+
+    sentence = relationship("Sentence", back_populates="keywords")
+    keyword = relationship("Keyword")
+
+    __table_args__ = (
+        Index('idx_sentence_keyword_sentence_id', 'sentence_id'),
+        Index('idx_sentence_keyword_keyword_id', 'keyword_id'),
+        Index('idx_sentence_keyword_sentence_keyword', 'sentence_id', 'keyword_id'),  # For faster joins
+    )
+
+
 class Keyword(Base):
     """Stores unique keywords and whether they are known."""
     __tablename__ = 'keywords'
@@ -41,17 +56,6 @@ class Keyword(Base):
     __table_args__ = (
         Index('idx_keywords_keyword', 'keyword'),
     )
-
-
-class SentenceKeyword(Base):
-    """Association table between sentences and keywords."""
-    __tablename__ = 'sentence_keywords'
-    id = Column(Integer, primary_key=True)
-    sentence_id = Column(Integer, ForeignKey('sentences.id'), nullable=False)
-    keyword_id = Column(Integer, ForeignKey('keywords.id'), nullable=False)
-
-    sentence = relationship("Sentence", back_populates="keywords")
-    keyword = relationship("Keyword")
 
 
 class SentenceDbInterface:
@@ -65,7 +69,7 @@ class SentenceDbInterface:
 
     def _open_session(self):
         self.session = self.Session()
-        
+
     def close_session(self):
         # careful, doesn't commit!!
         self.session.close()
@@ -77,13 +81,13 @@ class SentenceDbInterface:
         return existing or None  # None if existing is falsey
 
     def _insert_keywords(self, keywords: Set[str]) -> Dict[str, int]:
-        keywords_in_database = {k.keyword:k for k in
-                             self.session.query(Keyword).filter(Keyword.keyword.in_(keywords)).all()}
-        keywords_to_insert = {k:Keyword(keyword=k, known=False) for k in keywords if k not in keywords_in_database}
+        keywords_in_database = {k.keyword: k for k in
+                                self.session.query(Keyword).filter(Keyword.keyword.in_(keywords)).all()}
+        keywords_to_insert = {k: Keyword(keyword=k, known=False) for k in keywords if k not in keywords_in_database}
         self.session.add_all(keywords_to_insert.values())
         self.session.flush()
         keywords_in_database.update(keywords_to_insert)
-        return {k:keyword.id for k,keyword in keywords_in_database.items()}
+        return {k: keyword.id for k, keyword in keywords_in_database.items()}
 
     def insert_sentence(self, sentence, verify_not_repeated=True):
         if self.session is None: self._open_session()
@@ -139,6 +143,7 @@ class SentenceDbInterface:
 
     @classmethod
     def _row_from_example_sentence(cls, sentence: ExampleSentence):
+        # careful, you can't just insert this as-is! use the insert function to also register lexical word relations
         return Sentence(
             english=sentence.translation,
             japanese=sentence.sentence,
@@ -151,8 +156,11 @@ class SentenceDbInterface:
             n_unknown_words=sentence.n_unknown_words,
         )
 
-    @classmethod
-    def _row_to_example_sentence(cls, row):
+    @staticmethod
+    def _row_to_example_sentence(row):
+        # this should come pre-joined with the required rows in Keyword
+        # otherwise the bit to fill in lexical_words will require a db query
+        # (one for every single sentence! this function isn't batched!!)
         return ExampleSentence(row.japanese,
                                translation=row.english,
                                lexical_words=[sk.keyword.keyword for sk in row.keywords],
@@ -170,18 +178,18 @@ class SentenceDbInterface:
         :return: list of found sentences, as ExampleSentences
         """
         if self.session is None: self._open_session()
+
         results = (
             self.session.query(Sentence)
                 .join(SentenceKeyword, Sentence.id == SentenceKeyword.sentence_id)
                 .join(Keyword, SentenceKeyword.keyword_id == Keyword.id)
                 .filter(Keyword.keyword == word)
                 .limit(max_desired_amt)
+                .options(joinedload(Sentence.keywords).joinedload(SentenceKeyword.keyword))  # retain keywords
                 .all()
         )
 
-        sentences = list(map(SentenceDbInterface._row_to_example_sentence, results))
-
-        return sentences
+        return list(map(SentenceDbInterface._row_to_example_sentence, results))
 
     '''
     # unused
@@ -239,19 +247,20 @@ class SentenceDbInterface:
         if self.session is None: self._open_session()
         result = (
             self.session.query(Keyword.keyword, func.count(Keyword.keyword))
-            .filter(Keyword.keyword.in_(keywords))
-            .group_by(Keyword.keyword)
-            .all()
+                .filter(Keyword.keyword.in_(keywords))
+                .group_by(Keyword.keyword)
+                .all()
         )
         counts = {row[0]: row[1] for row in result}
-        return {keyword:counts.get(keyword, 0) for keyword in keywords}
+        return {keyword: counts.get(keyword, 0) for keyword in keywords}
 
     def get_all_audio_ids(self) -> Set[str]:
         if self.session is None:
             self._open_session()
 
         referenced_audio_ids = set(
-            row[0] for row in self.session.query(Sentence.audio_file_id).filter(Sentence.audio_file_id.isnot(None)).all()
+            row[0] for row in
+            self.session.query(Sentence.audio_file_id).filter(Sentence.audio_file_id.isnot(None)).all()
         )
 
         return referenced_audio_ids
@@ -279,8 +288,8 @@ class SentenceDbInterface:
             {
                 Sentence.n_known_words: (
                     self.session.query(knowns_by_id.c.count)
-                    .filter(Sentence.id == knowns_by_id.c.sentence_id)
-                    .as_scalar()
+                        .filter(Sentence.id == knowns_by_id.c.sentence_id)
+                        .as_scalar()
                 )
             },
             synchronize_session=False

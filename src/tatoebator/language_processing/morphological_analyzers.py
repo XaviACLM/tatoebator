@@ -1,10 +1,7 @@
-import subprocess
 import os
-from typing import List, Set
+import subprocess
 from dataclasses import dataclass
-
-
-from .util import running_as_anki_addon, showInfo
+from typing import List, Set
 
 
 @dataclass
@@ -29,8 +26,9 @@ def running_as_anki_addon(): return True
 
 
 if running_as_anki_addon():
-    from .timed_resource_manager import TimedResourceManager
-    from .config import SUDACHI_EXE
+    from tatoebator.timed_resource_manager import TimedResourceManager
+    from tatoebator.config import SUDACHI_EXE
+
 
     def process_sudachi_cli_output_line(line: str) -> Morpheme:
         # remove lineskip (not really necessary b/c we never grab the final feature)
@@ -65,6 +63,7 @@ if running_as_anki_addon():
             self.process.stdin.flush()
             return iter(self.process.stdout.readline, "EOS\n")
 
+
     class SudachiTokenizer(Tokenizer):
         def __init__(self):
             self.sudachi_resource = SudachiResource()
@@ -72,6 +71,7 @@ if running_as_anki_addon():
         def __call__(self, text):
             output = self.sudachi_resource.process_request_managed(text)
             return list(map(process_sudachi_cli_output_line, output))
+
 
     """
     # a more uncomplicated interface to the .exe in case the other is too finnicky
@@ -91,6 +91,7 @@ if running_as_anki_addon():
 else:
     import sudachipy
 
+
     def from_sudachipy_morpheme(morpheme: sudachipy.Morpheme) -> Morpheme:
         part_of_speech = set(morpheme.part_of_speech())
         if "*" in part_of_speech: part_of_speech.remove("*")
@@ -98,6 +99,7 @@ else:
                         part_of_speech=part_of_speech,
                         dictionary_form=morpheme.dictionary_form(),
                         is_oov=morpheme.is_oov())
+
 
     class SudachiTokenizer(Tokenizer):
         def __init__(self):
@@ -107,10 +109,10 @@ else:
         def __call__(self, text):
             return list(map(from_sudachipy_morpheme, self.tokenizer.tokenize(text, self.mode)))
 
-
 if running_as_anki_addon():
-    from .timed_resource_manager import TimedResourceManager
-    from .config import MECAB_EXE
+    from tatoebator.timed_resource_manager import TimedResourceManager
+    from tatoebator.config import MECAB_EXE
+
 
     def process_mecab_cli_output_line(line: str) -> Morpheme:
         # remove lineskip (not really necessary b/c we never grab the final feature)
@@ -122,6 +124,7 @@ if running_as_anki_addon():
         dictionary_form = features[6]
         is_oov = len(features) < 9
         return Morpheme(surface, part_of_speech, dictionary_form, is_oov)
+
 
     class MeCabResource(TimedResourceManager):
         def _start_resource(self):
@@ -144,6 +147,7 @@ if running_as_anki_addon():
             # grab items from readline until EOS
             return iter(self.process.stdout.readline, "EOS\n")
 
+
     class MeCabTokenizer(Tokenizer):
         def __init__(self):
             self.mecab_resource = MeCabResource()
@@ -151,6 +155,8 @@ if running_as_anki_addon():
         def __call__(self, text):
             output = self.mecab_resource.process_request_managed(text)
             return list(map(process_mecab_cli_output_line, output))
+
+
     """
     # a more uncomplicated interface to the .exe in case the other is too finnicky
     class MeCabTokenizer(Tokenizer):
@@ -169,6 +175,7 @@ if running_as_anki_addon():
 else:
     import MeCab
 
+
     class MeCabTokenizer:
         def __init__(self):
             self.tagger = MeCab.Tagger("-Ochasen")
@@ -182,12 +189,11 @@ else:
                 part_of_speech = set(split_features[:6])
                 if "*" in part_of_speech: part_of_speech.remove("*")
                 dictionary_form = split_features[6]
-                is_oov = len(split_features)<9
+                is_oov = len(split_features) < 9
                 # unless surface == '': # BOS/EOS
                 if not surface == '':  # BOS/EOS
                     morphemes.append(Morpheme(surface, part_of_speech, dictionary_form, is_oov))
                 node = node.next
             return morphemes
-
 
 DefaultTokenizer = MeCabTokenizer

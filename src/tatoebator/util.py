@@ -13,8 +13,8 @@ def running_as_anki_addon() -> bool:
     _, exec_name = os.path.split(sys.executable)
     return exec_name == "anki.exe"
 
-if running_as_anki_addon():
-    from aqt.utils import showInfo
-    showInfo = showInfo
-else:
-    showInfo = print
+
+def ensure_aqt():
+    if running_as_anki_addon(): return
+    from . import mock_aqt
+    sys.modules['aqt'] = mock_aqt

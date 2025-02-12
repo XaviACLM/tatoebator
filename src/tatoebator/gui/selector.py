@@ -1,12 +1,14 @@
-from PyQt6.QtWidgets import QLabel, QTextEdit, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QSpacerItem, QSizePolicy
-from PyQt6.QtGui import QFont, QTextCursor, QTextCharFormat, QColor, QTextOption
 from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QFont, QTextCursor, QTextCharFormat, QColor, QTextOption
+from PyQt6.QtWidgets import QLabel, QTextEdit, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QSpacerItem, QSizePolicy
 
-from ..word_classification import group_text_by_learnability, WordLearnableType
-from ..gui.word_table import TableWidget
+from ..language_processing import group_text_by_learnability, WordLearnableType
+from .word_table import NewWordsTableWidget
+
 
 class QSelectableTextEdit(QTextEdit):
     state_changed = pyqtSignal()
+
     def __init__(self, parent=None, all_selected=False):
         super().__init__(parent)
         self.num_words = 0
@@ -30,25 +32,25 @@ class QSelectableTextEdit(QTextEdit):
         self._update_text()
 
     def get_selected_words(self):
-        return [word for word,val in self.word_states.items() if val]
+        return [word for word, val in self.word_states.items() if val]
 
     def _update_text(self):
         """Update the text with current words and states."""
         self.clear()
         cursor = self.textCursor()
-        
+
         normal_fmt = QTextCharFormat()
         highlight_fmt = QTextCharFormat()
         highlight_fmt.setBackground(QColor("black"))
         highlight_fmt.setForeground(QColor("white"))
-        
+
         for word in self.words:
             fmt = QTextCharFormat()
             if self.word_states[word]:
                 cursor.insertText(word, highlight_fmt)
             else:
                 cursor.insertText(word, normal_fmt)
-            cursor.insertText(" "*3,normal_fmt)
+            cursor.insertText(" " * 3, normal_fmt)
 
     def mousePressEvent(self, event):
         """Toggle highlighting when a word is clicked."""
@@ -79,7 +81,7 @@ class QSelectableTextEdit(QTextEdit):
         self._update_text()
         self.num_highlighted_words = self.num_words - self.num_highlighted_words
         self.state_changed.emit()
-        
+
 
 class QWordDisplay(QWidget):
     def __init__(self, title, parent=None):
@@ -97,7 +99,7 @@ class QWordDisplay(QWidget):
         self.layout = QVBoxLayout()
         self.header_layout = QHBoxLayout()
         self.header_layout.addWidget(self.title_label)
-        self.layout.insertLayout(0,self.header_layout)
+        self.layout.insertLayout(0, self.header_layout)
         self.layout.addWidget(self.text_edit)
         self.setLayout(self.layout)
 
@@ -108,7 +110,7 @@ class QWordDisplay(QWidget):
             self.title_label.setText(f"{self.title} ({extra_info})")
 
     def set_words(self, word_list):
-        self.text_edit.setPlainText((" "*3).join(word_list))
+        self.text_edit.setPlainText((" " * 3).join(word_list))
         self._update_title(len(word_list))
 
 
@@ -159,7 +161,7 @@ class QSelectableWordDisplay(QWordDisplay):
     def mousePressEvent(self, event):
         self.text_edit.mousePressEvent(event)
         self._update_title()
-        
+
 
 class MineNewWordsWidget(QWidget):
     def __init__(self):
@@ -191,19 +193,19 @@ class MineNewWordsWidget(QWidget):
         boxes_left = QVBoxLayout()
         boxes_right = QVBoxLayout()
 
-        self.word_displays = {WordLearnableType.NEW_WORD:QSelectableWordDisplay("New words", all_selected=True),
-                              WordLearnableType.IN_LIBRARY_PENDING:QWordDisplay("In library (upcoming)"),
-                              WordLearnableType.IN_LIBRARY_KNOWN:QWordDisplay("In library (known)"),
-                              WordLearnableType.PROPER_NOUN_NONPERSON:QWordDisplay("Proper (non-person) nouns"),
-                              WordLearnableType.GRAMMATICAL_WORD:QWordDisplay("Grammatical particles"),
-                              WordLearnableType.NOT_IN_DICTIONARY:QWordDisplay("Not in dictionary")
+        self.word_displays = {WordLearnableType.NEW_WORD: QSelectableWordDisplay("New words", all_selected=True),
+                              WordLearnableType.IN_LIBRARY_PENDING: QWordDisplay("In library (upcoming)"),
+                              WordLearnableType.IN_LIBRARY_KNOWN: QWordDisplay("In library (known)"),
+                              WordLearnableType.PROPER_NOUN_NONPERSON: QWordDisplay("Proper (non-person) nouns"),
+                              WordLearnableType.GRAMMATICAL_WORD: QWordDisplay("Grammatical particles"),
+                              WordLearnableType.NOT_IN_DICTIONARY: QWordDisplay("Not in dictionary")
                               }
 
         # Create the first text element
         boxes_left.addWidget(self.word_displays[WordLearnableType.NEW_WORD])
         boxes_left.addWidget(self.word_displays[WordLearnableType.IN_LIBRARY_PENDING])
         boxes_left.addWidget(self.word_displays[WordLearnableType.IN_LIBRARY_KNOWN])
-        
+
         boxes_right.addWidget(self.word_displays[WordLearnableType.PROPER_NOUN_NONPERSON])
         boxes_right.addWidget(self.word_displays[WordLearnableType.GRAMMATICAL_WORD])
         boxes_right.addWidget(self.word_displays[WordLearnableType.NOT_IN_DICTIONARY])
@@ -226,9 +228,9 @@ class MineNewWordsWidget(QWidget):
         # Add the right column layout to the main layout
         main_layout.addLayout(right_column)
 
-        main_layout.setStretch(0, 1) #left stretches a bit
-        main_layout.setStretch(1, 0) #mid nothing
-        main_layout.setStretch(2, 2) #right double
+        main_layout.setStretch(0, 1)  # left stretches a bit
+        main_layout.setStretch(1, 0)  # mid nothing
+        main_layout.setStretch(2, 2)  # right double
 
         # Set the layout to the QWidget
         self.setLayout(main_layout)
@@ -238,18 +240,18 @@ class MineNewWordsWidget(QWidget):
         self.setGeometry(100, 100, 1400, 800)
 
     def mine_into_boxes(self):
-        #fairly serious problem
-        #i request through the table creation of sentences for tosho
-        #a bunch for toshokan get through
-        #but the table seems to believe we only got 3 sentences
-        #only possible explanation is that kanshudo or tangorin gave us toshokan sentences when we looked for tosho
-        #need to do lexical check for those too? pain in the ass
-        #yes, kanshudo has a bunch of toshokans
-        #tangorin does not seem to? but maybe it's best not to risk it
-        #this certainly makes the sudachi-powershell issue all that much more irritating. maybe try mecab?
+        # fairly serious problem
+        # i request through the table creation of sentences for tosho
+        # a bunch for toshokan get through
+        # but the table seems to believe we only got 3 sentences
+        # only possible explanation is that kanshudo or tangorin gave us toshokan sentences when we looked for tosho
+        # need to do lexical check for those too? pain in the ass
+        # yes, kanshudo has a bunch of toshokans
+        # tangorin does not seem to? but maybe it's best not to risk it
+        # this certainly makes the sudachi-powershell issue all that much more irritating. maybe try mecab?
 
-        #it has been weeks since i wrote the above comment and forget what it means exactly
-        #although we did both fix the sudachi issue and implement mecab
+        # it has been weeks since i wrote the above comment and forget what it means exactly
+        # although we did both fix the sudachi issue and implement mecab
         text = self.text_edit.toPlainText()
         classified = group_text_by_learnability(text)
 
@@ -258,6 +260,6 @@ class MineNewWordsWidget(QWidget):
 
     def continue_to_card_creation(self):
         words = self.word_displays[WordLearnableType.NEW_WORD].get_selected_words()
-        self.new_window = TableWidget(words)
+        self.new_window = NewWordsTableWidget(words)
         self.new_window.show()
         self.close()

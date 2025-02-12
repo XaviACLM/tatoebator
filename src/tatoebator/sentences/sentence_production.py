@@ -2,38 +2,39 @@ import itertools
 import os
 import re
 import subprocess
-from urllib import parse as parse_url
-import zipfile
 import time
-from typing import Iterator, Dict, Optional
+import zipfile
+from typing import Iterator, Optional
+from urllib import parse as parse_url
 
-import requests
 import pandas as pd
+import requests
 
+from ..config import SEVENZIP_EXE
+from ..constants import CACHE_DIR, TEMP_FILES_DIR, PATH_TO_SOURCES_FILE
 from .candidate_example_sentences import ExampleSentenceQualityEvaluator, QualityEvaluationResult
-from .config import SEVENZIP_EXE
-from .constants import CACHE_DIR, TEMP_FILES_DIR, PATH_TO_SOURCES_FILE
 from .example_sentences import CandidateExampleSentence, ExampleSentence
 
 
 def get_source_tag(source_name: str, license: str):
     if not os.path.exists(PATH_TO_SOURCES_FILE):
         with open(PATH_TO_SOURCES_FILE, 'w', encoding='utf-8') as sources_file:
-            sources_file.write("This file contains the mappings from the source_tag column in the database to the actual sources, as well as the licenses of the material in these sources.\n"\
-                               +"This file is updated programmatically.\n\nSOURCE_TAG;SOURCE_NAME;LICENSE\n")
+            sources_file.write(
+                "This file contains the mappings from the source_tag column in the database to the actual sources, as well as the licenses of the material in these sources.\n" \
+                + "This file is updated programmatically.\n\nSOURCE_TAG;SOURCE_NAME;LICENSE\n")
     with open(PATH_TO_SOURCES_FILE, 'r', encoding='utf-8') as source_file:
         for i in range(5):
             line = next(source_file, None)
         max_tag = 0
         while line is not None:
-            tag,name,_ = line.split(';')
+            tag, name, _ = line.split(';')
             tag = int(tag)
             max_tag = max(max_tag, tag)
             if name == source_name:
                 return tag
             line = next(source_file, None)
     # otherwise, register new source tag
-    new_tag = max_tag+1
+    new_tag = max_tag + 1
     with open(PATH_TO_SOURCES_FILE, 'a', encoding='utf-8') as source_file:
         source_file.write(f'{new_tag};{source_name};{license}\n')
     return new_tag
@@ -68,7 +69,6 @@ requests_session.headers.update({
 
 
 class TatoebaSPM(SentenceProductionMethod):
-
     source_name = 'Tatoeba (via API)'
     license = "CC-BY 2.0 Fr"
 
@@ -92,7 +92,7 @@ class TatoebaSPM(SentenceProductionMethod):
                     raise Exception(f"Something in Tatoeba has an unexpected license: {item['license']}")
                 jp_owner = item['owner'] or 'unknown'
                 for translation in itertools.chain(*item['translations']):
-                    if translation['lang']=='eng':
+                    if translation['lang'] == 'eng':
                         break
                 else:
                     # sometimes the return doesn't have a translation in the language we want
@@ -105,7 +105,6 @@ class TatoebaSPM(SentenceProductionMethod):
 
 
 class TatoebaASPM(ArbitrarySentenceProductionMethod):
-
     source_name = 'Tatoeba (via DB download)'
     license = "CC-BY 2.0 Fr"
 
@@ -156,7 +155,7 @@ class TatoebaASPM(ArbitrarySentenceProductionMethod):
             "x-requested-with": "XMLHttpRequest"
         }
         post_data = {
-            #"fields[]": ["id", "text", "trans_id", "trans_text"],
+            # "fields[]": ["id", "text", "trans_id", "trans_text"],
             # would be good if there was some owner field to access but i couldn't find it
             # instead we do this silly goofy join
             "fields[]": ["id", "trans_id"],
@@ -166,7 +165,7 @@ class TatoebaASPM(ArbitrarySentenceProductionMethod):
             "from": "eng", "to": "jpn",
             "type": "pairs"
         }
-        tatoeba_session.headers.update({"referrer":"https://tatoeba.org/en/downloads"})
+        tatoeba_session.headers.update({"referrer": "https://tatoeba.org/en/downloads"})
 
         response = tatoeba_session.post(post_url, data=post_data, headers=headers)
 
@@ -233,15 +232,16 @@ class TatoebaASPM(ArbitrarySentenceProductionMethod):
         temp_filepath = os.path.join(TEMP_FILES_DIR, f"temp_unculled_{language}_tatoeba.tsv")
         os.rename(lan_filepath, temp_filepath)
 
-        with open(temp_filepath, 'r', encoding='utf-8') as temp_file, open(lan_filepath, 'w', encoding='utf-8') as lan_file:
+        with open(temp_filepath, 'r', encoding='utf-8') as temp_file, open(lan_filepath, 'w',
+                                                                           encoding='utf-8') as lan_file:
             pair_idx = next(common_idx)
             lan_line = next(temp_file)
             lan_idx = int(first_number_matcher.match(lan_line).group(1))
             while True:
                 if pair_idx == lan_idx:
                     parts = lan_line.split("\t")
-                    parts[3]+="\n"
-                    lan_line = "\t".join([parts[0],parts[2],parts[3]])
+                    parts[3] += "\n"
+                    lan_line = "\t".join([parts[0], parts[2], parts[3]])
                     lan_file.write(lan_line)
                 c1, c2 = pair_idx <= lan_idx, lan_idx <= pair_idx
                 if c1:
@@ -254,9 +254,9 @@ class TatoebaASPM(ArbitrarySentenceProductionMethod):
         os.remove(temp_filepath)
 
     def _create_dataframe(self):
-        en_df = pd.read_csv(self.en_filepath, sep='\t', names=['en_idx','en_text','en_owner'])
-        pair_df = pd.read_csv(self.pairs_filepath, sep='\t', names=['en_idx','jp_idx'])
-        jp_df = pd.read_csv(self.jp_filepath, sep='\t', names=['jp_idx','jp_text','jp_owner'])
+        en_df = pd.read_csv(self.en_filepath, sep='\t', names=['en_idx', 'en_text', 'en_owner'])
+        pair_df = pd.read_csv(self.pairs_filepath, sep='\t', names=['en_idx', 'jp_idx'])
+        jp_df = pd.read_csv(self.jp_filepath, sep='\t', names=['jp_idx', 'jp_text', 'jp_owner'])
 
         pair_df.drop_duplicates(subset='jp_idx', inplace=True)
 
@@ -273,7 +273,6 @@ class TatoebaASPM(ArbitrarySentenceProductionMethod):
 
 
 class SentenceSearchNeocitiesASPM(ArbitrarySentenceProductionMethod):
-
     source_name = "sentencesearch.neocities.org"
     license = "Unknown"
 
@@ -313,7 +312,6 @@ class SentenceSearchNeocitiesASPM(ArbitrarySentenceProductionMethod):
 
 
 class ManyThingsTatoebaASPM(ArbitrarySentenceProductionMethod):
-
     source_name = "ManyThings.org Sentence Pairs"
     license = "CC-BY 2.0 Fr"
 
@@ -347,17 +345,17 @@ class ManyThingsTatoebaASPM(ArbitrarySentenceProductionMethod):
 
 
 class SentenceProductionManager:
-
     spms = [TatoebaSPM()]
 
     aspms = [
-        # SentenceSearchNeocitiesASPM(),
+        # SentenceSearchNeocitiesASPM(), # dubious sourcing
         ManyThingsTatoebaASPM(),
-        TatoebaASPM(),
+        # TatoebaASPM(), # best to only ingest the more quality controlled ManyThings - we can still query the spm
     ]
 
     def __init__(self, generate_missing_translations=True):
-        self.quality_control = ExampleSentenceQualityEvaluator(generate_missing_translations=generate_missing_translations)
+        self.quality_control = ExampleSentenceQualityEvaluator(
+            generate_missing_translations=generate_missing_translations)
 
     def yield_new_sentences(self, word=None):
         """
@@ -369,7 +367,7 @@ class SentenceProductionManager:
             same thing but using arbitrary sentence production methods
         """
 
-        tagged_yielders = [(spm.source_tag, spm.yield_sentences(word)) for spm in self.spms] if word is not None\
+        tagged_yielders = [(spm.source_tag, spm.yield_sentences(word)) for spm in self.spms] if word is not None \
             else [(aspm.source_tag, aspm.yield_sentences()) for aspm in self.aspms]
 
         for tag, yielder in tagged_yielders:

@@ -1,4 +1,4 @@
-from tatoebator.translator import translate
+from tatoebator.language_processing.translator import translate
 
 text = """散々な思い出は悲しみを穿つほど
 やるせない恨みはアイツのために

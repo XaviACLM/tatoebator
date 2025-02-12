@@ -1,6 +1,6 @@
 import regex as re
 
-from tatoebator.sentence_production import SentenceProductionManager, ManyThingsTatoebaASPM, TatoebaSPM, TatoebaASPM
+from tatoebator.sentences import SentenceProductionManager
 
 kana_matcher = re.compile(r"([\p{IsHira}\p{IsKatakana}ー–—]+)", re.UNICODE)
 kanji_matcher = re.compile(r"([\p{IsHan}]+)", re.UNICODE)

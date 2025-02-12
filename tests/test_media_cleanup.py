@@ -1,4 +1,4 @@
-from tatoebator.db.manager import SentenceDbManager
+from tatoebator.db import SentenceDbManager
 
 sentence_db_manager = SentenceDbManager()
 print(len(sentence_db_manager.media_manager.get_all_audio_ids()))

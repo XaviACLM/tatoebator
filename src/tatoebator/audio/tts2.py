@@ -1,18 +1,16 @@
-import subprocess
 import asyncio
-import os
 import atexit
-from random import randint
-import requests
+import os
+import subprocess
 import time
+from random import randint
 
+import requests
 from voicevox import Client as VoicevoxClient
 
-from ..language_extensions.metaclasses import TransientSingleton
-from ..timed_resource_manager import TimedResourceManager
-
 from ..config import VOICEVOX_EXE_PATH, W_OKADA_TTS_DIR, W_OKADA_TTS_EXE
-
+from ..language_extensions import TransientSingleton
+from ..timed_resource_manager import TimedResourceManager
 
 CRACKED_VOICEPEAK_DIR = os.path.join("C:", os.sep, "Program Files", "cracked_voicepeak")
 # an edit we made ourselves to be able to pass args through yumekey to voicepeak
@@ -105,7 +103,7 @@ class TTSManager:
         raise NotImplementedError()
 
     def create_audio(
-        self, sentence, voice_idx=None, speed=1, file_dir=".", file_name=None
+            self, sentence, voice_idx=None, speed=1, file_dir=".", file_name=None
     ):
         """
         Synthesize speech to the specified file. Keep in mind that most TTSs using this method will produce audio at
@@ -120,7 +118,7 @@ class TTSManager:
         voice_idx = voice_idx if voice_idx is not None else self._select_voice_idx()
         voice = self._get_voice_by_idx(voice_idx)
         file_name = file_name or str(int(1000 * time.time()))
-        extensions = ['.mp3','.wav']
+        extensions = ['.mp3', '.wav']
         if not any((file_name.endswith(extension) for extension in extensions)):
             file_name += '.wav'
         file_path = os.path.join(file_dir, file_name)

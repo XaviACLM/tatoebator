@@ -1,4 +1,4 @@
-from tatoebator.sentence_production import SentenceProductionManager
+from tatoebator.sentences import SentenceProductionManager
 
 """
 sp_manager = SentenceProductionManager(generate_missing_translations=False)

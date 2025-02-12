@@ -1,7 +1,7 @@
 
-from tatoebator.db.manager import SentenceDbManager
+from tatoebator.db import SentenceDbManager
 
-# TODO stop propagating output from yumekey + ffmpeg
+# TODO stop propagating output from every cli ever
 
 
 # TODO make the tanoshii searcher better: there was some old concern i don't remember
@@ -13,47 +13,68 @@ from tatoebator.db.manager import SentenceDbManager
 # TODO warnings in table menu (low amt of sentences, not-that-lexical word...)
 # TODO progress bars
 
-# TODO reinsert audio data when generated upon taking it out of the db
-# so we can ingest a TON of data from corpuses and stop depending on kanshudo/tangorin/etc
-# TODO stuff from parallel corpuses:
-# https://www.phontron.com/japanese-translation-data.php
-# https://www.manythings.org/bilingual/jpn/ <- amazing! also warns against tatoeba
-# https://www.kaggle.com/discussions/general/39500
-# https://www.kaggle.com/code/vennaa/notebook-accessing-the-data/notebook
 
-# maybe other sentence sources too:
-# https://context.reverso.net/%E7%BF%BB%E8%A8%B3/%E6%97%A5%E6%9C%AC%E8%AA%9E-%E8%8B%B1%E8%AA%9E/%E3%82%84%E3%82%8B%E3%81%9B%E3%81%AA%E3%81%84
-# https://ejje.weblio.jp/content/%E3%82%84%E3%82%8B%E3%81%9B%E3%81%AA%E3%81%84
 
 # TODO decide on the logic for when to call update_known_unknown_words
-# TODO switch to regular SQL queries?
 # TODO interface (or manager?) logic that uses known_words and trusted fields to decide what to query
 # TODO maybe aspm only inserts new sentences if MORE than one word is underrepresented in the db
 
-# TODO be a good boy:
+# TODO type annotations, docs, privating...
+
+
+# TODO figure out the general flow of the app. user stories or whatever. when do we actually need to use the sentence db?
+#  main bits of gui
+#  the miner
+#  post-miner sentence adder
+#  standalone sentence adder
+#  the cards themselves (when do the notes get created? must be in the table gui, no?
+#  and some config or whatever
+#   particularly as relates to marking relevant fields in other notetypes in other decks
+#   which will affect some kind of AnkiDbManager
+
+
+
 # CC-BY 2.0 : we can do anything as long as we credit properly, indicate changes, and propagate the license
 # A note on propagating the license - from what I understand this doesnt' mean the whole project has to be CC-BY 2.0, just the data
 
-
-
-
-
-# aspms: keep the neocities one just in case but don't use it. Have manythings-tatoeba and all of tatoeba - figure out how
-# to introduce logic (and more stuff in the DB) to figure out which one to use. later on also include other corpora:
+# include other corpora:
 # https://www.phontron.com/japanese-translation-data.php
 # https://www.kaggle.com/discussions/general/39500
 # https://www.kaggle.com/code/vennaa/notebook-accessing-the-data/notebook
 
-# add another field to ExampleSentence, a credit. nullable. Stored in db. Possibly used in the ui, semitransparent below the sentences
-# in a license file, add some instructions re: how to get from a source tag (in the DB) to a license: e.g. everything with the tatoeba or manythings-tatoeba tag is CC-BY 2.0 Fr
-# there will also be an option (---> a method in the manager) to delete the credit info, in case...
-# well i don't really know why you'd be that pressed for space, but, in case.
+
+
+
+#maybe eventually? https://eow.alc.co.jp/search?q=%e3%81%99%e3%82%8b -> translations, usage, but ehh
+
+#TODO implement a couple other sources for translations and definitions (jisho, tangorin)
+#TODO - tanoshii japanese multiple block search may also match based on alternate written forms
+
+#TODO some stuff like suru, aru, ra, tachi might be best to specifically exclude - best left to a grammar deck
+#if nothing else, dake seems less complex than suru but it's a grammar word anyway
+
+#TODO progress indicators for generation of everything on the table
+#TODO "generate everything" button
+#TODO ability to select/unselect words within table
+
+#TODO hide cmd's (sudachi?) and voicevoxes
+
+#TODO create notetype, deck
+#TODO note creation
+#TODO card html - esp care w the logic on the sentences - separate known, discard remainder if have enough, etc
+#and the random sorting, minute-based
+
+#TODO port decks (incl. rtk to migaku... somehow?)
+
+#TODO furigana - in db? might be unnecessarily large, so we can take an audio-like approach
+
+
 
 
 sentence_db_manager = SentenceDbManager()
 
 def word_test(word="煙"):
-    _, sentences = sentence_db_manager.get_sentences(word, 40, ensure_audio=False)
+    _, sentences = sentence_db_manager.get_sentences(word, 40, ensure_audio=False, produce_new=True)
     print("returned",len(sentences),"sentences")
     for example_sentence in sentences:
         print(example_sentence.sentence)
@@ -81,10 +102,10 @@ def common_words_test():
         _, sentences = sentence_db_manager.get_sentences(word, 100, produce_new=False)
         print(word, len(sentences))
 
-# sentence_db_manager._produce_new_sentences_arbitrarily(10000)
+# sentence_db_manager._produce_new_sentences_arbitrarily(1000000)
 
-word_test()
-# common_words_test()
+# word_test()
+common_words_test()
 
 
 """

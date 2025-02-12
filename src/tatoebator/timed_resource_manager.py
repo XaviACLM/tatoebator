@@ -1,6 +1,6 @@
 import threading
-from datetime import datetime, timedelta
 import time
+from datetime import datetime, timedelta
 
 
 class TimedResourceManager:
@@ -24,7 +24,7 @@ class TimedResourceManager:
                     return
                 with self._lock:
                     time_until_timeout = timedelta(seconds=self.timeout) - (
-                        datetime.now() - self.last_request_time
+                            datetime.now() - self.last_request_time
                     )
 
                     if time_until_timeout <= timedelta():

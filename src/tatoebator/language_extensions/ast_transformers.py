@@ -1,9 +1,8 @@
-import sys
+import io
 import os
+import sys
 import token
 import tokenize
-import io
-
 from importlib.abc import Loader, MetaPathFinder
 from importlib.util import spec_from_file_location
 
@@ -13,8 +12,8 @@ from ..constants import SRC_DIR
 class UnlessMetaFinder(MetaPathFinder):
     def find_spec(self, fullname, path, target=None):
         if path is None or path == "": return None
-        if len(path)==0: return None
-        if len(path)>1: print(path, fullname); assert False
+        if len(path) == 0: return None
+        if len(path) > 1: print(path, fullname); assert False
         if os.path.commonpath((SRC_DIR, path[0])) != SRC_DIR:
             return None
         *parents, name = fullname.split(".")
@@ -30,7 +29,7 @@ class UnlessMetaFinder(MetaPathFinder):
                 continue
 
             return spec_from_file_location(fullname, filename, loader=UnlessLoader(),
-                submodule_search_locations=submodule_locations)
+                                           submodule_search_locations=submodule_locations)
 
 
 def transform_unless(source_code):
@@ -43,7 +42,8 @@ def transform_unless(source_code):
     for toknum, tokval, start, end, line in tokens:
         if toknum == tokenize.NAME and tokval == "unless":
             # Ensure 'unless' is not part of a variable name, function, or string
-            if last_token is None or last_token in {token.NEWLINE, token.NL, token.INDENT, token.DEDENT, token.OP, token.COLON}:
+            if last_token is None or last_token in {token.NEWLINE, token.NL, token.INDENT, token.DEDENT, token.OP,
+                                                    token.COLON}:
                 result.append((tokenize.NAME, "if"))
                 result.append((tokenize.NAME, "not"))  # Insert `not` immediately
                 last_token = tokenize.NAME
@@ -55,15 +55,16 @@ def transform_unless(source_code):
     # Convert token list back to code
     return tokenize.untokenize(result)
 
+
 class UnlessLoader(Loader):
     def __init__(self):
         pass
 
     def create_module(self, spec):
-        return None # use default module creation semantics
+        return None  # use default module creation semantics
 
     def exec_module(self, module):
-        with open( module.__file__, encoding='utf-8') as f:
+        with open(module.__file__, encoding='utf-8') as f:
             src = f.read()
 
         code = transform_unless(src)

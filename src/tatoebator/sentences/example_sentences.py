@@ -27,5 +27,7 @@ class ExampleSentence(CandidateExampleSentence):
     @property
     def n_unknown_words(self):
         # return self.n_known_words and self.n_lexical_words - self.n_known_words
-        if self.n_known_words is None: return None
-        else: return self.n_lexical_words - self.n_known_words
+        if self.n_known_words is None:
+            return None
+        else:
+            return self.n_lexical_words - self.n_known_words

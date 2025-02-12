@@ -5,13 +5,14 @@ from PyQt6.QtWidgets import (
     QHeaderView, QCheckBox, QScrollArea, QHBoxLayout, QPushButton
 )
 
-from ..db.manager import SentenceDbManager
+from ..language_processing import get_meaning_from_tanoshii, get_definition_from_weblio
 from ..constants import SENTENCES_PER_CARD
-from ..online_dictionaries import get_meaning_from_tanoshii, get_definition_from_weblio
+from ..db import SentenceDbManager
 
-class TableWidget(QWidget):
+
+class NewWordsTableWidget(QWidget):
     def __init__(self, words):
-        #maybe the db manager should be passed by constructor?
+        # maybe the db manager should be passed by constructor?
         self.sentence_db_manager = SentenceDbManager()
         super().__init__()
 
@@ -85,31 +86,32 @@ class TableWidget(QWidget):
             translations = translation.split(' ')
         """
         for i in range(self.n_rows):
-            self.table.item(i,3).setText(self.get_translations()[i] if state else "")
+            self.table.item(i, 3).setText(self.get_translations()[i] if state else "")
 
     def cb_definitions_updated(self, state):
         for i in range(self.n_rows):
-            self.table.item(i,4).setText(self.get_definitions()[i] if state else "")
+            self.table.item(i, 4).setText(self.get_definitions()[i] if state else "")
 
     def produce_missing_sentences(self):
         for word in self.words:
             self.sentence_db_manager.produce_up_to_limit(word)
         self.update_sentence_counts()
 
-    #these should be @cached_property but it doesn't work for some reason - something about qt?
+    # these should be @cached_property but it doesn't work for some reason - something about qt?
     def get_translations(self):
         if self._translations is None:
-            self._translations = list(map(get_meaning_from_tanoshii,self.words))
+            self._translations = list(map(get_meaning_from_tanoshii, self.words))
         return self._translations
 
     def get_definitions(self):
         if self._definitions is None:
-            self._definitions = list(map(get_definition_from_weblio,self.words))
+            self._definitions = list(map(get_definition_from_weblio, self.words))
         return self._definitions
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     names = ['Row 1', 'Row 2', 'Row 3', 'Row 4', 'Row 5']
-    ex = TableWidget(names)
+    ex = NewWordsTableWidget(names)
     ex.show()
     sys.exit(app.exec())

@@ -1,8 +1,7 @@
 import os
 import re
 
-
-from tatoebator.constants import ADDON_NAME
+from .constants import ADDON_NAME
 
 
 # Get the root directory of the script execution
@@ -27,6 +26,7 @@ def find_local_modules(root):
             local_modules.append(module_name)
     return local_modules
 
+
 def make_imports_relative(module, local_modules):
     module_depth = module.count(".")
     file_path = os.path.join(root, module.replace(".", os.path.sep) + ".py")
@@ -39,14 +39,15 @@ def make_imports_relative(module, local_modules):
         if match:
             indentation, keyword, module = match.groups()
             if module.startswith(ADDON_NAME):
-                rel_module = module.replace(ADDON_NAME,"."*module_depth)
+                rel_module = module.replace(ADDON_NAME, "." * module_depth)
                 new_line = line.replace(module, rel_module)
-                print(line+new_line)
+                print(line + new_line)
         if new_line is None:
             new_line = line
         new_lines.append(new_line)
     with open(file_path, "w", encoding="utf-8") as f:
         f.writelines(new_lines)
+
 
 def make_imports_absolute(module, local_modules):
     module_depth = module.count(".")
@@ -60,15 +61,14 @@ def make_imports_absolute(module, local_modules):
         if match:
             indentation, keyword, module = match.groups()
             if module.startswith("."):
-                abs_module = re.sub(r'^\.+',ADDON_NAME+".",module)
+                abs_module = re.sub(r'^\.+', ADDON_NAME + ".", module)
                 new_line = line.replace(module, abs_module)
-                print(line+new_line)
+                print(line + new_line)
         if new_line is None:
             new_line = line
         new_lines.append(new_line)
     with open(file_path, "w", encoding="utf-8") as f:
         f.writelines(new_lines)
-
 
 
 if __name__ == "__main__":
@@ -77,4 +77,4 @@ if __name__ == "__main__":
 
     for module in local_modules:
         make_imports_relative(module, local_modules)
-        #make_imports_absolute(module, local_modules)
+        # make_imports_absolute(module, local_modules)

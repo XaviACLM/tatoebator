@@ -1,5 +1,5 @@
-from tatoebator.lexical_analysis import group_text_by_part_of_speech
-from tatoebator.morphological_analyzers import MeCabTokenizer, SudachiTokenizer, DefaultTokenizer
+from tatoebator.language_processing.lexical_analysis import group_text_by_part_of_speech
+from tatoebator.language_processing.morphological_analyzers import DefaultTokenizer
 
 tokenizer = DefaultTokenizer()
 text = """散々な思い出は悲しみを穿つほど

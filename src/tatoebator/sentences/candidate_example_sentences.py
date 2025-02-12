@@ -4,8 +4,8 @@ from typing import Optional, List
 
 import regex as re
 
-from .lexical_analysis import lexical_content
-from .translator import translate
+from ..language_processing import lexical_content
+from ..language_processing import translate
 
 
 class CandidateExampleSentence:
@@ -68,7 +68,6 @@ discarded_sentences_logger.setLevel(logging.INFO)
 # mode 'w' because i expect this to be rerun a lot on the same sentences during testing - might change later
 discarded_sentences_logger.addHandler(logging.FileHandler("discarded_sentences.log", mode='w', encoding='utf-8'))
 
-
 strictly_japanese_chars_matcher = re.compile(r"[\p{IsHira}\p{IsKatakana}\p{IsHan}ー]")
 format_tags_matcher = re.compile(
     r"nbsp|&quot;|<(?:html|head|body|div|span|h\d|p|br|hr|strong|em|b|i|u|ul|ol|li|a|img|label|tr|td)")
@@ -80,7 +79,8 @@ other_full_width_chars = "０１２３４５６７８９　ＡＢＣＤＥＦＧ
 newline_or_tab_matcher = re.compile(r"[\n\t]")
 known_characters_text_matcher = re.compile(
     r"[a-zA-Z0-9\p{IsHira}\p{IsKatakana}\p{IsHan}" + english_punctuation + japanese_punctuation + other_full_width_chars + "]+")
-known_japanese_text_matcher = re.compile(r"[\p{IsHira}\p{IsKatakana}\p{IsHan}" + japanese_punctuation + other_full_width_chars + "]+")
+known_japanese_text_matcher = re.compile(
+    r"[\p{IsHira}\p{IsKatakana}\p{IsHan}" + japanese_punctuation + other_full_width_chars + "]+")
 known_english_text_matcher = re.compile(r"[a-zA-Z0-9" + english_punctuation + "]+")
 
 
@@ -91,7 +91,6 @@ class QualityEvaluationResult(Enum):
 
 
 class ExampleSentenceQualityEvaluator:
-
     pre_translation_filters = {
         "Not too short": lambda s: s.sentence_len > 5,
         "Not too long": lambda s: s.sentence_len <= 140,
@@ -115,7 +114,7 @@ class ExampleSentenceQualityEvaluator:
         "Not too many lexical words": lambda s: s.n_lexical_words <= 20,
         "No english characters": lambda s: re.fullmatch(known_japanese_text_matcher, s.sentence) is not None,
         "No japanese characters in translation": lambda s: re.fullmatch(known_english_text_matcher,
-                                                                       s.translation) is not None,
+                                                                        s.translation) is not None,
     }
 
     def __init__(self, generate_missing_translations=True):
@@ -142,7 +141,8 @@ class ExampleSentenceQualityEvaluator:
 
         for filter_name, filter_fun in self.post_translation_filters.items():
             if not filter_fun(example_sentence):
-                discarded_sentences_logger.info(f'{filter_name} :: {example_sentence.sentence} / {example_sentence.translation}')
+                discarded_sentences_logger.info(
+                    f'{filter_name} :: {example_sentence.sentence} / {example_sentence.translation}')
                 return QualityEvaluationResult.UNSUITABLE
 
         # we now know the sentence is good enough. now to see if it goes through the extra checks to be called good
@@ -153,6 +153,3 @@ class ExampleSentenceQualityEvaluator:
                 return QualityEvaluationResult.SUITABLE
 
         return QualityEvaluationResult.GOOD
-
-
-
