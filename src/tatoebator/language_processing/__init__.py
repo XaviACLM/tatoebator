@@ -5,3 +5,4 @@ from .online_dictionaries import get_definition_from_weblio, get_meaning_from_ta
 from .lexical_analysis import lexical_content
 from .translator import translate
 from .unicode_ranges import UnicodeRange
+from .misc import japanese_chars_ratio

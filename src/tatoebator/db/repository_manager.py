@@ -1,4 +1,4 @@
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Set
 
 from ..sentences import ExampleSentence
 from ..sentences import SentenceProductionManager
@@ -62,9 +62,8 @@ class SentenceRepository:
         for orphaned_id in orphaned_ids:
             self.media_manager.remove_by_id(orphaned_id)
 
-    def update_known(self):
-        # TODO insert some info from the anki db to get the Keywords.known data
-        # and then we call...
+    def update_known(self, known_words: Set[str]):
+        self.sentence_db_interface.update_known_field(known_words)
         self.sentence_db_interface.update_known_unknown_counts()
 
     def _ensure_audio(self, sentences: List[ExampleSentence]):

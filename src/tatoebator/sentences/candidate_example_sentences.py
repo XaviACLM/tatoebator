@@ -129,7 +129,7 @@ class ExampleSentenceQualityEvaluator:
                 return QualityEvaluationResult.UNSUITABLE
 
         if word is not None and word not in example_sentence.lexical_words:
-            discarded_sentences_logger.info(f'Requested word not in lexical content :: {example_sentence.sentence}')
+            discarded_sentences_logger.info(f'Requested word must be in lexical content :: {example_sentence.sentence}')
             return QualityEvaluationResult.UNSUITABLE
 
         # meant to cover translation being empty, but also might be "-" or something like that

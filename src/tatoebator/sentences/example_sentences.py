@@ -31,3 +31,7 @@ class ExampleSentence(CandidateExampleSentence):
             return None
         else:
             return self.n_lexical_words - self.n_known_words
+
+    @property
+    def known_ratio(self):
+        return self.n_known_words/self.n_lexical_words

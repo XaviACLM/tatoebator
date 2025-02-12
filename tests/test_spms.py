@@ -53,6 +53,7 @@ aspm = TatoebaSPM()
 for sentence in aspm.yield_sentences('アイツ'):
     print(sentence.sentence, sentence.credit)
 
+
 """
 sp_manager = SentenceProductionManager(generate_missing_translations=False)
 for sentence in sp_manager.yield_new_sentences():

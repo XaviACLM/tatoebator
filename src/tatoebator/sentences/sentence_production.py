@@ -399,7 +399,7 @@ skipped_spms_logger.addHandler(logging.FileHandler("skipped_spms.log", mode='w',
 
 
 class SentenceProductionManager:
-    spms = [TatoebaSPM()]
+    spms = [TatoebaSPM(stringent=False)]
 
     aspms = [
         # SentenceSearchNeocitiesASPM(), # dubious sourcing
@@ -420,7 +420,6 @@ class SentenceProductionManager:
         if word is none
             same thing but using arbitrary sentence production methods
         """
-
         tagged_yielders = [(spm.source_tag, spm.yield_sentences(word)) for spm in self.spms] if word is not None \
             else [(aspm.source_tag, aspm.yield_sentences()) for aspm in self.aspms]
 
@@ -430,8 +429,8 @@ class SentenceProductionManager:
                 evaluation = self.quality_control.evaluate_quality(s, word=word)
                 if evaluation is QualityEvaluationResult.UNSUITABLE:
                     n_bad += 1
-                    if n_bad > 0.8*n_total+20:
-                        skipped_spms_logger.info(f"{yielder.__name__} deactivated on word {word} - {n_bad}/{n_total} unsuitable sentences")
+                    if n_bad > 0.8*n_total+20+1:
+                        skipped_spms_logger.info(f"{yielder.__name__} deactivated on word {word} - {n_bad}/{n_total+1} unsuitable sentences")
                         break
                     continue
                 yield ExampleSentence.from_candidate(s, tag, evaluation is QualityEvaluationResult.GOOD)

@@ -15,11 +15,11 @@ from tatoebator.db import SentenceRepository
 
 
 
-# TODO decide on the logic for when to call update_known_unknown_words
+# TODO figure out how to call Tatoebator.update_known_counts whenever user exits study mode
 # TODO interface (or manager?) logic that uses known_words and trusted fields to decide what to query
 # TODO maybe aspm only inserts new sentences if MORE than one word is underrepresented in the db
 
-# TODO type annotations, docs, privating...
+# TODO type annotations, docs, privating, eliminating "__main__" blocks...
 
 
 # TODO figure out the general flow of the app. user stories or whatever. when do we actually need to use the sentence db?
@@ -36,11 +36,6 @@ from tatoebator.db import SentenceRepository
 
 # CC-BY 2.0 : we can do anything as long as we credit properly, indicate changes, and propagate the license
 # A note on propagating the license - from what I understand this doesnt' mean the whole project has to be CC-BY 2.0, just the data
-
-# include other corpora:
-# https://www.phontron.com/japanese-translation-data.php
-# https://www.kaggle.com/discussions/general/39500
-# https://www.kaggle.com/code/vennaa/notebook-accessing-the-data/notebook
 
 
 
@@ -68,7 +63,14 @@ from tatoebator.db import SentenceRepository
 
 #TODO furigana - in db? might be unnecessarily large, so we can take an audio-like approach
 
+# TODO there's really not enough sentences in tatoeba. we have to investigate the other corpora
 
+# TODO put all files other than temp_files in tatoebator/user_files (not in src/tatoebator/user_files!!)
+
+# include other corpora:
+# https://www.phontron.com/japanese-translation-data.php
+# https://www.kaggle.com/discussions/general/39500
+# https://www.kaggle.com/code/vennaa/notebook-accessing-the-data/notebook
 
 
 sentence_repository = SentenceRepository()
@@ -76,17 +78,15 @@ sentence_repository = SentenceRepository()
 def word_test(word="煙"):
     _, sentences = sentence_repository.get_sentences(word, 40, ensure_audio=False, produce_new=True)
     print("returned",len(sentences),"sentences")
-    for example_sentence in sentences:
-        print(example_sentence.sentence)
-        print(example_sentence.translation)
-        print(example_sentence.lexical_words)
-        print(example_sentence.audio_fileid)
-        print(example_sentence.source_tag)
-        print(example_sentence.trusted)
-        print(example_sentence.n_lexical_words)
-        print(example_sentence.n_known_words)
-        print(example_sentence.n_unknown_words)
-        print(example_sentence.credit)
+    for s in sentences:
+        print(s.sentence)
+        print(s.translation)
+        print(s.lexical_words)
+        print(s.audio_fileid)
+        print(s.source_tag)
+        print(s.trusted)
+        print(f"{s.n_known_words}/{s.n_lexical_words} ({s.n_unknown_words} unknown)")
+        print(s.credit)
         print("")
 
 def common_words_test():

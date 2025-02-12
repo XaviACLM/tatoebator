@@ -1,20 +1,44 @@
+from typing import List, Optional
+
+from .anki_db_interface import AnkiDbInterface
 from .gui import MineNewWordsWidget, NewWordsTableWidget
 from .db import SentenceRepository
+from .language_processing import japanese_chars_ratio
+from .util import get_clipboard_text
+
+from aqt import gui_hooks
 
 
-class Tatoeba:
+class Tatoebator:
     def __init__(self):
         self.sentence_repository = SentenceRepository()
+        self.anki_db_interface = AnkiDbInterface()
+        gui_hooks.main_window_did_init.append(self.update_known_counts)
+
+    def mining_to_deck_flow(self):
+        clipboard_text = get_clipboard_text()
+        starting_text = clipboard_text if clipboard_text and japanese_chars_ratio(clipboard_text) > 0.7 else None
+
+        self.mining_conductor = MiningProcessConductor(self.sentence_repository, self.anki_db_interface)
+        self.mining_conductor.start(starting_text)
+
+    def word_table_test(self, words: List[str]):
+        self.table_widget = NewWordsTableWidget(words, self.sentence_repository)
+        self.table_widget.show()
+
+    def update_known_counts(self):
+        self.sentence_repository.update_known(self.anki_db_interface.get_known_words())
 
 
 class MiningProcessConductor:
-    def __init__(self, sentence_repository: SentenceRepository):
+    def __init__(self, sentence_repository: SentenceRepository, anki_db_interface: AnkiDbInterface):
         self.sentence_repository = sentence_repository
+        self.anki_db_interface = anki_db_interface
         self.cached_mining_widget_data = None
         self.words_mined = []
 
-    def start(self):
-        self.mining_widget = MineNewWordsWidget(self.cached_mining_widget_data)
+    def start(self, starting_words: Optional[List[str]] = None):
+        self.mining_widget = MineNewWordsWidget(self.anki_db_interface, starting_words or self.cached_mining_widget_data)
         self.mining_widget.continue_button_clicked.connect(self._mining_to_card_creation)
         self.mining_widget.show()
 

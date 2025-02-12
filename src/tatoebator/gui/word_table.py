@@ -34,6 +34,9 @@ class NewWordsTableWidget(QWidget):
         self.table = QTableWidget(self.n_rows, 5)
         self.table.setHorizontalHeaderLabels(['Name', '# Sentences', '# Missing', 'Translation', 'Definition'])
 
+        # amt of sentences at 50% and 80% comprehensibility
+        # remove #missing, that's pointless
+
         # Populate the table
         for row, name in enumerate(self.words):
             self.table.setItem(row, 0, QTableWidgetItem(name))
@@ -120,11 +123,3 @@ class NewWordsTableWidget(QWidget):
 
     def get_new_word_data(self):
         return self.words
-
-
-if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    names = ['Row 1', 'Row 2', 'Row 3', 'Row 4', 'Row 5']
-    ex = NewWordsTableWidget(names)
-    ex.show()
-    sys.exit(app.exec())

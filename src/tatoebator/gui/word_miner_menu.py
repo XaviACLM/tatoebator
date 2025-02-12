@@ -1,9 +1,10 @@
 from dataclasses import dataclass
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Union
 
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QLabel, QTextEdit, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QSpacerItem, QSizePolicy
 
+from ..anki_db_interface import AnkiDbInterface
 from ..language_processing import group_text_by_learnability, WordLearnableType
 from .word_displays import QWordDisplay, QSelectableWordDisplay
 
@@ -11,7 +12,7 @@ from .word_displays import QWordDisplay, QSelectableWordDisplay
 @dataclass
 class FieldDataCache:
     text_to_mine: str
-    text_in_fields: Dict[WordLearnableType,str]
+    text_in_fields: Dict[WordLearnableType, str]
     selected_words: List[str]
 
 
@@ -19,15 +20,15 @@ class MineNewWordsWidget(QWidget):
 
     continue_button_clicked = pyqtSignal()
 
-    def __init__(self, cached_fields: Optional[FieldDataCache] = None):
+    def __init__(self, anki_db_interface: AnkiDbInterface, starting_data: Optional[Union[FieldDataCache, str]] = None):
         super().__init__()
+        self.anki_db_interface = anki_db_interface
+        self.init_ui()
+        if starting_data is not None:
+            self._fill_from_cache(starting_data)
+            
 
-        self.initUI()
-
-        if cached_fields is not None:
-            self._fill_from_cache(cached_fields)
-
-    def initUI(self):
+    def init_ui(self):
         main_layout = QHBoxLayout()
 
         left_column = QVBoxLayout()
@@ -99,7 +100,7 @@ class MineNewWordsWidget(QWidget):
 
     def mine_into_boxes(self):
         text = self.text_edit.toPlainText()
-        classified = group_text_by_learnability(text)
+        classified = group_text_by_learnability(text, self.anki_db_interface)
 
         for kind in WordLearnableType:
             self.word_displays[kind].set_words(classified[kind])
@@ -109,10 +110,13 @@ class MineNewWordsWidget(QWidget):
 
     def get_cached_fields(self) -> FieldDataCache:
         return FieldDataCache(self.text_edit.toPlainText(),
-                              {kind:self.word_displays[kind].get_words() for kind in WordLearnableType},
+                              {kind: self.word_displays[kind].get_words() for kind in WordLearnableType},
                               self.word_displays[WordLearnableType.NEW_WORD].get_selected_words())
 
     def _fill_from_cache(self, cached_fields: FieldDataCache):
+        if isinstance(cached_fields, str):
+            self.text_edit.setText(cached_fields)
+            return
         self.text_edit.setText(cached_fields.text_to_mine)
         for kind in WordLearnableType:
             self.word_displays[kind].set_words(cached_fields.text_in_fields[kind])

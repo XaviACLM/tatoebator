@@ -55,7 +55,8 @@ class QSelectableTextEdit(QTextEdit):
         highlight_fmt.setForeground(QColor("white"))
 
         words = iter(self.words)
-        word = next(words)
+        word = next(words, None)
+        if word is None: return
         cursor.insertText(word, highlight_fmt if self.word_states[word] else normal_fmt)
         for word in words:
             cursor.insertText(" " * 3, normal_fmt)

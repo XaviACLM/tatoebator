@@ -2,7 +2,7 @@ import atexit
 from typing import List, Set, Dict
 
 from sqlalchemy import create_engine, Column, Integer, SmallInteger, String, Text, ForeignKey, Index, func, Boolean, \
-    case
+    case, update
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker, joinedload
 
 from ..sentences import ExampleSentence
@@ -168,7 +168,11 @@ class SentenceDbInterface:
                                source_tag=row.source_tag,
                                trusted=row.trusted,
                                credit=row.credit,
-                               n_known_words=row.n_known_words)
+                               # this might falsely lead one to believe a row has 0 known words when
+                               # it is just not updated
+                               # but then again, obviously the value not being updated can lead to the value being wrong
+                               # so None -> 0 is okay
+                               n_known_words=row.n_known_words or 0)
 
     def get_sentences_by_word(self, word, max_desired_amt: int = None):
         """
@@ -248,6 +252,7 @@ class SentenceDbInterface:
         result = (
             self.session.query(Keyword.keyword, func.count(Keyword.keyword))
                 .filter(Keyword.keyword.in_(keywords))
+                .join(SentenceKeyword, Keyword.id == SentenceKeyword.keyword_id)
                 .group_by(Keyword.keyword)
                 .all()
         )
@@ -269,7 +274,7 @@ class SentenceDbInterface:
         self._update_known_counts()
         self._update_unknown_counts()
 
-    def _update_known_counts(self):
+    def _update_known_counts(self, reset_to_zero=False):
         if self.session is None:
             self._open_session()
 
@@ -306,4 +311,11 @@ class SentenceDbInterface:
             synchronize_session=False
         )
 
+        self.session.commit()
+
+    def update_known_field(self, known_words):
+        if self.session is None:
+            self._open_session()
+        self.session.query(Keyword).filter(Keyword.keyword.in_(known_words)).update({"known": True},
+                                                                                    synchronize_session=False)
         self.session.commit()

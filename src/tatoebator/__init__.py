@@ -4,10 +4,10 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..\\..\\lib"))
 
 from .util import running_as_anki_addon, ensure_aqt
+
 ensure_aqt()
 
-from .tatoeba import MiningProcessConductor
-
+from .tatoebator import Tatoebator
 
 # if not running in anki, insert mock_aqt module into sys.modules['aqt']
 
@@ -19,7 +19,6 @@ from .tatoeba import MiningProcessConductor
 
 if running_as_anki_addon():
 
-
     from aqt import mw
     from aqt.utils import qconnect, showInfo
     from aqt.qt import QAction
@@ -28,27 +27,17 @@ if running_as_anki_addon():
     from .gui import NewWordsTableWidget
     from .db import SentenceRepository
 
-    sentence_repository = SentenceRepository()
+    mw.tatoebator = Tatoebator()
+
 
     def testfun1() -> None:
-        mw.conductor = MiningProcessConductor(sentence_repository)
-        mw.conductor.start()
-        #mw.myWidget = MineNewWordsWidget()
-        #mw.myWidget.show()
-
+        mw.tatoebator.mining_to_deck_flow()
 
     def testfun2() -> None:
-        showInfo(str(sys.executable))
-
-        _, sentences = sentence_repository.get_sentences("煙", 10)
-
-        showInfo("\n".join((f"{sentence.sentence} / {sentence.translation}" for sentence in sentences)))
-
+        mw.tatoebator.word_table_test(["煙", "母親", "彼", "恩人", "する"])
 
     def testfun3() -> None:
-        mw.myWidget = NewWordsTableWidget(["煙", "母親", "彼", "恩人", "する"])
-        mw.myWidget.show()
-
+        mw.tatoebator.update_known_counts()
 
     for idx, testfun in enumerate([testfun1, testfun2, testfun3]):
         action = QAction(f"test{idx + 1}", mw)
