@@ -4,12 +4,12 @@ import types
 mw = None
 
 
-utils = types.ModuleType('mock_aqt.utils')
+utils = types.ModuleType('aqt.utils')
 utils.qconnect = None
 utils.showInfo = print
-sys.modules['mock_aqt.utils'] = utils
+sys.modules['aqt.utils'] = utils
 
 
-qt = types.ModuleType('mock_aqt.qt')
+qt = types.ModuleType('aqt.qt')
 qt.QAction = None
-sys.modules['mock_aqt.qt'] = qt
+sys.modules['aqt.qt'] = qt

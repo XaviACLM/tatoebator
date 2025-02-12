@@ -1,13 +1,13 @@
+import csv
 import itertools
 import os
 import re
 import subprocess
 import time
 import zipfile
-from typing import Iterator, Optional
+from typing import Optional, Iterator
 from urllib import parse as parse_url
 
-import pandas as pd
 import requests
 
 from ..config import SEVENZIP_EXE
@@ -85,7 +85,11 @@ class TatoebaSPM(SentenceProductionMethod):
     def yield_sentences(self, word):
         for page in itertools.count(1):
             url = f"{self.query_string}&q={word}&page={page}"
-            data = requests_session.get(url).json()['data']
+            from aqt.utils import showInfo
+            showInfo(url)
+            response_json = requests_session.get(url).json()
+            data = response_json['data']
+            paging = response_json['paging']
             for item in data:
                 jp_text = item['text']
                 if item['license'] != 'CC BY 2.0 FR':
@@ -102,6 +106,7 @@ class TatoebaSPM(SentenceProductionMethod):
                 en_owner = translation['owner'] or 'unknown'
 
                 yield CandidateExampleSentence(jp_text, en_text, credit=f"{jp_owner}, {en_owner} (Tatoeba)")
+            if not paging: break
 
 
 class TatoebaASPM(ArbitrarySentenceProductionMethod):
@@ -192,7 +197,7 @@ class TatoebaASPM(ArbitrarySentenceProductionMethod):
         download_response = tatoeba_session.get(download_url)
         download_response.raise_for_status()
         with open(self.pairs_filepath, "wb") as file:
-            file.write(download_response.content)
+            file.write(download_response.content[3:]) # some weird characters at the start (?)
 
     def _download_lan_data_to_cache(self, language: str):
         if language == 'jp':
@@ -253,6 +258,8 @@ class TatoebaASPM(ArbitrarySentenceProductionMethod):
                     lan_idx = int(first_number_matcher.match(lan_line).group(1))
         os.remove(temp_filepath)
 
+    """
+    # somehow slower than the alternative
     def _create_dataframe(self):
         en_df = pd.read_csv(self.en_filepath, sep='\t', names=['en_idx', 'en_text', 'en_owner'])
         pair_df = pd.read_csv(self.pairs_filepath, sep='\t', names=['en_idx', 'jp_idx'])
@@ -270,6 +277,47 @@ class TatoebaASPM(ArbitrarySentenceProductionMethod):
         df = self._create_dataframe()
         for jp_text, jp_owner, en_text, en_owner in df.itertuples(index=False, name=None):
             yield CandidateExampleSentence(jp_text, en_text, credit=f"{jp_owner}, {en_owner} (Tatoeba)")
+    """
+
+    def _read_lan_file(self, language_tag: str):
+        if language_tag not in ['jp','en']: raise Exception("Incorrect language tag in TatoebaASPM._read_lan_file")
+        data = {}
+        filepath = self.en_filepath if language_tag == 'en' else self.jp_filepath
+        with open(filepath, encoding='utf-8') as file:
+            reader = csv.reader(file, delimiter='\t')
+            for idx, text, owner in reader:
+                data[idx] = (text, owner if owner != "\\N" else "unknown")
+        return data
+
+    def _create_dataframe(self):
+        en_data = self._read_lan_file('en')
+        jp_data = self._read_lan_file('jp')
+
+        merged_data = []
+        seen_jp_idx = set()  # To drop duplicates
+        with open(self.pairs_filepath, encoding='utf-8') as f:
+            reader = csv.reader(f, delimiter='\t')
+            for en_idx, jp_idx in reader:
+                if jp_idx in seen_jp_idx: continue
+                seen_jp_idx.add(jp_idx)
+                if jp_idx not in jp_data or en_idx not in en_data: continue
+                jp_text, jp_owner = jp_data[jp_idx]
+                en_text, en_owner = en_data[en_idx]
+                merged_data.append((jp_text, jp_owner, en_text, en_owner))
+
+        return merged_data
+
+    def yield_sentences(self):
+        df = self._create_dataframe()
+        for jp_text, jp_owner, en_text, en_owner in df:
+            yield CandidateExampleSentence(jp_text, en_text, credit=f"{jp_owner}, {en_owner} (Tatoeba)")
+
+
+
+
+
+
+
 
 
 class SentenceSearchNeocitiesASPM(ArbitrarySentenceProductionMethod):

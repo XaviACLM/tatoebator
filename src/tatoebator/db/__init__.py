@@ -1,1 +1,1 @@
-from .manager import SentenceDbManager
+from .repository_manager import SentenceRepository

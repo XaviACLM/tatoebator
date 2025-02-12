@@ -1,0 +1,3 @@
+googletrans
+sqlalchemy
+voicevox-client

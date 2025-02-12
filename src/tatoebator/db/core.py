@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, Column, Integer, SmallInteger, String, Tex
     case
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker, joinedload
 
-from tatoebator.sentences import ExampleSentence
+from ..sentences import ExampleSentence
 from ..constants import DATABASE_URL
 
 Base = declarative_base()

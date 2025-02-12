@@ -26,8 +26,8 @@ def running_as_anki_addon(): return True
 
 
 if running_as_anki_addon():
-    from tatoebator.timed_resource_manager import TimedResourceManager
-    from tatoebator.config import SUDACHI_EXE
+    from ..timed_resource_manager import TimedResourceManager
+    from ..config import SUDACHI_EXE
 
 
     def process_sudachi_cli_output_line(line: str) -> Morpheme:
@@ -110,8 +110,8 @@ else:
             return list(map(from_sudachipy_morpheme, self.tokenizer.tokenize(text, self.mode)))
 
 if running_as_anki_addon():
-    from tatoebator.timed_resource_manager import TimedResourceManager
-    from tatoebator.config import MECAB_EXE
+    from ..timed_resource_manager import TimedResourceManager
+    from ..config import MECAB_EXE
 
 
     def process_mecab_cli_output_line(line: str) -> Morpheme:

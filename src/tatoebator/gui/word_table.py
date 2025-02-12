@@ -7,13 +7,13 @@ from PyQt6.QtWidgets import (
 
 from ..language_processing import get_meaning_from_tanoshii, get_definition_from_weblio
 from ..constants import SENTENCES_PER_CARD
-from ..db import SentenceDbManager
+from ..db import SentenceRepository
 
 
 class NewWordsTableWidget(QWidget):
-    def __init__(self, words):
+    def __init__(self, words, sentence_repository: SentenceRepository):
         # maybe the db manager should be passed by constructor?
-        self.sentence_db_manager = SentenceDbManager()
+        self.sentence_repository = sentence_repository
         super().__init__()
 
         self.words = words
@@ -70,7 +70,7 @@ class NewWordsTableWidget(QWidget):
         self.setLayout(layout)
 
     def update_sentence_counts(self):
-        sentences_per_word = self.sentence_db_manager.count_lexical_word_ocurrences(self.words)
+        sentences_per_word = self.sentence_repository.count_lexical_word_ocurrences(self.words)
         for row, name in enumerate(self.words):
             self.table.item(row, 1).setText(str(sentences_per_word[name]))
             self.table.item(row, 2).setText(str(max(0, SENTENCES_PER_CARD - sentences_per_word[name])))
@@ -94,7 +94,7 @@ class NewWordsTableWidget(QWidget):
 
     def produce_missing_sentences(self):
         for word in self.words:
-            self.sentence_db_manager.produce_up_to_limit(word)
+            self.sentence_repository.produce_up_to_limit(word)
         self.update_sentence_counts()
 
     # these should be @cached_property but it doesn't work for some reason - something about qt?

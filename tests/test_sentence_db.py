@@ -1,5 +1,5 @@
 
-from tatoebator.db import SentenceDbManager
+from tatoebator.db import SentenceRepository
 
 # TODO stop propagating output from every cli ever
 
@@ -62,7 +62,7 @@ from tatoebator.db import SentenceDbManager
 #TODO create notetype, deck
 #TODO note creation
 #TODO card html - esp care w the logic on the sentences - separate known, discard remainder if have enough, etc
-#and the random sorting, minute-based
+# and the random sorting, minute-based
 
 #TODO port decks (incl. rtk to migaku... somehow?)
 
@@ -71,10 +71,10 @@ from tatoebator.db import SentenceDbManager
 
 
 
-sentence_db_manager = SentenceDbManager()
+sentence_repository = SentenceRepository()
 
 def word_test(word="煙"):
-    _, sentences = sentence_db_manager.get_sentences(word, 40, ensure_audio=False, produce_new=True)
+    _, sentences = sentence_repository.get_sentences(word, 40, ensure_audio=False, produce_new=True)
     print("returned",len(sentences),"sentences")
     for example_sentence in sentences:
         print(example_sentence.sentence)
@@ -99,7 +99,7 @@ def common_words_test():
              "暑い","寒い","楽しい","悲しい","忙しい","簡単","難しい","近い","遠い","多い","少ない"]
 
     for word in words:
-        _, sentences = sentence_db_manager.get_sentences(word, 100, produce_new=False)
+        _, sentences = sentence_repository.get_sentences(word, 100, produce_new=False)
         print(word, len(sentences))
 
 # sentence_db_manager._produce_new_sentences_arbitrarily(1000000)

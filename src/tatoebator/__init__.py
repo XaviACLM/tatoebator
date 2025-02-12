@@ -1,10 +1,16 @@
 import os
 import sys
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..\\..\\lib"))
+
 from .util import running_as_anki_addon, ensure_aqt
+ensure_aqt()
+
+from .tatoeba import MiningProcessConductor
+
 
 # if not running in anki, insert mock_aqt module into sys.modules['aqt']
-ensure_aqt()
+
 
 # introduces import hook that replaces unless with if not
 # commented out b/c it messes with tracebacks (most likely this is b/c i didn't do it right)
@@ -12,7 +18,7 @@ ensure_aqt()
 # install_unless()
 
 if running_as_anki_addon():
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..\\..\\lib"))
+
 
     from aqt import mw
     from aqt.utils import qconnect, showInfo
@@ -20,18 +26,21 @@ if running_as_anki_addon():
 
     from .gui import MineNewWordsWidget
     from .gui import NewWordsTableWidget
-    from .db import SentenceDbManager
+    from .db import SentenceRepository
 
+    sentence_repository = SentenceRepository()
 
     def testfun1() -> None:
-        mw.myWidget = MineNewWordsWidget()
-        mw.myWidget.show()
+        mw.conductor = MiningProcessConductor(sentence_repository)
+        mw.conductor.start()
+        #mw.myWidget = MineNewWordsWidget()
+        #mw.myWidget.show()
 
 
     def testfun2() -> None:
         showInfo(str(sys.executable))
-        sentence_db_manager = SentenceDbManager()
-        _, sentences = sentence_db_manager.get_sentences("煙", 10)
+
+        _, sentences = sentence_repository.get_sentences("煙", 10)
 
         showInfo("\n".join((f"{sentence.sentence} / {sentence.translation}" for sentence in sentences)))
 

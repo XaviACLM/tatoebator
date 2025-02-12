@@ -1,13 +1,13 @@
 from typing import List, Tuple, Dict
 
-from tatoebator.sentences import ExampleSentence
-from tatoebator.sentences import SentenceProductionManager
+from ..sentences import ExampleSentence
+from ..sentences import SentenceProductionManager
 from ..audio import MediaManager
 from ..constants import SENTENCES_PER_CARD
 from ..db.core import SentenceDbInterface
 
 
-class SentenceDbManager:
+class SentenceRepository:
     def __init__(self):
         self.sentence_db_interface = SentenceDbInterface()
         self.sentence_production_manager = SentenceProductionManager(generate_missing_translations=True)
@@ -42,12 +42,12 @@ class SentenceDbManager:
                                                                               ensure_audio=ensure_audio)
         return reached_desired_amt, sentences + produced_sentences
 
-    def produce_up_to_limit(self, word, max_amt_desired=SENTENCES_PER_CARD, ensure_audio=False) -> None:
+    def produce_up_to_limit(self, word, max_desired_amt=SENTENCES_PER_CARD, ensure_audio=False) -> None:
         # essentially the same as calling get_sentences and then discarding the return
         # but i don't know, that would feel  like bad design somehow
-        sentences = self.sentence_db_interface.get_sentences_by_word(word, max_amt_desired=max_amt_desired)
+        sentences = self.sentence_db_interface.get_sentences_by_word(word, max_desired_amt=max_desired_amt)
         if ensure_audio: self._ensure_audio(sentences)
-        amt_desired = max_amt_desired - len(sentences)
+        amt_desired = max_desired_amt - len(sentences)
         if amt_desired > 0:
             self._produce_new_sentences(word, amt_desired, ensure_audio=ensure_audio)
 

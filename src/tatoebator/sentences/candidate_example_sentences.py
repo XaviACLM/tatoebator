@@ -2,10 +2,11 @@ import logging
 from enum import Enum
 from typing import Optional, List
 
-import regex as re
+import re
 
 from ..language_processing import lexical_content
 from ..language_processing import translate
+from ..language_processing import UnicodeRange as ur
 
 
 class CandidateExampleSentence:
@@ -68,7 +69,7 @@ discarded_sentences_logger.setLevel(logging.INFO)
 # mode 'w' because i expect this to be rerun a lot on the same sentences during testing - might change later
 discarded_sentences_logger.addHandler(logging.FileHandler("discarded_sentences.log", mode='w', encoding='utf-8'))
 
-strictly_japanese_chars_matcher = re.compile(r"[\p{IsHira}\p{IsKatakana}\p{IsHan}ー]")
+strictly_japanese_chars_matcher = re.compile(fr"[{ur.hiragana}{ur.katakana}{ur.kanji}ー]")
 format_tags_matcher = re.compile(
     r"nbsp|&quot;|<(?:html|head|body|div|span|h\d|p|br|hr|strong|em|b|i|u|ul|ol|li|a|img|label|tr|td)")
 # english_punctuation = ".,!?;:()[]{}'\"“”‘’@#$%^&*-_/+=<>|\\~–—"
@@ -78,9 +79,9 @@ japanese_punctuation = "　。、！？・：％「」『』（）〔〕［］�
 other_full_width_chars = "０１２３４５６７８９　ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺ！＂＇：；～"
 newline_or_tab_matcher = re.compile(r"[\n\t]")
 known_characters_text_matcher = re.compile(
-    r"[a-zA-Z0-9\p{IsHira}\p{IsKatakana}\p{IsHan}" + english_punctuation + japanese_punctuation + other_full_width_chars + "]+")
+    fr"[a-zA-Z0-9{ur.hiragana}{ur.katakana}{ur.kanji}" + english_punctuation + japanese_punctuation + other_full_width_chars + "]+")
 known_japanese_text_matcher = re.compile(
-    r"[\p{IsHira}\p{IsKatakana}\p{IsHan}" + japanese_punctuation + other_full_width_chars + "]+")
+    fr"[{ur.hiragana}{ur.katakana}{ur.kanji}" + japanese_punctuation + other_full_width_chars + "]+")
 known_english_text_matcher = re.compile(r"[a-zA-Z0-9" + english_punctuation + "]+")
 
 

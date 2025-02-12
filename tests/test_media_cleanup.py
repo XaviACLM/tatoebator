@@ -1,5 +1,5 @@
-from tatoebator.db import SentenceDbManager
+from tatoebator.db import SentenceRepository
 
-sentence_db_manager = SentenceDbManager()
-print(len(sentence_db_manager.media_manager.get_all_audio_ids()))
-sentence_db_manager.cleanup_orphaned_audio_files()
+sentence_repository = SentenceRepository()
+print(len(sentence_repository.media_manager.get_all_audio_ids()))
+sentence_repository.cleanup_orphaned_audio_files()
