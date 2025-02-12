@@ -1,3 +1,6 @@
+from dataclasses import dataclass
+from typing import Optional, List, Dict
+
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QLabel, QTextEdit, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QSpacerItem, QSizePolicy
 
@@ -5,15 +8,24 @@ from ..language_processing import group_text_by_learnability, WordLearnableType
 from .word_displays import QWordDisplay, QSelectableWordDisplay
 
 
+@dataclass
+class FieldDataCache:
+    text_to_mine: str
+    text_in_fields: Dict[WordLearnableType,str]
+    selected_words: List[str]
+
+
 class MineNewWordsWidget(QWidget):
 
     continue_button_clicked = pyqtSignal()
 
-    def __init__(self, text_to_mine=""):
+    def __init__(self, cached_fields: Optional[FieldDataCache] = None):
         super().__init__()
 
         self.initUI()
-        self.text_edit.insertPlainText(text_to_mine)
+
+        if cached_fields is not None:
+            self._fill_from_cache(cached_fields)
 
     def initUI(self):
         main_layout = QHBoxLayout()
@@ -92,8 +104,16 @@ class MineNewWordsWidget(QWidget):
         for kind in WordLearnableType:
             self.word_displays[kind].set_words(classified[kind])
 
-    def get_mined_text(self):
-        return self.text_edit.toPlainText()
-
     def get_selected_words(self):
         return self.word_displays[WordLearnableType.NEW_WORD].get_selected_words()
+
+    def get_cached_fields(self) -> FieldDataCache:
+        return FieldDataCache(self.text_edit.toPlainText(),
+                              {kind:self.word_displays[kind].get_words() for kind in WordLearnableType},
+                              self.word_displays[WordLearnableType.NEW_WORD].get_selected_words())
+
+    def _fill_from_cache(self, cached_fields: FieldDataCache):
+        self.text_edit.setText(cached_fields.text_to_mine)
+        for kind in WordLearnableType:
+            self.word_displays[kind].set_words(cached_fields.text_in_fields[kind])
+        self.word_displays[WordLearnableType.NEW_WORD].set_selected_words(cached_fields.selected_words)

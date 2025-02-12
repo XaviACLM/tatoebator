@@ -1,5 +1,6 @@
 import sys
 
+from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
     QHeaderView, QCheckBox, QScrollArea, QHBoxLayout, QPushButton
@@ -11,6 +12,10 @@ from ..db import SentenceRepository
 
 
 class NewWordsTableWidget(QWidget):
+
+    back_button_clicked = pyqtSignal()
+    continue_button_clicked = pyqtSignal()
+
     def __init__(self, words, sentence_repository: SentenceRepository):
         # maybe the db manager should be passed by constructor?
         self.sentence_repository = sentence_repository
@@ -53,6 +58,7 @@ class NewWordsTableWidget(QWidget):
         layout.addWidget(scroll_area)
 
         buttons_bar = QHBoxLayout()
+        self.button_back = QPushButton('Go back')
         self.button_sentences = QPushButton('Produce missing example sentences')
         self.button_sentences.clicked.connect(self.produce_missing_sentences)
         self.checkbox_translations = QCheckBox("Generate translations")
@@ -60,10 +66,14 @@ class NewWordsTableWidget(QWidget):
         self.checkbox_definitions = QCheckBox("Generate definitions")
         self.checkbox_definitions.stateChanged.connect(self.cb_definitions_updated)
         self.button_continue = QPushButton('Create cards')
+        buttons_bar.addWidget(self.button_back)
         buttons_bar.addWidget(self.button_sentences)
         buttons_bar.addWidget(self.checkbox_translations)
         buttons_bar.addWidget(self.checkbox_definitions)
         buttons_bar.addWidget(self.button_continue)
+
+        self.button_back.clicked.connect(self.back_button_clicked.emit)
+        self.button_continue.clicked.connect(self.continue_button_clicked.emit)
 
         layout.addLayout(buttons_bar)
 
@@ -107,6 +117,9 @@ class NewWordsTableWidget(QWidget):
         if self._definitions is None:
             self._definitions = list(map(get_definition_from_weblio, self.words))
         return self._definitions
+
+    def get_new_word_data(self):
+        return self.words
 
 
 if __name__ == '__main__':

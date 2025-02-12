@@ -1,3 +1,5 @@
+from typing import List
+
 from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtGui import QTextOption, QTextCharFormat, QColor, QTextCursor, QFont
 from PyQt6.QtWidgets import QTextEdit, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton
@@ -31,6 +33,17 @@ class QSelectableTextEdit(QTextEdit):
     def get_selected_words(self):
         return [word for word, val in self.word_states.items() if val]
 
+    def set_selected_words(self, selected_words: List[str]):
+        count = 0
+        for word in self.words:
+            if word in selected_words:
+                count += 1
+                self.word_states[word] = True
+            else:
+                self.word_states[word] = False
+        self._update_text()
+        self.num_highlighted_words = count
+
     def _update_text(self):
         """Update the text with current words and states."""
         self.clear()
@@ -41,25 +54,24 @@ class QSelectableTextEdit(QTextEdit):
         highlight_fmt.setBackground(QColor("black"))
         highlight_fmt.setForeground(QColor("white"))
 
-        for word in self.words:
-            fmt = QTextCharFormat()
-            if self.word_states[word]:
-                cursor.insertText(word, highlight_fmt)
-            else:
-                cursor.insertText(word, normal_fmt)
+        words = iter(self.words)
+        word = next(words)
+        cursor.insertText(word, highlight_fmt if self.word_states[word] else normal_fmt)
+        for word in words:
             cursor.insertText(" " * 3, normal_fmt)
+            cursor.insertText(word, highlight_fmt if self.word_states[word] else normal_fmt)
 
     def mousePressEvent(self, event):
         """Toggle highlighting when a word is clicked."""
         cursor = self.cursorForPosition(event.pos())
         cursor.select(QTextCursor.SelectionType.WordUnderCursor)
         word = cursor.selectedText()
-        if word and word in self.word_states:
-            word_state = self.word_states[word]
-            self.word_states[word] = not word_state
-            self.num_highlighted_words += -1 if word_state else +1
-            self._update_text()
-            self.state_changed.emit()
+        if not word: return
+        word_state = self.word_states[word]
+        self.word_states[word] = not word_state
+        self.num_highlighted_words += -1 if word_state else +1
+        self._update_text()
+        self.state_changed.emit()
 
     def select_all(self):
         self.word_states = {word: True for word in self.words}
@@ -110,6 +122,11 @@ class QWordDisplay(QWidget):
         self.text_edit.setPlainText((" " * 3).join(word_list))
         self._update_title(len(word_list))
 
+    def get_words(self):
+        text = self.text_edit.toPlainText()
+        if text: return text.split(" "*3)
+        else: return []
+
 
 class QSelectableWordDisplay(QWordDisplay):
     def __init__(self, title, all_selected=False, parent=None):
@@ -158,3 +175,7 @@ class QSelectableWordDisplay(QWordDisplay):
     def mousePressEvent(self, event):
         self.text_edit.mousePressEvent(event)
         self._update_title()
+
+    def set_selected_words(self, selected_words: List[str]):
+        self.text_edit.set_selected_words(selected_words)
+        self._update_highlight_count()
