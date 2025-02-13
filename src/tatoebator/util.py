@@ -58,3 +58,17 @@ class ClipboardGetter:
 
 
 get_clipboard_text = ClipboardGetter.get_clipboard_text
+
+
+class CircularBuffer:
+    def __init__(self, size, initial_value):
+        self.buffer = [initial_value] * size
+        self.index = 0
+        self.size = size
+
+    def peek(self):
+        return self.buffer[self.index]
+
+    def push(self, value):
+        self.buffer[self.index] = value
+        self.index = (self.index + 1) % self.size

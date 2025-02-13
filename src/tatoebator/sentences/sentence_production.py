@@ -12,9 +12,10 @@ from urllib import parse as parse_url
 import requests
 
 from ..config import SEVENZIP_EXE
-from ..constants import CACHE_DIR, TEMP_FILES_DIR, PATH_TO_SOURCES_FILE
+from ..constants import CACHE_DIR, TEMP_FILES_DIR, PATH_TO_SOURCES_FILE, USER_AGENT
 from .candidate_example_sentences import ExampleSentenceQualityEvaluator, QualityEvaluationResult
 from .example_sentences import CandidateExampleSentence, ExampleSentence
+from ..robots import RobotsAwareSession
 
 
 def get_source_tag(source_name: str, license: str):
@@ -69,10 +70,13 @@ requests_session.headers.update({
 })
 
 
+
+
 class TatoebaSPM(SentenceProductionMethod):
     source_name = 'Tatoeba (via API)'
     license = "CC-BY 2.0 Fr"
 
+    base_url = "https://api.tatoeba.org"
     get_sentence_url = "https://api.tatoeba.org/unstable/sentences"
     default_params = "lang=jpn&trans%3Alang=eng&sort=created"
     stringent_params = "&is_orphan=no&is_unapproved=no&trans%3Ais_direct=yes&trans%3Ais_unapproved=no&trans%3Ais_orphan=no"
@@ -82,6 +86,7 @@ class TatoebaSPM(SentenceProductionMethod):
     def __init__(self, stringent=True):
         super().__init__()
         self.query_string = f"{self.get_sentence_url}?{self.default_params}{self.stringent_params if stringent else ''}&limit={self.block_size}"
+        self.session = RobotsAwareSession(self.base_url, USER_AGENT)
 
     def yield_sentences(self, word):
         # this api is quite buggy, actually - shame, have to make the code uglier
@@ -98,7 +103,7 @@ class TatoebaSPM(SentenceProductionMethod):
         url = f"{self.query_string}&q={word}"
         while url:
             try:  # ugh
-                response = requests_session.get(url)
+                response = self.session.get(url)
                 if response.status_code == 500: return
                 response_json = response.json()
                 data = response_json['data']
@@ -147,10 +152,7 @@ class TatoebaASPM(ArbitrarySentenceProductionMethod):
             self._cull_lan_data('jp')
 
     def _download_pairs_data_to_cache(self):
-        tatoeba_session = requests.Session()
-        tatoeba_session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
-        })
+        tatoeba_session = RobotsAwareSession("https://tatoeba.org", USER_AGENT)
 
         enter_url = "https://tatoeba.org/en/downloads"
         response = tatoeba_session.get(enter_url)
@@ -204,7 +206,8 @@ class TatoebaASPM(ArbitrarySentenceProductionMethod):
 
             print(f"Waiting on tatoeba data download...")
 
-            time.sleep(3)  # Wait before retrying
+            # unnecesary with robots-aware
+            # time.sleep(3)  # Wait before retrying
 
         pretty_filename = export_info["pretty_filename"]
         encoded_filename = parse_url.quote(pretty_filename)

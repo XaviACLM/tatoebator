@@ -10,17 +10,22 @@ from .word_displays import QWordDisplay, QSelectableWordDisplay
 
 
 @dataclass
-class FieldDataCache:
+class MinerFieldDataCache:
     text_to_mine: str
     text_in_fields: Dict[WordLearnableType, str]
     selected_words: List[str]
 
+    @classmethod
+    def from_text(cls, text: str):
+        return cls(text, {kind:
+                              [] for kind in WordLearnableType}, [])
+
 
 class MineNewWordsWidget(QWidget):
 
-    continue_button_clicked = pyqtSignal()
+    continuing_from = pyqtSignal()
 
-    def __init__(self, anki_db_interface: AnkiDbInterface, starting_data: Optional[Union[FieldDataCache, str]] = None):
+    def __init__(self, anki_db_interface: AnkiDbInterface, starting_data: Optional[MinerFieldDataCache] = None):
         super().__init__()
         self.anki_db_interface = anki_db_interface
         self.init_ui()
@@ -76,7 +81,7 @@ class MineNewWordsWidget(QWidget):
 
         spacer = QSpacerItem(20, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         self.continue_button = QPushButton('Add selected new words to deck')
-        self.continue_button.clicked.connect(self.continue_button_clicked.emit)
+        self.continue_button.clicked.connect(self.continuing_from.emit)
 
         hbox = QHBoxLayout()
         hbox.addSpacerItem(spacer)
@@ -108,15 +113,12 @@ class MineNewWordsWidget(QWidget):
     def get_selected_words(self):
         return self.word_displays[WordLearnableType.NEW_WORD].get_selected_words()
 
-    def get_cached_fields(self) -> FieldDataCache:
-        return FieldDataCache(self.text_edit.toPlainText(),
-                              {kind: self.word_displays[kind].get_words() for kind in WordLearnableType},
-                              self.word_displays[WordLearnableType.NEW_WORD].get_selected_words())
+    def get_cached_fields(self) -> MinerFieldDataCache:
+        return MinerFieldDataCache(self.text_edit.toPlainText(),
+                                   {kind: self.word_displays[kind].get_words() for kind in WordLearnableType},
+                                   self.word_displays[WordLearnableType.NEW_WORD].get_selected_words())
 
-    def _fill_from_cache(self, cached_fields: FieldDataCache):
-        if isinstance(cached_fields, str):
-            self.text_edit.setText(cached_fields)
-            return
+    def _fill_from_cache(self, cached_fields: MinerFieldDataCache):
         self.text_edit.setText(cached_fields.text_to_mine)
         for kind in WordLearnableType:
             self.word_displays[kind].set_words(cached_fields.text_in_fields[kind])

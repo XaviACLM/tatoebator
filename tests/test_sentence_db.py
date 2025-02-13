@@ -8,10 +8,6 @@ from tatoebator.db import SentenceRepository
 # TODO also, include too translations and definitions from "Definition and synonyms for...
 # TODO tangorin definitions are also good
 # TODO add new sentences menu (with semi automatic translations)
-# TODO gen translation/definition is a button, fields are editable
-# TODO include/don't include in table menu
-# TODO warnings in table menu (low amt of sentences, not-that-lexical word...)
-# TODO progress bars
 
 
 
@@ -20,12 +16,13 @@ from tatoebator.db import SentenceRepository
 # TODO maybe aspm only inserts new sentences if MORE than one word is underrepresented in the db
 
 # TODO type annotations, docs, privating, eliminating "__main__" blocks...
+# automated robots respecting
 
 
 # TODO figure out the general flow of the app. user stories or whatever. when do we actually need to use the sentence db?
 #  main bits of gui
-#  the miner
-#  post-miner sentence adder
+#  x the miner
+#  x post-miner sentence adder
 #  standalone sentence adder
 #  the cards themselves (when do the notes get created? must be in the table gui, no?
 #  and some config or whatever
@@ -35,22 +32,14 @@ from tatoebator.db import SentenceRepository
 
 
 # CC-BY 2.0 : we can do anything as long as we credit properly, indicate changes, and propagate the license
-# A note on propagating the license - from what I understand this doesnt' mean the whole project has to be CC-BY 2.0, just the data
-
-
+# A note on propagating the license - from what I understand this doesnt' mean the whole project has to be CC-BY 2.0
+# either way cc doesn't actually prohibit anything specific other than changing the license or misattribution, so fine
 
 
 #maybe eventually? https://eow.alc.co.jp/search?q=%e3%81%99%e3%82%8b -> translations, usage, but ehh
 
 #TODO implement a couple other sources for translations and definitions (jisho, tangorin)
 #TODO - tanoshii japanese multiple block search may also match based on alternate written forms
-
-#TODO some stuff like suru, aru, ra, tachi might be best to specifically exclude - best left to a grammar deck
-#if nothing else, dake seems less complex than suru but it's a grammar word anyway
-
-#TODO progress indicators for generation of everything on the table
-#TODO "generate everything" button
-#TODO ability to select/unselect words within table
 
 #TODO hide cmd's (sudachi?) and voicevoxes
 
@@ -66,6 +55,7 @@ from tatoebator.db import SentenceRepository
 # TODO there's really not enough sentences in tatoeba. we have to investigate the other corpora
 
 # TODO put all files other than temp_files in tatoebator/user_files (not in src/tatoebator/user_files!!)
+# TODO help menus
 
 # include other corpora:
 # https://www.phontron.com/japanese-translation-data.php

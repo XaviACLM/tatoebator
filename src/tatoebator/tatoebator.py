@@ -1,8 +1,9 @@
 from typing import List, Optional
 
 from .anki_db_interface import AnkiDbInterface
-from .gui import MineNewWordsWidget, NewWordsTableWidget
+from .gui import MineNewWordsWidget, NewWordsTableWidget, word_miner_menu
 from .db import SentenceRepository
+from .gui.word_miner_menu import MinerFieldDataCache
 from .language_processing import japanese_chars_ratio
 from .util import get_clipboard_text
 
@@ -37,9 +38,11 @@ class MiningProcessConductor:
         self.cached_mining_widget_data = None
         self.words_mined = []
 
-    def start(self, starting_words: Optional[List[str]] = None):
-        self.mining_widget = MineNewWordsWidget(self.anki_db_interface, starting_words or self.cached_mining_widget_data)
-        self.mining_widget.continue_button_clicked.connect(self._mining_to_card_creation)
+    def start(self, starting_text: Optional[str] = None):
+        if starting_text is not None:
+            self.cached_mining_widget_data = MinerFieldDataCache.from_text(starting_text)
+        self.mining_widget = MineNewWordsWidget(self.anki_db_interface, self.cached_mining_widget_data)
+        self.mining_widget.continuing_from.connect(self._mining_to_card_creation)
         self.mining_widget.show()
 
     def _mining_to_card_creation(self):

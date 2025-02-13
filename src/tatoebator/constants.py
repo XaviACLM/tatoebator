@@ -3,6 +3,7 @@ from pathlib import Path
 
 # TODO: an actually reliable way to know where the addon is installed - start this from __init__ with __file__, maybe
 ADDON_NAME = 'tatoebator'
+USER_AGENT = f"{ADDON_NAME} example sentence searcher"
 TEMP_FILES_DIR = os.path.join(Path.home(), "AppData", "Roaming", "Anki2", "addons21", ADDON_NAME, "src", ADDON_NAME,
                               "temp_files")
 CACHE_DIR = os.path.join(Path.home(), "AppData", "Roaming", "Anki2", "addons21", ADDON_NAME, "src", ADDON_NAME,
