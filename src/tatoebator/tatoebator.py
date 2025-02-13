@@ -15,7 +15,9 @@ class Tatoebator:
         self.sentence_repository = SentenceRepository()
         self.anki_db_interface = AnkiDbInterface()
         self.definition_fetcher = DefinitionFetcher()
+
         gui_hooks.main_window_did_init.append(self.update_known_counts)
+        gui_hooks.reviewer_will_end.append(self.update_known_counts)
 
     def mining_to_deck_flow(self):
         clipboard_text = get_clipboard_text()

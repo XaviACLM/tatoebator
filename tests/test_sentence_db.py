@@ -11,7 +11,6 @@ from tatoebator.db import SentenceRepository
 
 
 
-# TODO figure out how to call Tatoebator.update_known_counts whenever user exits study mode
 # TODO interface (or manager?) logic that uses known_words and trusted fields to decide what to query
 # TODO maybe aspm only inserts new sentences if MORE than one word is underrepresented in the db
 
@@ -38,8 +37,6 @@ from tatoebator.db import SentenceRepository
 
 #maybe eventually? https://eow.alc.co.jp/search?q=%e3%81%99%e3%82%8b -> translations, usage, but ehh
 
-#TODO implement a couple other sources for translations and definitions (jisho, tangorin)
-#TODO - tanoshii japanese multiple block search may also match based on alternate written forms
 
 #TODO hide cmd's (sudachi?) and voicevoxes
 

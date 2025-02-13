@@ -196,4 +196,19 @@ else:
                 node = node.next
             return morphemes
 
+
 DefaultTokenizer = MeCabTokenizer
+
+
+class DictionaryFormComputer:
+
+    tokenizer = DefaultTokenizer()
+
+    def compute(self, word):
+        morphemes = self.tokenizer(word)
+        if len(morphemes) != 1:
+            return None
+        return morphemes[0].dictionary_form
+
+
+dictionary_form = DictionaryFormComputer().compute

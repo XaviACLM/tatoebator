@@ -1,25 +1,22 @@
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import List
+import re
 
-import requests
 from bs4 import BeautifulSoup
 
-from tatoebator.constants import USER_AGENT
-from tatoebator.robots import RobotsAwareSession
-
-requests_session = requests.Session()
-requests_session.headers.update({
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
-})
+from .morphological_analyzers import DefaultTokenizer, dictionary_form
+from ..constants import USER_AGENT
+from ..robots import RobotsAwareSession
 
 
 @dataclass
 class Definitions:
-    en: Optional[str]
-    jp: Optional[str]
+    en: List[str]
+    jp: List[str]
 
-    def __or__(self, other):
-        return self.__class__(self.en or other.en, self.jp or other.jp)
+    def __add__(self, other):
+        # TODO addition
+        return self.__class__(self.en + other.en, self.jp + other.jp)
 
     @property
     def complete(self):
@@ -27,7 +24,7 @@ class Definitions:
 
     @classmethod
     def empty(cls):
-        return cls(None, None)
+        return cls([], [])
 
 
 class Dictionary:
@@ -43,28 +40,29 @@ class Dictionary:
 
 class JapaneseDictionary(Dictionary):
     def get_definitions(self, word: str) -> Definitions:
-        return Definitions(None, self._get_jp_definitions(word))
+        return Definitions([], self._get_jp_definition(word))
 
-    def _get_jp_definitions(self, word) -> str:
+    def _get_jp_definition(self, word) -> List[str]:
         raise NotImplementedError()
 
 
 class EnglishDictionary(Dictionary):
     def get_definitions(self, word: str) -> Definitions:
-        return Definitions(self._get_en_definitions(word), None)
+        return Definitions(self._get_en_definition(word), [])
 
-    def _get_en_definitions(self, word) -> str:
+    def _get_en_definition(self, word) -> List[str]:
         raise NotImplementedError()
 
 
-class TanoshiiDict(JapaneseDictionary):
+class TanoshiiDictionary(Dictionary):
 
     base_url = f"https://www.tanoshiijapanese.com"
 
-    def _get_jp_definitions(self, word) -> str:
-        print("tanoshii", word)
+    def get_definitions(self, word) -> Definitions:
+        url = f"{self.base_url}/dictionary/index.cfm?j={word}&e=&search=Search+>"
+        return self.get_definitions_from_url(word, url)
 
-        url = f"https://www.tanoshiijapanese.com/dictionary/index.cfm?j={word}&e=&search=Search+>"
+    def get_definitions_from_url(self, word, url):
         response = self.session.get(url)
 
         if response.status_code != 200:
@@ -74,36 +72,76 @@ class TanoshiiDict(JapaneseDictionary):
         content_elem = soup.find('div', id='cncontentbody')
         decider_elem = content_elem.contents[1]
         if decider_elem.name == 'form':
-            for elem in decider_elem.find_all('div', class_='vocabulary'):
+            for elem in decider_elem.find_all('div', class_='message'):
                 word_elem = elem.find('span', class_='copyable')
                 found_word = "".join([elem.text for elem in word_elem.find_all('rb')])
                 if not found_word: found_word = word_elem.text
                 if word != found_word: continue
                 break  # grab the first match (immediate nonetype exception otherwise)
+            else:
+                return Definitions([], [])
 
-            text = "\n".join([ol_elem.text[1:-1] for ol_elem in elem.find_all('ol')])
-            text = "- " + text.replace("\n", "\n- ")
-            if "\n" not in text: text = text[2:]
+            found_url = elem.find('div', class_='entrylinks').contents[0]['href']
 
-            return text
+            new_url = f"{self.base_url}{found_url[2:]}"
+
+            return self.get_definitions_from_url(word, new_url)
 
         elif decider_elem.name == 'div':
             # jp_elem = decider_elem.find('span', class_='copyable')
             # jp_text = "".join([elem.text for elem in jp_elem.find_all('rb')])
-            text = "\n".join([ol_elem.text[1:-1] for ol_elem in decider_elem.find_all('ol')])
-            text = "- " + text.replace("\n", "\n- ")
-            if "\n" not in text: text = text[2:]
 
-            return text
+            id_english_meaning_elem = decider_elem.find('div', id='idEnglishMeaning')
+            text_en = sum([ol_elem.text[1:-1].split("\n") for ol_elem in id_english_meaning_elem.find_all('ol')], [])
+            text_jp = []
+
+            id_synonyms_elem = decider_elem.find('div', id='idSynonyms')
+            if id_synonyms_elem is not None:
+                jp_elems = id_synonyms_elem.find_all('tr', class_='jp')
+                en_elems = id_synonyms_elem.find_all('tr', class_='en')
+                for jp_elem, en_elem in zip(jp_elems, en_elems):
+                    jp_word = jp_elem.contents[3].text
+                    if jp_word != word and dictionary_form(jp_word) != word:
+                        continue
+                    jp_def = jp_elem.contents[5].text
+                    en_word = en_elem.contents[3].text
+                    en_def = en_elem.contents[5].text
+                    en_def = f"{en_word}, {en_def}"
+                    text_en.append(en_def)
+                    text_jp.append(jp_def)
+
+            return Definitions(text_en,text_jp)
         else:
             raise Exception("Tanoshiijp webpage had unexpected format")
 
 
-class WeblioDict(EnglishDictionary):
+class JishoDictionary(EnglishDictionary):
+
+    base_url = "https://jisho.org/"
+
+    def _get_en_definition(self, word) -> str:
+        url = f"{self.base_url}/api/v1/search/words?keyword={word}"
+
+        response = self.session.get(url)
+
+        data = response.json()["data"]
+
+        definitions = []
+        for item in data:
+            slug = item['slug']
+            if slug != word and dictionary_form(slug) != word:
+                continue
+            senses = item['senses']
+            for sense in senses:
+                definitions.append(", ".join(sense['english_definitions']))
+        return definitions
+
+
+class WeblioDictionary(Dictionary):
 
     base_url = f"https://ejje.weblio.jp"
 
-    def _get_en_definition(self, word: str) -> str:
+    def get_definitions(self, word: str) -> Definitions:
         url = f"https://ejje.weblio.jp/english-thesaurus/content/{word}"
         response = self.session.get(url)
 
@@ -113,49 +151,51 @@ class WeblioDict(EnglishDictionary):
         soup = BeautifulSoup(response.content, 'html.parser')
         table_elem = soup.find('tbody')
         # 29??
-        text = "\n- ".join([elem.text[29:] for elem in table_elem.find_all('p', class_='wdntTCLJ')])
-        if "\n" in text: text = "- " + text
-        return text
+        text_jp = [elem.text[29:] for elem in table_elem.find_all('p', class_='wdntTCLJ')]
+        text_en = [elem.text[29:] for elem in table_elem.find_all('p', class_='wdntTCLE')]
+        return Definitions(text_en, text_jp)
 
 
 class DefinitionFetcher:
 
-    dictionaries: List[Dictionary] = []
-
-    jp_dicts: List[JapaneseDictionary] = [WeblioDict()]
-
-    en_dicts: List[EnglishDictionary] = [TanoshiiDict()]
+    dictionaries: List[Dictionary] = [WeblioDictionary(), TanoshiiDictionary(), JishoDictionary()]
 
     def __init__(self):
         self.dictionaries.sort(key=lambda x: -x.session.maximum_rate())
-        self.jp_dicts.sort(key=lambda x: -x.session.maximum_rate())
-        self.en_dicts.sort(key=lambda x: -x.session.maximum_rate())
 
-    def get_definitions(self, word: str):
-        definitions = Definitions.empty()
-        for dictionary in self.dictionaries:
-            definitions = definitions | dictionary.get_definitions(word)
-            if definitions.complete: return definitions
-        if not definitions.en:
-            for dictionary in self.en_dicts:
-                definitions = definitions | dictionary.get_definitions(word)
-                if definitions.en: break
-        if not definitions.jp:
-            for dictionary in self.jp_dicts:
-                definitions = definitions | dictionary.get_definitions(word)
-                if definitions.jp: break
+    def get_definitions(self, word: str) -> Definitions:
+        for definitions in self._yield_aggregated_definitions(word):
+            pass# if definitions.complete: return definitions
+        definitions.en = self._remove_similar(definitions.en)
+        definitions.jp = self._remove_similar(definitions.jp)
         return definitions
 
-    def get_en_definition(self, word: str):
-        definitions = Definitions.empty()
-        for dictionary in self.en_dicts + self.dictionaries:
-            definitions = definitions | dictionary.get_definitions(word)
-            if definitions.en: return definitions.en
+    def get_en_definition(self, word: str) -> List[str]:
+        for definitions in self._yield_aggregated_definitions(word):
+            if definitions.en: return self._remove_similar(definitions.en)
 
-    def get_jp_definition(self, word: str):
-        definitions = Definitions.empty()
-        for dictionary in self.jp_dicts + self.dictionaries:
-            definitions = definitions | dictionary.get_definitions(word)
-            if definitions.jp: return definitions.jp
+    def get_jp_definition(self, word: str) -> List[str]:
+        for definitions in self._yield_aggregated_definitions(word):
+            if definitions.jp: return self._remove_similar(definitions.jp)
 
+    def _yield_aggregated_definitions(self, word: str):
+        definitions = Definitions.empty()
+        for dictionary in self.dictionaries:
+            definitions = definitions + dictionary.get_definitions(word)
+            yield definitions
+
+    def _remove_similar(self, texts: List[str], threshold: float = 0.8):
+        for i in range(len(texts)):
+            for j in range(len(texts)-1,i,-1):
+                if self._similarity(texts[i], texts[j]) > threshold:
+                    texts.pop(j)
+        return texts
+
+    def _similarity(self, text1, text2):
+        bw1, bw2 = self._bag_words(text1), self._bag_words(text2)
+        if bw1 and bw2: return len(bw1 & bw2) / min(len(bw1), len(bw2))
+        else: return 0
+
+    def _bag_words(self, text):
+        return set(re.findall(r"(\w+)", text.lower()))
 

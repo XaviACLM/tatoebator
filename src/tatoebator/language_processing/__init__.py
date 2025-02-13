@@ -4,3 +4,4 @@ from .lexical_analysis import lexical_content, grammaticalized_words
 from .translator import translate
 from .unicode_ranges import UnicodeRange
 from .misc import japanese_chars_ratio
+from .morphological_analyzers import dictionary_form

@@ -3,7 +3,7 @@ import requests
 from urllib.robotparser import RobotFileParser
 from urllib.parse import urlparse
 
-from tatoebator.util import CircularBuffer
+from .util import CircularBuffer
 
 
 class RobotsAwareSession(requests.Session):
