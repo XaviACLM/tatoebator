@@ -1,5 +1,11 @@
+from dataclasses import dataclass
+from typing import Optional, List
+
 import requests
 from bs4 import BeautifulSoup
+
+from tatoebator.constants import USER_AGENT
+from tatoebator.robots import RobotsAwareSession
 
 requests_session = requests.Session()
 requests_session.headers.update({
@@ -7,52 +13,149 @@ requests_session.headers.update({
 })
 
 
-def get_meaning_from_tanoshii(word: str) -> str:
-    url = f"https://www.tanoshiijapanese.com/dictionary/index.cfm?j={word}&e=&search=Search+>"
-    response = requests_session.get(url)
+@dataclass
+class Definitions:
+    en: Optional[str]
+    jp: Optional[str]
 
-    if response.status_code != 200:
-        raise Exception(f"Something went wrong with the tanoshiijp request - status code {response.status_code}")
+    def __or__(self, other):
+        return self.__class__(self.en or other.en, self.jp or other.jp)
 
-    soup = BeautifulSoup(response.content, 'html.parser')
-    content_elem = soup.find('div', id='cncontentbody')
-    decider_elem = content_elem.contents[1]
-    if decider_elem.name == 'form':
-        for elem in decider_elem.find_all('div', class_='vocabulary'):
-            word_elem = elem.find('span', class_='copyable')
-            found_word = "".join([elem.text for elem in word_elem.find_all('rb')])
-            if not found_word: found_word = word_elem.text
-            if word != found_word: continue
-            break  # grab the first match (immediate nonetype exception otherwise)
+    @property
+    def complete(self):
+        return self.en and self.jp
 
-        text = "\n".join([ol_elem.text[1:-1] for ol_elem in elem.find_all('ol')])
-        text = "- " + text.replace("\n", "\n- ")
-        if "\n" not in text: text = text[2:]
+    @classmethod
+    def empty(cls):
+        return cls(None, None)
 
+
+class Dictionary:
+
+    base_url = None
+
+    def __init__(self):
+        self.session = RobotsAwareSession(self.base_url, USER_AGENT)
+
+    def get_definitions(self, word: str) -> Definitions:
+        raise NotImplementedError()
+
+
+class JapaneseDictionary(Dictionary):
+    def get_definitions(self, word: str) -> Definitions:
+        return Definitions(None, self._get_jp_definitions(word))
+
+    def _get_jp_definitions(self, word) -> str:
+        raise NotImplementedError()
+
+
+class EnglishDictionary(Dictionary):
+    def get_definitions(self, word: str) -> Definitions:
+        return Definitions(self._get_en_definitions(word), None)
+
+    def _get_en_definitions(self, word) -> str:
+        raise NotImplementedError()
+
+
+class TanoshiiDict(JapaneseDictionary):
+
+    base_url = f"https://www.tanoshiijapanese.com"
+
+    def _get_jp_definitions(self, word) -> str:
+        print("tanoshii", word)
+
+        url = f"https://www.tanoshiijapanese.com/dictionary/index.cfm?j={word}&e=&search=Search+>"
+        response = self.session.get(url)
+
+        if response.status_code != 200:
+            raise Exception(f"Something went wrong with the tanoshiijp request - status code {response.status_code}")
+
+        soup = BeautifulSoup(response.content, 'html.parser')
+        content_elem = soup.find('div', id='cncontentbody')
+        decider_elem = content_elem.contents[1]
+        if decider_elem.name == 'form':
+            for elem in decider_elem.find_all('div', class_='vocabulary'):
+                word_elem = elem.find('span', class_='copyable')
+                found_word = "".join([elem.text for elem in word_elem.find_all('rb')])
+                if not found_word: found_word = word_elem.text
+                if word != found_word: continue
+                break  # grab the first match (immediate nonetype exception otherwise)
+
+            text = "\n".join([ol_elem.text[1:-1] for ol_elem in elem.find_all('ol')])
+            text = "- " + text.replace("\n", "\n- ")
+            if "\n" not in text: text = text[2:]
+
+            return text
+
+        elif decider_elem.name == 'div':
+            # jp_elem = decider_elem.find('span', class_='copyable')
+            # jp_text = "".join([elem.text for elem in jp_elem.find_all('rb')])
+            text = "\n".join([ol_elem.text[1:-1] for ol_elem in decider_elem.find_all('ol')])
+            text = "- " + text.replace("\n", "\n- ")
+            if "\n" not in text: text = text[2:]
+
+            return text
+        else:
+            raise Exception("Tanoshiijp webpage had unexpected format")
+
+
+class WeblioDict(EnglishDictionary):
+
+    base_url = f"https://ejje.weblio.jp"
+
+    def _get_en_definition(self, word: str) -> str:
+        url = f"https://ejje.weblio.jp/english-thesaurus/content/{word}"
+        response = self.session.get(url)
+
+        if response.status_code != 200:
+            raise Exception(f"Something went wrong with the tanoshiijp request - status code {response.status_code}")
+
+        soup = BeautifulSoup(response.content, 'html.parser')
+        table_elem = soup.find('tbody')
+        # 29??
+        text = "\n- ".join([elem.text[29:] for elem in table_elem.find_all('p', class_='wdntTCLJ')])
+        if "\n" in text: text = "- " + text
         return text
 
-    elif decider_elem.name == 'div':
-        # jp_elem = decider_elem.find('span', class_='copyable')
-        # jp_text = "".join([elem.text for elem in jp_elem.find_all('rb')])
-        text = "\n".join([ol_elem.text[1:-1] for ol_elem in decider_elem.find_all('ol')])
-        text = "- " + text.replace("\n", "\n- ")
-        if "\n" not in text: text = text[2:]
 
-        return text
-    else:
-        raise Exception("Tanoshiijp webpage had unexpected format")
+class DefinitionFetcher:
+
+    dictionaries: List[Dictionary] = []
+
+    jp_dicts: List[JapaneseDictionary] = [WeblioDict()]
+
+    en_dicts: List[EnglishDictionary] = [TanoshiiDict()]
+
+    def __init__(self):
+        self.dictionaries.sort(key=lambda x: -x.session.maximum_rate())
+        self.jp_dicts.sort(key=lambda x: -x.session.maximum_rate())
+        self.en_dicts.sort(key=lambda x: -x.session.maximum_rate())
+
+    def get_definitions(self, word: str):
+        definitions = Definitions.empty()
+        for dictionary in self.dictionaries:
+            definitions = definitions | dictionary.get_definitions(word)
+            if definitions.complete: return definitions
+        if not definitions.en:
+            for dictionary in self.en_dicts:
+                definitions = definitions | dictionary.get_definitions(word)
+                if definitions.en: break
+        if not definitions.jp:
+            for dictionary in self.jp_dicts:
+                definitions = definitions | dictionary.get_definitions(word)
+                if definitions.jp: break
+        return definitions
+
+    def get_en_definition(self, word: str):
+        definitions = Definitions.empty()
+        for dictionary in self.en_dicts + self.dictionaries:
+            definitions = definitions | dictionary.get_definitions(word)
+            if definitions.en: return definitions.en
+
+    def get_jp_definition(self, word: str):
+        definitions = Definitions.empty()
+        for dictionary in self.jp_dicts + self.dictionaries:
+            definitions = definitions | dictionary.get_definitions(word)
+            if definitions.jp: return definitions.jp
 
 
-def get_definition_from_weblio(word: str) -> str:
-    url = f"https://ejje.weblio.jp/english-thesaurus/content/{word}"
-    response = requests_session.get(url)
-
-    if response.status_code != 200:
-        raise Exception(f"Something went wrong with the tanoshiijp request - status code {response.status_code}")
-
-    soup = BeautifulSoup(response.content, 'html.parser')
-    table_elem = soup.find('tbody')
-    # 29??
-    text = "\n- ".join([elem.text[29:] for elem in table_elem.find_all('p', class_='wdntTCLJ')])
-    if "\n" in text: text = "- " + text
-    return text

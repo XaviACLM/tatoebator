@@ -4,7 +4,7 @@ from .anki_db_interface import AnkiDbInterface
 from .gui import MineNewWordsWidget, NewWordsTableWidget, word_miner_menu
 from .db import SentenceRepository
 from .gui.word_miner_menu import MinerFieldDataCache
-from .language_processing import japanese_chars_ratio
+from .language_processing import japanese_chars_ratio, DefinitionFetcher
 from .util import get_clipboard_text
 
 from aqt import gui_hooks
@@ -14,13 +14,16 @@ class Tatoebator:
     def __init__(self):
         self.sentence_repository = SentenceRepository()
         self.anki_db_interface = AnkiDbInterface()
+        self.definition_fetcher = DefinitionFetcher()
         gui_hooks.main_window_did_init.append(self.update_known_counts)
 
     def mining_to_deck_flow(self):
         clipboard_text = get_clipboard_text()
         starting_text = clipboard_text if clipboard_text and japanese_chars_ratio(clipboard_text) > 0.7 else None
 
-        self.mining_conductor = MiningProcessConductor(self.sentence_repository, self.anki_db_interface)
+        self.mining_conductor = MiningProcessConductor(self.sentence_repository,
+                                                       self.anki_db_interface,
+                                                       self.definition_fetcher)
         self.mining_conductor.start(starting_text)
 
     def word_table_test(self, words: List[str]):
@@ -32,8 +35,11 @@ class Tatoebator:
 
 
 class MiningProcessConductor:
-    def __init__(self, sentence_repository: SentenceRepository, anki_db_interface: AnkiDbInterface):
+    def __init__(self, sentence_repository: SentenceRepository,
+                 anki_db_interface: AnkiDbInterface,
+                 definition_fetcher: DefinitionFetcher):
         self.sentence_repository = sentence_repository
+        self.definition_fetcher = definition_fetcher
         self.anki_db_interface = anki_db_interface
         self.cached_mining_widget_data = None
         self.words_mined = []
@@ -49,7 +55,7 @@ class MiningProcessConductor:
         self.cached_mining_widget_data = self.mining_widget.get_cached_fields()
         self.words_mined = self.mining_widget.get_selected_words()
         self.mining_widget.close()
-        self.table_widget = NewWordsTableWidget(self.words_mined, self.sentence_repository)
+        self.table_widget = NewWordsTableWidget(self.words_mined, self.sentence_repository, self.definition_fetcher)
         self.table_widget.backing_up_from.connect(self._back_from_card_creation_to_mining)
         self.table_widget.continuing_from.connect(self._create_cards)
         self.table_widget.show()
@@ -64,7 +70,7 @@ class MiningProcessConductor:
 
         from aqt.utils import showInfo
         message = ["this doesn't work yet :^)\nhere i should create the cards for:"]
-        for word, en_definition, jp_definition in new_words_data:
-            message.append(f"{word}  -  {en_definition} / {jp_definition}")
+        for word, definition in new_words_data.items():
+            message.append(f"{word}  -  {definition.en} / {definition.jp}")
         showInfo("\n\n".join(message))
 
