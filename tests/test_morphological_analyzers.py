@@ -1,4 +1,4 @@
-from tatoebator.language_processing.lexical_analysis import group_text_by_part_of_speech
+from tatoebator.language_processing.lexical_analysis import group_text_by_part_of_speech, WordSpeechType
 from tatoebator.language_processing.morphological_analyzers import DefaultTokenizer
 
 tokenizer = DefaultTokenizer()
@@ -19,12 +19,33 @@ text = """散々な思い出は悲しみを穿つほど
 text = """火のない所に煙は立たないということは、誰も否定することはできません。
 エレベーターから煙の臭いがします。
 あの山は昔煙を吐いていた。"""
+text="""
+自由になるのは大変だろう
+"""
 for morpheme in tokenizer(text):
     print(morpheme)
 
 for type, words in group_text_by_part_of_speech(text).items():
     print(type)
     print(words)
+    print("")
+
+grammatical_word_sentences = [
+    ("する","勉強するのが好きです。","彼はいつも変なことをする。"),
+    ("ある","ここに名前を書いてある。","机の上に本がある。"),
+    ("いる","ずっと日本にいるつもりです。","そこに猫がいる！"),
+    ("おく","明日のために準備しておく。","本を机の上におく。"),
+    ("の","日本語を勉強するのは楽しい。","このカバンは私ののです。"),
+    ("こと","本を読むことが好きです。","大事なことを忘れた。"),
+    ("もの","勉強しないとダメなものだよ。","これは大切なものです。"),
+]
+
+for word, sentence_1, sentence_2 in grammatical_word_sentences:
+    print(word,
+          word in group_text_by_part_of_speech(sentence_1)[WordSpeechType.LEXICAL_WORD],
+          word in group_text_by_part_of_speech(sentence_2)[WordSpeechType.LEXICAL_WORD])
+    print(group_text_by_part_of_speech(sentence_1)[WordSpeechType.LEXICAL_WORD])
+    print(group_text_by_part_of_speech(sentence_2)[WordSpeechType.LEXICAL_WORD])
     print("")
 
 # this seems like a common topic - unidic being overly fine-grained

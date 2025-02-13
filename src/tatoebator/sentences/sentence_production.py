@@ -91,29 +91,38 @@ class TatoebaSPM(SentenceProductionMethod):
         #   so we implemented that the ProductionManager skips spms if they return too many unsuitable sentences
         #  some specific queries (seemingly for particularly high pages) return 500 consistently for no apparent reason
         #   so we check and return if so
-        url = f"{self.query_string}&q={word}&page=1"
+        #  will sometimes hit you with "unknown parameter: page" (??????????????)
+        #   so we start w/o page param (defaults to 1) and navigate via "paging"
+        #   which is also weird and inconsistent but you can reliably just check whether it has a 'next' key
+        #   no, the 'has_next' key does not always appear
+        url = f"{self.query_string}&q={word}"
         while url:
-            response = requests_session.get(url)
-            if response.status_code == 500: return
-            response_json = response.json()
-            data = response_json['data']
-            paging = response_json['paging']
-            for item in data:
-                jp_text = item['text']
-                if item['license'] != 'CC BY 2.0 FR':
-                    raise Exception(f"Something in Tatoeba has an unexpected license: {item['license']}")
-                jp_owner = item['owner'] or 'unknown'
-                for translation in itertools.chain(*item['translations']):
-                    if translation['lang'] == 'eng':
-                        break
-                else:
-                    continue
+            try:  # ugh
+                response = requests_session.get(url)
+                if response.status_code == 500: return
+                response_json = response.json()
+                data = response_json['data']
+                paging = response_json['paging']
+                for item in data:
+                    jp_text = item['text']
+                    if item['license'] != 'CC BY 2.0 FR':
+                        raise Exception(f"Something in Tatoeba has an unexpected license: {item['license']}")
+                    jp_owner = item['owner'] or 'unknown'
+                    for translation in itertools.chain(*item['translations']):
+                        if translation['lang'] == 'eng':
+                            break
+                    else:
+                        continue
 
-                en_text = translation['text']
-                en_owner = translation['owner'] or 'unknown'
+                    en_text = translation['text']
+                    en_owner = translation['owner'] or 'unknown'
 
-                yield CandidateExampleSentence(jp_text, en_text, credit=f"{jp_owner}, {en_owner} (Tatoeba)")
-            url = paging and 'next' in paging and paging['next']
+                    yield CandidateExampleSentence(jp_text, en_text, credit=f"{jp_owner}, {en_owner} (Tatoeba)")
+                url = paging and 'next' in paging and paging['next']
+            except Exception as e:
+                from aqt.utils import showInfo
+                showInfo(f"tatoeba hit a snag on {url}")
+                raise e
 
 
 class TatoebaASPM(ArbitrarySentenceProductionMethod):

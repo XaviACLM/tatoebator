@@ -47,8 +47,8 @@ class MiningProcessConductor:
         self.words_mined = self.mining_widget.get_selected_words()
         self.mining_widget.close()
         self.table_widget = NewWordsTableWidget(self.words_mined, self.sentence_repository)
-        self.table_widget.back_button_clicked.connect(self._back_from_card_creation_to_mining)
-        self.table_widget.continue_button_clicked.connect(self._create_cards)
+        self.table_widget.backing_up_from.connect(self._back_from_card_creation_to_mining)
+        self.table_widget.continuing_from.connect(self._create_cards)
         self.table_widget.show()
 
     def _back_from_card_creation_to_mining(self):
@@ -58,6 +58,10 @@ class MiningProcessConductor:
     def _create_cards(self):
         new_words_data = self.table_widget.get_new_word_data()
         self.table_widget.close()
+
         from aqt.utils import showInfo
-        showInfo(f"this doesn't work yet :^)\n\nhere i should create the cards for {new_words_data}")
+        message = ["this doesn't work yet :^)\nhere i should create the cards for:"]
+        for word, en_definition, jp_definition in new_words_data:
+            message.append(f"{word}  -  {en_definition} / {jp_definition}")
+        showInfo("\n\n".join(message))
 

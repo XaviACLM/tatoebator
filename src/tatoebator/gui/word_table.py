@@ -1,125 +1,291 @@
-import sys
+from dataclasses import dataclass, astuple
+from typing import List
 
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtCore import pyqtSignal, Qt
+from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
-    QHeaderView, QCheckBox, QScrollArea, QHBoxLayout, QPushButton
+    QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
+    QHeaderView, QScrollArea, QHBoxLayout, QPushButton, QMessageBox
 )
 
-from ..language_processing import get_meaning_from_tanoshii, get_definition_from_weblio
-from ..constants import SENTENCES_PER_CARD
+from .process_dialog import ProgressDialog
+from .util import ask_yes_no_question
+from ..language_processing import get_meaning_from_tanoshii, get_definition_from_weblio, grammaticalized_words
 from ..db import SentenceRepository
 
 
-class NewWordsTableWidget(QWidget):
+@dataclass
+class WordWithDefinitions:
+    word: str
+    en_definition: str
+    jp_definition: str
 
-    back_button_clicked = pyqtSignal()
-    continue_button_clicked = pyqtSignal()
+    def __iter__(self):
+        return iter(astuple(self))
+
+
+class NewWordsTableWidget(QWidget):
+    backing_up_from = pyqtSignal()
+    continuing_from = pyqtSignal()
+
+    sentences_per_word_quota = 5
+
+    # SELECTOR_ROW = 0
+    # NAME_ROW = 1
+    # S_ROW = 2
+    # S50_ROW = 3
+    # S80_ROW = 4
+    # TRANSLATION_ROW = 5
+    # DEFINITION_ROW = 6
+    # N_ROWS = 7
 
     def __init__(self, words, sentence_repository: SentenceRepository):
-        # maybe the db manager should be passed by constructor?
-        self.sentence_repository = sentence_repository
         super().__init__()
+        self.sentence_repository = sentence_repository
+
+        self.n_sentences_per_word = {word: 0 for word in words}
+        self.n_sentences_per_word_50 = {word: 0 for word in words}
+        self.n_sentences_per_word_80 = {word: 0 for word in words}
+        self.did_search_sentences = {word: False for word in words}
+
+        # reorder to put grammaticalized words at the end
+        # funny indexing mostly to preserve order but also to count amt_grammaticalized
+        amt_grammaticalized = 0
+        for i in range(len(words)):
+            j = i - amt_grammaticalized
+            if words[j] in grammaticalized_words:
+                words.append(words.pop(j))
+                amt_grammaticalized += 1
 
         self.words = words
-        self._translations = None
-        self._definitions = None
         self.n_rows = len(words)
-        self.initUI()
+        self._init_ui()
 
-    def initUI(self):
+        self._uncheck_grammaticalized(amt_grammaticalized)
+
+    def get_new_word_data(self) -> List[WordWithDefinitions]:
+        return [WordWithDefinitions(self.table.item(i, 1).text(),
+                                    self.table.item(i, 5).text(),
+                                    self.table.item(i, 6).text())
+                for i in range(self.n_rows) if self._is_idx_selected(i)]
+
+    def _init_ui(self):
         layout = QVBoxLayout()
 
         # Create the table
-        self.table = QTableWidget(self.n_rows, 5)
-        self.table.setHorizontalHeaderLabels(['Name', '# Sentences', '# Missing', 'Translation', 'Definition'])
+        self.table = QTableWidget(self.n_rows, 7)
+        self.table.setHorizontalHeaderLabels(
+            ['Include', 'Name', '# Sentences', '#S>50%', '#S>80%', 'Translation', 'Definition'])
 
-        # amt of sentences at 50% and 80% comprehensibility
-        # remove #missing, that's pointless
+        self.white = QColor(255, 255, 255)
+        self.lightgrey = QColor(240, 240, 240)
+        self.darkgrey = QColor(220, 220, 220)
+        self.red = QColor(255, 230, 230)
+        self.green = QColor(220, 255, 220)
+        self.black = QColor(0, 0, 0)
 
-        # Populate the table
+        # some kinda progress bar during sentence/translation/definition search
+        # possibly a link to a help menu
+        # possibly a link to a sentence adder menu (we'll want to do that anyway)
+        #   ->   include in database whether sentence was added by user
+        # and card creation, w a lil popup telling you cards got created
+
+        self.table.verticalHeader().setVisible(False)
+
         for row, name in enumerate(self.words):
-            self.table.setItem(row, 0, QTableWidgetItem(name))
-            self.table.setItem(row, 1, QTableWidgetItem(""))
+            self.table.setItem(row, 0, QTableWidgetItem())
+            self.table.item(row, 0).setFlags(self.table.item(row, 0).flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            self.table.item(row, 0).setCheckState(Qt.CheckState.Checked)
+
+            self.table.setItem(row, 1, QTableWidgetItem(name))
+            self.table.item(row, 1).setFlags(self.table.item(row, 0).flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self.table.item(row, 1).setBackground(self.lightgrey)
+            self.table.item(row, 1).setForeground(self.black)
+
             self.table.setItem(row, 2, QTableWidgetItem(""))
+            self.table.item(row, 2).setFlags(self.table.item(row, 1).flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self.table.item(row, 2).setForeground(self.black)
+
             self.table.setItem(row, 3, QTableWidgetItem(""))
+            self.table.item(row, 3).setFlags(self.table.item(row, 2).flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self.table.item(row, 3).setForeground(self.black)
+
             self.table.setItem(row, 4, QTableWidgetItem(""))
-        self.update_sentence_counts()
+            self.table.item(row, 4).setFlags(self.table.item(row, 3).flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self.table.item(row, 4).setForeground(self.black)
+
+            self.table.setItem(row, 5, QTableWidgetItem(""))
+
+            self.table.setItem(row, 6, QTableWidgetItem(""))
 
         # Adjust column sizes
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeMode.Stretch)
 
         # Add scrolling
         scroll_area = QScrollArea()
         scroll_area.setWidget(self.table)
         scroll_area.setWidgetResizable(True)
-
         layout.addWidget(scroll_area)
 
+        # buttons
         buttons_bar = QHBoxLayout()
         self.button_back = QPushButton('Go back')
-        self.button_sentences = QPushButton('Produce missing example sentences')
-        self.button_sentences.clicked.connect(self.produce_missing_sentences)
-        self.checkbox_translations = QCheckBox("Generate translations")
-        self.checkbox_translations.stateChanged.connect(self.cb_translations_updated)
-        self.checkbox_definitions = QCheckBox("Generate definitions")
-        self.checkbox_definitions.stateChanged.connect(self.cb_definitions_updated)
+        self.button_sentences = QPushButton('Produce missing sentences')
+        self.button_sentences.clicked.connect(self._produce_missing_sentences)
+        self.button_translations = QPushButton("Generate translations")
+        self.button_translations.clicked.connect(self._generate_translations)
+        self.button_definitions = QPushButton("Generate definitions")
+        self.button_definitions.clicked.connect(self._generate_definitions)
+        self.button_remove = QPushButton("Remove unselected")
+        self.button_remove.clicked.connect(self._remove_unselected)
         self.button_continue = QPushButton('Create cards')
         buttons_bar.addWidget(self.button_back)
         buttons_bar.addWidget(self.button_sentences)
-        buttons_bar.addWidget(self.checkbox_translations)
-        buttons_bar.addWidget(self.checkbox_definitions)
+        buttons_bar.addWidget(self.button_translations)
+        buttons_bar.addWidget(self.button_definitions)
+        buttons_bar.addWidget(self.button_remove)
         buttons_bar.addWidget(self.button_continue)
 
-        self.button_back.clicked.connect(self.back_button_clicked.emit)
-        self.button_continue.clicked.connect(self.continue_button_clicked.emit)
+        # signals
+        self.button_back.clicked.connect(self.backing_up_from.emit)
+        self.button_continue.clicked.connect(self._check_before_continuing)
+        self.table.itemChanged.connect(self._handle_table_change)
 
         layout.addLayout(buttons_bar)
 
         self.setLayout(layout)
 
-    def update_sentence_counts(self):
-        sentences_per_word = self.sentence_repository.count_lexical_word_ocurrences(self.words)
-        for row, name in enumerate(self.words):
-            self.table.item(row, 1).setText(str(sentences_per_word[name]))
-            self.table.item(row, 2).setText(str(max(0, SENTENCES_PER_CARD - sentences_per_word[name])))
+        self._update_sentence_counts()
 
-    def cb_translations_updated(self, state):
-        """
-        # from translator import translate
-        if state:
-            #this is such a stupid hack. we should at least batch it
-            #...or get the translations from an actual dictionary, probably
-            translation = translate(str(self.words)[1:-1])
-            translation = translation.replace('"','').replace(',','').replace('\'','')
-            translations = translation.split(' ')
-        """
-        for i in range(self.n_rows):
-            self.table.item(i, 3).setText(self.get_translations()[i] if state else "")
+    def _uncheck_grammaticalized(self, amt_grammaticalized: int):
+        for row in range(self.n_rows - amt_grammaticalized, self.n_rows):
+            self.table.item(row, 0).setCheckState(Qt.CheckState.Unchecked)
 
-    def cb_definitions_updated(self, state):
-        for i in range(self.n_rows):
-            self.table.item(i, 4).setText(self.get_definitions()[i] if state else "")
+    def _handle_table_change(self, item: QTableWidgetItem):
+        if item.column() == 0:
+            self._handle_checkbox_change(item.row(), item.checkState() == Qt.CheckState.Checked)
 
-    def produce_missing_sentences(self):
-        for word in self.words:
-            self.sentence_repository.produce_up_to_limit(word)
-        self.update_sentence_counts()
+    def _handle_checkbox_change(self, idx: int, checked: bool):
+        self._update_sentence_button_highlighting()
+        if checked: self._de_greyout_row(idx)
+        else: self._greyout_row(idx)
 
-    # these should be @cached_property but it doesn't work for some reason - something about qt?
-    def get_translations(self):
-        if self._translations is None:
-            self._translations = list(map(get_meaning_from_tanoshii, self.words))
-        return self._translations
+    def _greyout_row(self, row: int):
+        for col in range(1, self.table.columnCount()):
+            self.table.item(row, col).setBackground(self.darkgrey)
 
-    def get_definitions(self):
-        if self._definitions is None:
-            self._definitions = list(map(get_definition_from_weblio, self.words))
-        return self._definitions
+    def _de_greyout_row(self, row: int):
+        self.table.item(row, 1).setBackground(self.lightgrey)
+        for col in range(5, self.table.columnCount()):
+            self.table.item(row, col).setBackground(self.white)
+        self._update_sentence_counts_gui_at_row(row)
 
-    def get_new_word_data(self):
-        return self.words
+    def _update_sentence_counts_gui(self):
+        for row in range(self.n_rows):
+            if self._is_idx_selected(row):
+                self._update_sentence_counts_gui_at_row(row)
+
+    def _update_sentence_counts_gui_at_row(self, row: int):
+        name = self.words[row]
+        s00 = self.n_sentences_per_word[name]
+        s50 = self.n_sentences_per_word_50[name]
+        s80 = self.n_sentences_per_word_80[name]
+        self.table.item(row, 2).setText(str(s00))
+        self.table.item(row, 3).setText(str(s50))
+        self.table.item(row, 4).setText(str(s80))
+        # used palettes but they kind of suck... like 12 colors total and role where red fits
+        self.table.item(row, 2).setBackground(self.green if s00 >= self.sentences_per_word_quota else self.red)
+        self.table.item(row, 3).setBackground(self.green if s50 >= self.sentences_per_word_quota else self.red)
+        self.table.item(row, 4).setBackground(self.green if s80 >= self.sentences_per_word_quota else self.red)
+
+    def _is_idx_selected(self, idx: int) -> bool:
+        return self.table.item(idx, 0).checkState() == Qt.CheckState.Checked
+
+    def _update_sentence_counts(self):
+        self.n_sentences_per_word = self.sentence_repository.count_lexical_word_ocurrences(self.words)
+        self.n_sentences_per_word_50 = self.sentence_repository \
+            .count_lexical_word_ocurrences(self.words, min_comprehensibility=0.5)
+        self.n_sentences_per_word_80 = self.sentence_repository \
+            .count_lexical_word_ocurrences(self.words, min_comprehensibility=0.8)
+        self._update_sentence_counts_gui()
+        self._update_sentence_button_highlighting()
+
+    def _update_sentence_button_highlighting(self):
+        for idx, word in enumerate(self.words):
+            if self.n_sentences_per_word[word] < self.sentences_per_word_quota \
+                    and not self.did_search_sentences[word] \
+                    and self._is_idx_selected(idx):
+                self.button_sentences.setStyleSheet(
+                    "QPushButton { background-color: palette(highlight); color: palette(highlighted-text); }"
+                )
+                break
+        else:
+            self.button_sentences.setStyleSheet("")
+
+    def _produce_missing_sentences(self):
+        words_to_process = [word for idx, word in enumerate(self.words)
+                            if self._is_idx_selected(idx) and not self.did_search_sentences[word]]
+        if not words_to_process: return
+        with ProgressDialog("Producing sentences...", len(words_to_process)) as progress:
+            for word in words_to_process:
+                self.did_search_sentences[word] = True
+                progress.update_progress(f"Processing word: {word}")
+                self.sentence_repository.produce_up_to_limit(word)
+            self._update_sentence_counts()
+
+    def _generate_translations(self):
+        words_to_process = [(idx,word) for idx, word in enumerate(self.words)
+                            if self._is_idx_selected(idx)]
+        if not words_to_process: return
+        with ProgressDialog("Fetching translations...", len(words_to_process)) as progress:
+            for i, word in words_to_process:
+                text = self.table.item(i, 5).text()
+                progress.update_progress(f"Processing word: {word}")
+                if not text or ask_yes_no_question(f"Overwrite the following translation with an autogenerated translation?\n\n{text}"):
+                    self.table.item(i, 5).setText(get_meaning_from_tanoshii(word))
+
+    def _generate_definitions(self):
+        words_to_process = [(idx,word) for idx,word in enumerate(self.words)
+                            if self._is_idx_selected(idx)]
+        if not words_to_process: return
+        with ProgressDialog("Fetching definitions...", len(words_to_process)) as progress:
+            for i, word in words_to_process:
+                progress.update_progress(f"Processing word: {word}")
+                text = self.table.item(i, 6).text()
+                if not text or ask_yes_no_question(f"Overwrite the following definition with an autogenerated definition?\n\n{text}"):
+                    self.table.item(i, 6).setText(get_definition_from_weblio(word))
+
+    def _remove_unselected(self):
+        words_to_remove = []
+        idxs_to_remove = []
+        remaining_words = []
+        for idx,word in enumerate(self.words):
+            if not self._is_idx_selected(idx):
+                idxs_to_remove.append(idx)
+                words_to_remove.append(word)
+            else:
+                remaining_words.append(word)
+
+        for word in words_to_remove:
+            self.n_sentences_per_word.pop(word)
+            self.n_sentences_per_word_50.pop(word)
+            self.n_sentences_per_word_80.pop(word)
+            self.did_search_sentences.pop(word)
+
+        for idx in idxs_to_remove[::-1]:
+            self.table.removeRow(idx)
+
+        self.words = remaining_words
+        self.n_rows = len(remaining_words)
+
+    def _check_before_continuing(self):
+        if min(self.n_sentences_per_word.values()) >= self.sentences_per_word_quota\
+            or ask_yes_no_question(f"Some of the selected words have a low (<{self.sentences_per_word_quota}) amount"\
+                                + " of example sentences available for them. Proceed anyway?"):
+            self.continuing_from.emit()

@@ -98,14 +98,21 @@ def common_words_test():
              "ここ","そこ","あそこ","どこ","誰","何","なぜ","どうやって","いくら","大きい","小さい","新しい","古い","良い","悪い",
              "暑い","寒い","楽しい","悲しい","忙しい","簡単","難しい","近い","遠い","多い","少ない"]
 
-    for word in words:
-        _, sentences = sentence_repository.get_sentences(word, 100, produce_new=False)
-        print(word, len(sentences))
+    counts = sentence_repository.count_lexical_word_ocurrences(words)
+    counts_50 = sentence_repository.count_lexical_word_ocurrences(words, min_comprehensibility=0.5)
+    counts_80 = sentence_repository.count_lexical_word_ocurrences(words, min_comprehensibility=0.8)
+    for word in counts:
+        print(word, counts[word], counts_50[word], counts_80[word])
+
+
+    #for word in words:
+    #    _, sentences = sentence_repository.get_sentences(word, 100, produce_new=False)
+    #    print(word, len(sentences))
 
 # sentence_db_manager._produce_new_sentences_arbitrarily(1000000)
 
-word_test()
-# common_words_test()
+# word_test()
+common_words_test()
 
 
 """

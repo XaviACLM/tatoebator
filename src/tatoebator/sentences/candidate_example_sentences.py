@@ -1,5 +1,6 @@
 import logging
 from enum import Enum
+from functools import cached_property
 from typing import Optional, List
 
 import re
@@ -43,11 +44,9 @@ class CandidateExampleSentence:
 
     # the performance loss computing this on init would be minimal
     # but it might save us trouble from calling mecab/sudachi on jumbled up sentences
-    @property
+    @cached_property
     def lexical_words(self):
-        if self._lexical_words is None:
-            self._lexical_words = lexical_content(self.sentence)
-        return self._lexical_words
+        return self._lexical_words or lexical_content(self.sentence)
 
     def generate_translation(self):
         self.translation = translate(self.sentence)

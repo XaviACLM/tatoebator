@@ -1,4 +1,4 @@
-from typing import List, Tuple, Dict, Set
+from typing import List, Tuple, Dict, Set, Optional
 
 from ..sentences import ExampleSentence
 from ..sentences import SentenceProductionManager
@@ -51,7 +51,11 @@ class SentenceRepository:
         if amt_desired > 0:
             self._produce_new_sentences(word, amt_desired, ensure_audio=ensure_audio)
 
-    def count_lexical_word_ocurrences(self, lexical_words) -> Dict[str, int]:
+    def count_lexical_word_ocurrences(self, lexical_words: List[str],
+                                      min_comprehensibility: Optional[float] = None) -> Dict[str, int]:
+        if min_comprehensibility is not None:
+            return self.sentence_db_interface\
+                .count_keywords_by_sentence_comprehensibility(lexical_words, min_comprehensibility)
         return self.sentence_db_interface.count_keywords(lexical_words)
 
     def cleanup_orphaned_audio_files(self):

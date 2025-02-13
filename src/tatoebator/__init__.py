@@ -34,7 +34,7 @@ if running_as_anki_addon():
         mw.tatoebator.mining_to_deck_flow()
 
     def testfun2() -> None:
-        mw.tatoebator.word_table_test(["煙", "母親", "彼", "恩人", "する"])
+        mw.tatoebator.word_table_test(["煙", "母親", "ある", "彼", "恩人", "する","fakeword"])
 
     def testfun3() -> None:
         mw.tatoebator.update_known_counts()

@@ -259,6 +259,20 @@ class SentenceDbInterface:
         counts = {row[0]: row[1] for row in result}
         return {keyword: counts.get(keyword, 0) for keyword in keywords}
 
+    def count_keywords_by_sentence_comprehensibility(self, keywords, min_comprehensibility):
+        if self.session is None: self._open_session()
+        result = (
+            self.session.query(Keyword.keyword, func.count(Keyword.keyword))
+                .filter(Keyword.keyword.in_(keywords))
+                .join(SentenceKeyword, Keyword.id == SentenceKeyword.keyword_id)
+                .join(Sentence, SentenceKeyword.sentence_id == Sentence.id)
+                .filter((Sentence.n_known_words/Sentence.n_keywords)>=min_comprehensibility)
+                .group_by(Keyword.keyword)
+                .all()
+        )
+        counts = {row[0]: row[1] for row in result}
+        return {keyword: counts.get(keyword, 0) for keyword in keywords}
+
     def get_all_audio_ids(self) -> Set[str]:
         if self.session is None:
             self._open_session()

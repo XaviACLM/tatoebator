@@ -1,5 +1,6 @@
 import re
 from enum import Enum
+from typing import List, Dict
 
 from .morphological_analyzers import DefaultTokenizer, Morpheme
 
@@ -13,8 +14,11 @@ person_name_tags = {"人名"}
 proper_noun_tags = {"固有名詞"}
 latin_matcher = re.compile(r'[a-zA-Z]')
 
-hardcoded_grammar_words = {"する", "ある", "いる", "ら", "たち",
-                           "おく"}  # TODO shouldn't do this, playing god. annotate on the table gui but not before
+# this is a very gray category - e.g. "おく" could also be here but i think it's used more often in its literal sense
+# の is only classed as lexical by mecab when its used as a nominalizer. similar idea with ない
+grammaticalized_words = {"する", "ある", "いる", "やる", "の", "もの", "こと", "ない"}
+
+hardcoded_grammar_words = {"ら", "たち"}
 
 
 class WordSpeechType(Enum):
@@ -43,7 +47,7 @@ def classify_morpheme(morpheme: Morpheme):
     return WordSpeechType.LEXICAL_WORD
 
 
-def group_text_by_part_of_speech(text):
+def group_text_by_part_of_speech(text) -> Dict[WordSpeechType, List[str]]:
     morphemes = tokenizer(text)
     classified = {kind: [] for kind in WordSpeechType}
     for morpheme in morphemes:

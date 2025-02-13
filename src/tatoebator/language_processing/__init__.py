@@ -2,7 +2,7 @@
 
 from .word_classification import group_text_by_learnability, WordLearnableType
 from .online_dictionaries import get_definition_from_weblio, get_meaning_from_tanoshii
-from .lexical_analysis import lexical_content
+from .lexical_analysis import lexical_content, grammaticalized_words
 from .translator import translate
 from .unicode_ranges import UnicodeRange
 from .misc import japanese_chars_ratio
