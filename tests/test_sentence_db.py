@@ -3,13 +3,9 @@ from tatoebator.db import SentenceRepository
 
 # TODO stop propagating output from every cli ever
 
-
-# TODO make the tanoshii searcher better: there was some old concern i don't remember
-# TODO also, include too translations and definitions from "Definition and synonyms for...
-# TODO tangorin definitions are also good
 # TODO add new sentences menu (with semi automatic translations)
 
-
+# TODO tooltips on the table
 
 # TODO interface (or manager?) logic that uses known_words and trusted fields to decide what to query
 # TODO maybe aspm only inserts new sentences if MORE than one word is underrepresented in the db
@@ -28,6 +24,7 @@ from tatoebator.db import SentenceRepository
 #   particularly as relates to marking relevant fields in other notetypes in other decks
 #   which will affect some kind of AnkiDbManager
 
+# TODO make it so it doesnt crash instantly if robots requests fail. Offline mode in general
 
 
 # CC-BY 2.0 : we can do anything as long as we credit properly, indicate changes, and propagate the license

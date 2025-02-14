@@ -15,7 +15,6 @@ class Definitions:
     jp: List[str]
 
     def __add__(self, other):
-        # TODO addition
         return self.__class__(self.en + other.en, self.jp + other.jp)
 
     @property
@@ -79,7 +78,7 @@ class TanoshiiDictionary(Dictionary):
                 if word != found_word: continue
                 break  # grab the first match (immediate nonetype exception otherwise)
             else:
-                return Definitions([], [])
+                return Definitions.empty()
 
             found_url = elem.find('div', class_='entrylinks').contents[0]['href']
 
@@ -92,6 +91,8 @@ class TanoshiiDictionary(Dictionary):
             # jp_text = "".join([elem.text for elem in jp_elem.find_all('rb')])
 
             id_english_meaning_elem = decider_elem.find('div', id='idEnglishMeaning')
+            if id_english_meaning_elem is None:
+                return Definitions.empty()
             text_en = sum([ol_elem.text[1:-1].split("\n") for ol_elem in id_english_meaning_elem.find_all('ol')], [])
             text_jp = []
 
@@ -110,6 +111,10 @@ class TanoshiiDictionary(Dictionary):
                     text_en.append(en_def)
                     text_jp.append(jp_def)
 
+            # filter out empty strings
+            text_en = list(filter(lambda x: x, text_en))
+            text_jp = list(filter(lambda x: x, text_jp))
+
             return Definitions(text_en,text_jp)
         else:
             raise Exception("Tanoshiijp webpage had unexpected format")
@@ -119,7 +124,7 @@ class JishoDictionary(EnglishDictionary):
 
     base_url = "https://jisho.org/"
 
-    def _get_en_definition(self, word) -> str:
+    def _get_en_definition(self, word) -> List[str]:
         url = f"{self.base_url}/api/v1/search/words?keyword={word}"
 
         response = self.session.get(url)
@@ -134,6 +139,10 @@ class JishoDictionary(EnglishDictionary):
             senses = item['senses']
             for sense in senses:
                 definitions.append(", ".join(sense['english_definitions']))
+
+        # filter out empty strings
+        definitions = list(filter(lambda x: x, definitions))
+
         return definitions
 
 
@@ -153,6 +162,10 @@ class WeblioDictionary(Dictionary):
         # 29??
         text_jp = [elem.text[29:] for elem in table_elem.find_all('p', class_='wdntTCLJ')]
         text_en = [elem.text[29:] for elem in table_elem.find_all('p', class_='wdntTCLE')]
+
+        # filter out empty strings
+        text_en = list(filter(lambda x: x, text_en))
+        text_jp = list(filter(lambda x: x, text_jp))
         return Definitions(text_en, text_jp)
 
 

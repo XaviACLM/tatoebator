@@ -29,7 +29,7 @@ class Tatoebator:
         self.mining_conductor.start(starting_text)
 
     def word_table_test(self, words: List[str]):
-        self.table_widget = NewWordsTableWidget(words, self.sentence_repository)
+        self.table_widget = NewWordsTableWidget(words, self.sentence_repository, self.definition_fetcher)
         self.table_widget.show()
 
     def update_known_counts(self):
