@@ -4,7 +4,7 @@ from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtGui import QColor, QFontMetrics
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
-    QHeaderView, QScrollArea, QHBoxLayout, QPushButton, QLabel
+    QHeaderView, QScrollArea, QHBoxLayout, QPushButton, QStyledItemDelegate, QPlainTextEdit
 )
 
 from .process_dialog import ProgressDialog
@@ -13,9 +13,25 @@ from ..language_processing import grammaticalized_words, DefinitionFetcher, Defi
 from ..db import SentenceRepository
 
 
+# this delegate courtesy of chatGPT
+class MultiLineItemDelegate(QStyledItemDelegate):
+    def createEditor(self, parent, option, index):
+        editor = QPlainTextEdit(parent)
+        editor.setFrameShape(QPlainTextEdit.Shape.NoFrame)
+        return editor
+
+    def setEditorData(self, editor, index):
+        editor.setPlainText(index.model().data(index, Qt.ItemDataRole.DisplayRole))
+
+    def setModelData(self, editor, model, index):
+        model.setData(index, editor.toPlainText(), Qt.ItemDataRole.EditRole)
+
+
 class AutoResizeTableWidget(QTableWidget):
     def __init__(self, *args, forced_resize_columns: List[int] = None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.setItemDelegate(MultiLineItemDelegate())
+
         self.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectItems)
         self.original_row_height = self.rowHeight(0)
         self.forced_resize_columns = forced_resize_columns or []
@@ -25,8 +41,8 @@ class AutoResizeTableWidget(QTableWidget):
     def _adjust_row_height(self, row, col):
         if col in self.forced_resize_columns or self._cell_height(row, col) > self.original_row_height:
             max_height = max((self._cell_height(row, col) for col in range(self.columnCount())))
-            max_height = max(max_height, self.original_row_height)
-            self.setRowHeight(row, max_height + 10)
+            resize_target = max(max_height, self.original_row_height + 10)
+            self.setRowHeight(row, resize_target)
         else:
             self.setRowHeight(row, self.original_row_height)
 
