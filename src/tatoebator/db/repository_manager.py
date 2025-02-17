@@ -10,7 +10,7 @@ from ..db.core import SentenceDbInterface
 class SentenceRepository:
     def __init__(self):
         self.sentence_db_interface = SentenceDbInterface()
-        self.sentence_production_manager = SentenceProductionManager(generate_missing_translations=True)
+        self.sentence_production_manager = SentenceProductionManager()
         self.media_manager = MediaManager()
 
         # not really necessary since we already check w/ the db but using this should be faster than that
@@ -22,10 +22,9 @@ class SentenceRepository:
         # TODO wait, that's dumb
         # following that thread it kinda seems like this class shouldn't own the sentence production manager, instead having it passed?
         # or the sentence production manage should have some logic integrated with this to figure out where to start from its 'databanks'
-        self.arbitrary_yielder = self.sentence_production_manager.yield_new_sentences()
+        self.arbitrary_yielder = self.sentence_production_manager.yield_starter_sentences()
 
-    def get_sentences(self, word, amt_desired, produce_new=True, ensure_audio=False) -> Tuple[
-        bool, List[ExampleSentence]]:
+    def get_sentences(self, word, amt_desired, produce_new=True, ensure_audio=False) -> Tuple[bool, List[ExampleSentence]]:
         """
         gets amt_desired sentences from the database. if there are not enough sentences and produce_new is true, produces some new sentences
         returns a bool (indicating whether it managed to get the desired amount - it might not, even if produce_new=True)
@@ -88,7 +87,7 @@ class SentenceRepository:
         returns bool (indicating whether it managed to create amt_desired, False if it fell short), and created sentences
         """
         sentences = []
-        for sentence in self.sentence_production_manager.yield_new_sentences(word=word):
+        for sentence in self.sentence_production_manager.yield_starter_sentences(word=word):
 
             # avoid duplicates
             if sentence.sentence in self.seen_sentences:

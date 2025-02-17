@@ -5,3 +5,6 @@ SOURCE_TAG;SOURCE_NAME;LICENSE
 2;ManyThings.org Sentence Pairs;CC-BY 2.0 Fr
 3;Tatoeba (via API);CC-BY 2.0 Fr
 4;Tatoeba (via DB download);CC-BY 2.0 Fr
+5;ImmersionKit;Unknown
+6;Japanese-English Subtitle Corpus;CC BY-SA 4.0
+7;JParaCrawl;https://www.kecl.ntt.co.jp/icl/lirg/jparacrawl/

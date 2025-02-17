@@ -6,6 +6,8 @@ lib/*
 old tests/
 src/tatoebator/temp_files/*
 src/tatoebator/cached_files/*
+src/tatoebator/external_datasets/*
 src/tatoebator/tts2.py
+src/tatoebator/__pycache__/
 __pycache__/
 .idea/

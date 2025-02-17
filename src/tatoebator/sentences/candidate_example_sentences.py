@@ -5,8 +5,8 @@ from typing import Optional, List
 
 import re
 
-from ..language_processing import lexical_content
-from ..language_processing import translate
+from ..language_processing import lexical_content, estimate_jp_sentence_distance
+from ..language_processing import Translator
 from ..language_processing import UnicodeRange as ur
 
 
@@ -49,7 +49,9 @@ class CandidateExampleSentence:
         return self._lexical_words or lexical_content(self.sentence)
 
     def generate_translation(self):
-        self.translation = translate(self.sentence)
+        # TODO this shouldn't be here. using google translate to generate a translation is a decision,
+        #  no need to 'canonize' it by baking in a function for it much less with this name
+        self.translation = Translator.eng_to_jp(self.sentence)
 
     # these used to be cached
     # (in fact they used to be in an entirely different class that served only to hold caches on Candidates
@@ -74,7 +76,7 @@ format_tags_matcher = re.compile(
 # english_punctuation = ".,!?;:()[]{}'\"“”‘’@#$%^&*-_/+=<>|\\~–—"
 english_punctuation = r" .,!?;:()\[\]%'\"“”‘’#$%&-/~–—"
 # full width characters here - incl the first space and the numbers
-japanese_punctuation = "　。、！？・：％「」『』（）〔〕［］《》【】…‥ー〜〃／―０１２３４５６７８９"
+japanese_punctuation = "　。、！？・：％「」『』（）〔〕［］《》【】…‥ー〜〃／―０１２３４５６７８９々"
 other_full_width_chars = "０１２３４５６７８９　ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺ！＂＇：；～"
 newline_or_tab_matcher = re.compile(r"[\n\t]")
 known_characters_text_matcher = re.compile(
@@ -117,12 +119,11 @@ class ExampleSentenceQualityEvaluator:
                                                                         s.translation) is not None,
     }
 
-    def __init__(self, generate_missing_translations=True):
-        self.generate_missing_translations = generate_missing_translations
+    @classmethod
+    def evaluate_quality(cls, example_sentence: CandidateExampleSentence, word: str = None,
+                         evaluate_translation=False) -> QualityEvaluationResult:
 
-    def evaluate_quality(self, example_sentence: CandidateExampleSentence, word: str = None) -> QualityEvaluationResult:
-
-        for filter_name, filter_fun in self.pre_translation_filters.items():
+        for filter_name, filter_fun in cls.pre_translation_filters.items():
             if not filter_fun(example_sentence):
                 discarded_sentences_logger.info(f'{filter_name} :: {example_sentence.sentence}')
                 return QualityEvaluationResult.UNSUITABLE
@@ -132,14 +133,19 @@ class ExampleSentenceQualityEvaluator:
             return QualityEvaluationResult.UNSUITABLE
 
         # meant to cover translation being empty, but also might be "-" or something like that
-        has_translation = example_sentence.translation is not None and len(example_sentence.translation) > 10
-        if not (has_translation or self.generate_missing_translations):
+        has_translation = example_sentence.translation is not None and len(example_sentence.translation) > 5
+        if not has_translation:
             discarded_sentences_logger.info(
                 f'Translation must be present :: {example_sentence.sentence} / {example_sentence.translation}'
             )
             return QualityEvaluationResult.UNSUITABLE
+        elif evaluate_translation:
+            if estimate_jp_sentence_distance(example_sentence.sentence, Translator.eng_to_jp(example_sentence.translation)) >= 0.15:
+                discarded_sentences_logger.info(
+                    f'Sentence must reasonably match machine translation of translation :: {example_sentence.sentence} / {example_sentence.translation}'
+                )
 
-        for filter_name, filter_fun in self.post_translation_filters.items():
+        for filter_name, filter_fun in cls.post_translation_filters.items():
             if not filter_fun(example_sentence):
                 discarded_sentences_logger.info(
                     f'{filter_name} :: {example_sentence.sentence} / {example_sentence.translation}')
@@ -148,7 +154,7 @@ class ExampleSentenceQualityEvaluator:
         # we now know the sentence is good enough. now to see if it goes through the extra checks to be called good
 
         if not has_translation: return QualityEvaluationResult.SUITABLE
-        for filter_name, filter_fun in self.extra_quality_filters.items():
+        for filter_name, filter_fun in cls.extra_quality_filters.items():
             if not filter_fun(example_sentence):
                 return QualityEvaluationResult.SUITABLE
 

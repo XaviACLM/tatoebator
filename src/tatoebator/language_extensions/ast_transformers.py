@@ -6,7 +6,7 @@ import tokenize
 from importlib.abc import Loader, MetaPathFinder
 from importlib.util import spec_from_file_location
 
-from ..constants import SRC_DIR
+from ..constants import PACKAGE_DIR
 
 
 class UnlessMetaFinder(MetaPathFinder):
@@ -14,7 +14,7 @@ class UnlessMetaFinder(MetaPathFinder):
         if path is None or path == "": return None
         if len(path) == 0: return None
         if len(path) > 1: print(path, fullname); assert False
-        if os.path.commonpath((SRC_DIR, path[0])) != SRC_DIR:
+        if os.path.commonpath((PACKAGE_DIR, path[0])) != PACKAGE_DIR:
             return None
         *parents, name = fullname.split(".")
         for entry in path:

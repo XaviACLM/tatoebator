@@ -3,6 +3,7 @@ import sys
 from hashlib import sha256
 import ctypes
 import ctypes.wintypes as wt
+import re
 
 
 def deterministic_hash(string: str) -> str:
@@ -22,7 +23,7 @@ def ensure_aqt():
     sys.modules['aqt'] = mock_aqt
 
 
-# from Mark Tolonen @ https://stackoverflow.com/questions/46132401/read-text-from-clipboard-in-windows-using-ctypes
+# from Mark Tolonen, https://stackoverflow.com/questions/46132401/read-text-from-clipboard-in-windows-using-ctypes
 # TODO will only work on windows. We should probably do an if block and if not on win skip this whole thing incl imports
 class ClipboardGetter:
     CF_UNICODETEXT = 13

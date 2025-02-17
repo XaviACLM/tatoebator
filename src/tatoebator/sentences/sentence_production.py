@@ -1,24 +1,25 @@
 import csv
 import itertools
-import logging
 import os
 import re
 import subprocess
-import time
 import zipfile
-from typing import Optional, Iterator
+from typing import Optional, Iterator, List, Dict, Callable
 from urllib import parse as parse_url
 
 import requests
+from titlecase import titlecase
 
 from ..config import SEVENZIP_EXE
-from ..constants import CACHE_DIR, TEMP_FILES_DIR, PATH_TO_SOURCES_FILE, USER_AGENT
+from ..constants import CACHE_DIR, TEMP_FILES_DIR, PATH_TO_SOURCES_FILE, USER_AGENT, EXTERNAL_DATASETS_DIR
 from .candidate_example_sentences import ExampleSentenceQualityEvaluator, QualityEvaluationResult
 from .example_sentences import CandidateExampleSentence, ExampleSentence
+from ..language_processing import approximate_jp_root_form
 from ..robots import RobotsAwareSession
 
 
 def get_source_tag(source_name: str, license: str):
+    if ";" in source_name: raise Exception(f"Names passed to get_source_tag cannot contain ';' ({source_name})")
     if not os.path.exists(PATH_TO_SOURCES_FILE):
         with open(PATH_TO_SOURCES_FILE, 'w', encoding='utf-8') as sources_file:
             sources_file.write(
@@ -60,16 +61,12 @@ class SentenceProductionMethod(TaggedSource):
 
 
 class ArbitrarySentenceProductionMethod(TaggedSource):
-    def yield_sentences(self) -> Iterator[CandidateExampleSentence]:
+
+    last_seen_index = 0
+    translations_reliable = False
+
+    def yield_sentences(self, start_at: int = 0) -> Iterator[CandidateExampleSentence]:
         raise NotImplementedError()
-
-
-requests_session = requests.Session()
-requests_session.headers.update({
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
-})
-
-
 
 
 class TatoebaSPM(SentenceProductionMethod):
@@ -80,7 +77,6 @@ class TatoebaSPM(SentenceProductionMethod):
     get_sentence_url = "https://api.tatoeba.org/unstable/sentences"
     default_params = "lang=jpn&trans%3Alang=eng&sort=created"
     stringent_params = "&is_orphan=no&is_unapproved=no&trans%3Ais_direct=yes&trans%3Ais_unapproved=no&trans%3Ais_orphan=no"
-    lax_params = "&q=買&limit=10"
     block_size = 30
 
     def __init__(self, stringent=True):
@@ -130,9 +126,40 @@ class TatoebaSPM(SentenceProductionMethod):
                 raise e
 
 
+class ImmersionKitSPM(SentenceProductionMethod):
+
+    # just investigating tl quality. DON'T use this in production, we haven't asked for permission
+
+    source_name = 'ImmersionKit'
+    license = 'Unknown'
+    translations_reliable = False
+
+    base_url = "https://apiv2.immersionkit.com"
+    get_sentence_url = "https://apiv2.immersionkit.com/search?"
+    default_params = "index=&exactMatch=false&limit=0&sort=sentence_length%3Aasc"
+
+    def __init__(self):
+        super().__init__()
+        self.query_string = f"{self.get_sentence_url}?{self.default_params}"
+        self.session = RobotsAwareSession(self.base_url, USER_AGENT)
+
+    def yield_sentences(self, word):
+        url = f"{self.query_string}&q={word}"
+        print(url)
+        response = self.session.get(url)
+        response_json = response.json()
+        data = response_json['examples']
+        for example in data:
+            jp_text = example['sentence']
+            en_text = example['translation']
+            credit = f"{titlecase(example['title'])} (ImmersionKit)"
+            yield CandidateExampleSentence(jp_text, en_text, credit=credit)
+
+
 class TatoebaASPM(ArbitrarySentenceProductionMethod):
     source_name = 'Tatoeba (via DB download)'
     license = "CC-BY 2.0 Fr"
+    translations_reliable = True
 
     def __init__(self):
         super().__init__()
@@ -277,27 +304,6 @@ class TatoebaASPM(ArbitrarySentenceProductionMethod):
                     lan_idx = int(first_number_matcher.match(lan_line).group(1))
         os.remove(temp_filepath)
 
-    """
-    # somehow slower than the alternative
-    def _create_dataframe(self):
-        en_df = pd.read_csv(self.en_filepath, sep='\t', names=['en_idx', 'en_text', 'en_owner'])
-        pair_df = pd.read_csv(self.pairs_filepath, sep='\t', names=['en_idx', 'jp_idx'])
-        jp_df = pd.read_csv(self.jp_filepath, sep='\t', names=['jp_idx', 'jp_text', 'jp_owner'])
-
-        pair_df.drop_duplicates(subset='jp_idx', inplace=True)
-
-        merged = jp_df.merge(pair_df, on='jp_idx', how='inner').merge(en_df, on='en_idx', how='inner')
-        merged.drop(columns=['jp_idx', 'en_idx'], inplace=True)
-        merged['en_owner'].replace(to_replace="\\N", value="unknown", inplace=True)
-        merged['jp_owner'].replace(to_replace="\\N", value="unknown", inplace=True)
-        return merged
-
-    def yield_sentences(self):
-        df = self._create_dataframe()
-        for jp_text, jp_owner, en_text, en_owner in df.itertuples(index=False, name=None):
-            yield CandidateExampleSentence(jp_text, en_text, credit=f"{jp_owner}, {en_owner} (Tatoeba)")
-    """
-
     def _read_lan_file(self, language_tag: str):
         if language_tag not in ['jp','en']: raise Exception("Incorrect language tag in TatoebaASPM._read_lan_file")
         data = {}
@@ -308,13 +314,15 @@ class TatoebaASPM(ArbitrarySentenceProductionMethod):
                 data[idx] = (text, owner if owner != "\\N" else "unknown")
         return data
 
-    def _create_dataframe(self):
+    def _create_dataframe(self, start_at: int = 0):
+        # this used to be written in pandas and yet somehow it was slower
         en_data = self._read_lan_file('en')
         jp_data = self._read_lan_file('jp')
 
         merged_data = []
         seen_jp_idx = set()  # To drop duplicates
         with open(self.pairs_filepath, encoding='utf-8') as f:
+            for _ in range(start_at): next(f)
             reader = csv.reader(f, delimiter='\t')
             for en_idx, jp_idx in reader:
                 if jp_idx in seen_jp_idx: continue
@@ -326,15 +334,18 @@ class TatoebaASPM(ArbitrarySentenceProductionMethod):
 
         return merged_data
 
-    def yield_sentences(self):
-        df = self._create_dataframe()
+    def yield_sentences(self, start_at: int = 0) -> Iterator[CandidateExampleSentence]:
+        df = self._create_dataframe(start_at=start_at)
+        self.last_seen_index = start_at
         for jp_text, jp_owner, en_text, en_owner in df:
             yield CandidateExampleSentence(jp_text, en_text, credit=f"{jp_owner}, {en_owner} (Tatoeba)")
+            self.last_seen_index += 1
 
 
 class SentenceSearchNeocitiesASPM(ArbitrarySentenceProductionMethod):
     source_name = "sentencesearch.neocities.org"
     license = "Unknown"
+    translations_reliable = False
 
     def __init__(self):
         super().__init__()
@@ -349,13 +360,16 @@ class SentenceSearchNeocitiesASPM(ArbitrarySentenceProductionMethod):
         with open(self.filepath, 'wb') as file:
             file.write(response.content)
 
-    def yield_sentences(self):
+    def yield_sentences(self, start_at: int = 0) -> Iterator[CandidateExampleSentence]:
         # sometimes a space precedes the newline (?)
-        jap_pattern = re.compile(r'^    "jap":\s"(.*?)", ?$')
-        eng_pattern = re.compile(r'^    "eng":\s"(.*?)"$')
+        jap_pattern = re.compile(r'^ {4}"jap":\s"(.*?)", ?$')
+        eng_pattern = re.compile(r'^ {4}"eng":\s"(.*?)"$')
         with open(self.filepath, 'r', encoding='utf-8') as file:
-            results = []  # Store results as tuples (jap, eng)
-            line_number = 0
+
+            line_number = 6*start_at
+            for _ in range(start_at):
+                if next(file)=="\n": line_number -=1 #don't count empty lines
+
             for line in file:
                 # some empty lines?
                 if line == "\n": continue
@@ -369,11 +383,13 @@ class SentenceSearchNeocitiesASPM(ArbitrarySentenceProductionMethod):
                     # some are empty
                     if jap_text == "": continue
                     yield CandidateExampleSentence(jap_text, translation=eng_text)
+                    self.last_seen_index = line_number//6
 
 
 class ManyThingsTatoebaASPM(ArbitrarySentenceProductionMethod):
     source_name = "ManyThings.org Sentence Pairs"
     license = "CC-BY 2.0 Fr"
+    translations_reliable = True
 
     def __init__(self):
         super().__init__()
@@ -385,7 +401,7 @@ class ManyThingsTatoebaASPM(ArbitrarySentenceProductionMethod):
         zip_filepath = os.path.join(TEMP_FILES_DIR, 'jpn-eng.zip')
         if not os.path.exists(zip_filepath):
             url = 'https://www.manythings.org/anki/jpn-eng.zip'
-            response = requests_session.get(url)
+            response = requests.get(url)
             with open(zip_filepath, 'wb') as file:
                 file.write(response.content)
         with zipfile.ZipFile(zip_filepath, 'r') as zip_ref:
@@ -393,56 +409,139 @@ class ManyThingsTatoebaASPM(ArbitrarySentenceProductionMethod):
                 dest.write(orig.read())
         os.remove(zip_filepath)
 
-    def yield_sentences(self):
+    def yield_sentences(self, start_at: int = 0) -> Iterator[CandidateExampleSentence]:
         line_matcher = re.compile(r'([^\t]+)\t([^\t]+)\t([^\t]+)')
         license_matcher = re.compile(r'CC-BY 2\.0 \(France\) Attribution: tatoeba\.org #\d+ \((.+)\) & #\d+ \((.+)\)\n')
         with open(self.filepath, 'r', encoding='utf-8') as file:
+            for _ in range(start_at): next(file)
+            self.last_seen_index = start_at
             for line in file:
                 line_match = line_matcher.match(line)
                 eng_text, jap_text, license = line_match.groups()
                 en_owner, jp_owner = license_matcher.match(license).groups()
                 yield CandidateExampleSentence(jap_text, eng_text, credit=f"{jp_owner}, {en_owner} (Tatoeba)")
+                self.last_seen_index += 1
 
 
-skipped_spms_logger = logging.getLogger("tatoebator.skipped_spms")
-skipped_spms_logger.setLevel(logging.INFO)
-# mode 'w' because i expect this to be rerun a lot on the same sentences during testing - might change later
-skipped_spms_logger.addHandler(logging.FileHandler("skipped_spms.log", mode='w', encoding='utf-8'))
+class JParaCrawlASPM(ArbitrarySentenceProductionMethod):
+    source_name = "JParaCrawl"
+    license = "https://www.kecl.ntt.co.jp/icl/lirg/jparacrawl/"
+    translations_reliable = False
+
+    def __init__(self):
+        super().__init__()
+        # 10GB, so manual download required
+        # find the compressed files at https://www.kecl.ntt.co.jp/icl/lirg/jparacrawl/
+        self.filepath = os.path.join(EXTERNAL_DATASETS_DIR, 'en-ja.bicleaner05.txt')
+
+    def yield_sentences(self, start_at: int = 0) -> Iterator[CandidateExampleSentence]:
+        line_matcher = re.compile(r"([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\n")
+        self.last_seen_index = start_at
+        with open(self.filepath, 'r', encoding='utf-8') as file:
+            for _ in range(start_at): next(file)
+            for i,line in enumerate(file):
+                source_1, source_2, score, en_text, jp_text = line_matcher.fullmatch(line).groups()
+                # TODO score seems to indicate how good the translation is, actually!
+                # TODO picking source 2 for no reason is dubious
+                yield CandidateExampleSentence(jp_text, en_text, credit=f"{source_2} (JParaCrawl)")
+                self.last_seen_index += 1
+
+
+class JapaneseEnglishSubtitleCorpusASPM(ArbitrarySentenceProductionMethod):
+    source_name = "Japanese-English Subtitle Corpus"
+    license = "CC BY-SA 4.0"
+    translations_reliable = False
+
+    def __init__(self):
+        super().__init__()
+        # manual download required
+        # find the compressed files at https://www.kecl.ntt.co.jp/icl/lirg/jparacrawl/
+        self.filepath = os.path.join(EXTERNAL_DATASETS_DIR, 'parallel_subtitles')
+
+    def yield_sentences(self, start_at: int = 0) -> Iterator[CandidateExampleSentence]:
+        line_matcher = re.compile(r"([^\t]+)\t([^\t]+)\n")
+        self.last_seen_index = start_at
+        with open(self.filepath, 'r', encoding='utf-8') as file:
+            for _ in range(start_at): next(file)
+            for i,line in enumerate(file):
+                en_text, jp_text = line_matcher.fullmatch(line).groups()
+                yield CandidateExampleSentence(jp_text, en_text, credit=f"Japanese-English Subtitle Corpus")
+                self.last_seen_index += 1
 
 
 class SentenceProductionManager:
-    spms = [TatoebaSPM(stringent=False)]
 
-    aspms = [
-        # SentenceSearchNeocitiesASPM(), # dubious sourcing
+    # regarding the abscence of...
+    # SentenceSearchNeocitiesASPM : dubious sourcing
+    # TatoebaSPM :  fixing every new bug that crops up is a hassle, moreover easier to not have to include spms in model
+    # ImmersionKitSPM : haven't asked permission + same as above + a lot of it does not make it past quality control
+
+    aspms_for_ingesting = [
         ManyThingsTatoebaASPM(),
-        # TatoebaASPM(), # best to only ingest the more quality controlled ManyThings - we can still query the spm
+
     ]
 
-    def __init__(self, generate_missing_translations=True):
-        self.quality_control = ExampleSentenceQualityEvaluator(
-            generate_missing_translations=generate_missing_translations)
+    aspms_for_searching = [
+        TatoebaASPM(),
+        JapaneseEnglishSubtitleCorpusASPM(),
+        JParaCrawlASPM(),
+    ]
 
-    def yield_new_sentences(self, word=None):
-        """
-        if word is not None
-            uses sentence production methods to produce CandidateExampleSentences containing word
-            pushes them through quality control, turns them into ExampleSentences
-            yields that arbitrarily or until it runs out
-        if word is none
-            same thing but using arbitrary sentence production methods
-        """
-        tagged_yielders = [(spm.source_tag, spm.yield_sentences(word)) for spm in self.spms] if word is not None \
-            else [(aspm.source_tag, aspm.yield_sentences()) for aspm in self.aspms]
+    def __init__(self):
+        self.quality_control = ExampleSentenceQualityEvaluator()
 
-        for tag, yielder in tagged_yielders:
-            n_bad = 0
-            for n_total,s in enumerate(yielder):
-                evaluation = self.quality_control.evaluate_quality(s, word=word)
-                if evaluation is QualityEvaluationResult.UNSUITABLE:
-                    n_bad += 1
-                    if n_bad > 0.8*n_total+20+1:
-                        skipped_spms_logger.info(f"{yielder.__name__} deactivated on word {word} - {n_bad}/{n_total+1} unsuitable sentences")
-                        break
-                    continue
-                yield ExampleSentence.from_candidate(s, tag, evaluation is QualityEvaluationResult.GOOD)
+    def yield_starter_sentences(self, desired_amt: int,
+                                filtering_fun: Callable[[CandidateExampleSentence], bool] = lambda s: True)\
+            -> Iterator[ExampleSentence]:
+        """
+        intended to fill the database for the first time with a decent corpus covering most basic/intermediate vocab
+        :param desired_amt: how many sentences to ingest from the 'basic sentences' corpora (ManyThingsTatoeba)
+        :param filtering_fun: meant to be a callback fun that checks whether a sentence is in the db
+        """
+        if desired_amt <= 0: return
+
+        for aspm in self.aspms_for_ingesting:
+            for sentence in aspm.yield_sentences():
+                evaluation = self.quality_control.evaluate_quality(sentence,
+                                                                   evaluate_translation=not aspm.translations_reliable)
+                if evaluation is QualityEvaluationResult.UNSUITABLE or not filtering_fun(sentence): continue
+                yield ExampleSentence.from_candidate(sentence, aspm.source_tag, evaluation is QualityEvaluationResult.GOOD)
+                desired_amt -= 1
+                if desired_amt <= 0:
+                    return
+
+    def yield_new_sentences_with_word(self, word: str, desired_amt: int,
+                                      filtering_fun: Callable[[CandidateExampleSentence], bool] = lambda s: True)\
+            -> Iterator[ExampleSentence]:
+
+        yield from self.yield_new_sentences_with_words([word], {word:desired_amt}, filtering_fun)
+
+    def yield_new_sentences_with_words(self, words: List[str], desired_amts: Dict[str, int],
+                                       filtering_fun: Callable[[CandidateExampleSentence], bool] = lambda s: True)\
+            -> Iterator[ExampleSentence]:
+
+        if max(desired_amts.values()) <= 0: return
+
+        roots = {approximate_jp_root_form(word): word for word in words}
+        for aspm in self.aspms_for_searching:
+            evaluate_translations = False if aspm.translations_reliable else True
+            for sentence in aspm.yield_sentences():
+
+                # skip sentence if it doesn't contain root of any word we're searching
+                found_root = next(filter(lambda root: root in sentence.sentence, roots), None)
+                if found_root is None: continue
+
+                # evaluate quality, check contains word lexically
+                # +check filtering fun (most likely = check it's not in db)
+                found_word = roots[found_root]
+                evaluation = self.quality_control.evaluate_quality(sentence, evaluate_translation=evaluate_translations)
+                if evaluation is QualityEvaluationResult.UNSUITABLE or not filtering_fun(sentence): continue
+
+                yield ExampleSentence.from_candidate(sentence, aspm.source_tag, evaluation is QualityEvaluationResult.GOOD)
+
+                # update search progress, break if finished
+                desired_amts[found_word] -= 1
+                if desired_amts[found_word] == 0:
+                    desired_amts.pop(found_word)
+                if len(desired_amts) == 0:
+                    return
