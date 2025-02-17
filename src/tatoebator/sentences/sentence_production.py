@@ -6,7 +6,7 @@ import subprocess
 import zipfile
 from difflib import SequenceMatcher
 from functools import lru_cache
-from typing import Optional, Iterator, List, Dict, Callable
+from typing import Optional, Iterator, List, Dict, Callable, Tuple
 from urllib import parse as parse_url
 
 import requests
@@ -437,25 +437,18 @@ class JParaCrawlASPM(ArbitrarySentenceProductionMethod):
         self.filepath = os.path.join(EXTERNAL_DATASETS_DIR, 'en-ja.bicleaner05.txt')
 
     def yield_sentences(self, start_at: int = 0) -> Iterator[CandidateExampleSentence]:
-
-        common_exes = set()
-
         line_matcher = re.compile(r"([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\n")
         self.last_seen_index = start_at
         with open(self.filepath, 'r', encoding='utf-8') as file:
             for _ in range(start_at): next(file)
             for i,line in enumerate(file):
                 source_1, source_2, score, en_text, jp_text = line_matcher.fullmatch(line).groups()
-                # TODO score seems to indicate how good the translation is, actually!
-
-
                 common_source = self._common_source(source_1, source_2)
                 credit = f"{common_source} (JParaCrawl)" if len(common_source) > 8 else "JParaCrawl"
                 # TODO this can lead to really long credits (>60 chars) - we'll need to ensure the HTML can resize
 
                 yield CandidateExampleSentence(jp_text, en_text, credit=credit)
                 self.last_seen_index += 1
-
 
     @classmethod
     @lru_cache
@@ -568,5 +561,6 @@ class SentenceProductionManager:
                 desired_amts[found_word] -= 1
                 if desired_amts[found_word] == 0:
                     desired_amts.pop(found_word)
+                    roots.pop(found_root)
                 if len(desired_amts) == 0:
                     return
