@@ -2,8 +2,6 @@ import os
 import sys
 from hashlib import sha256
 
-import re
-
 
 def deterministic_hash(string: str) -> str:
     m = sha256()
