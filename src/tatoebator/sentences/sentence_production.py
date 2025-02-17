@@ -441,7 +441,7 @@ class JParaCrawlASPM(ArbitrarySentenceProductionMethod):
         self.last_seen_index = start_at
         with open(self.filepath, 'r', encoding='utf-8') as file:
             for _ in range(start_at): next(file)
-            for i,line in enumerate(file):
+            for line in file:
                 source_1, source_2, score, en_text, jp_text = line_matcher.fullmatch(line).groups()
                 common_source = self._common_source(source_1, source_2)
                 credit = f"{common_source} (JParaCrawl)" if len(common_source) > 8 else "JParaCrawl"
@@ -539,14 +539,28 @@ class SentenceProductionManager:
                                        filtering_fun: Callable[[CandidateExampleSentence], bool] = lambda s: True)\
             -> Iterator[Tuple[str, ExampleSentence]]:
 
-        print("ynsww called w",word_desired_amts)
-
         if max(word_desired_amts.values()) <= 0: return
+
+        from aqt.utils import showInfo
+        showInfo("ynsww called w" + " ".join(word_desired_amts.keys()))
+        c=0
+        import time
+        now = time.time()
+        seen = dict()
 
         roots = {approximate_jp_root_form(word): word for word in word_desired_amts}
         for aspm in self.aspms_for_searching:
             evaluate_translations = False if aspm.translations_reliable else True
             for sentence in aspm.yield_sentences():
+
+                c+=1
+                if c%1000==0:
+                    t = seen.get(aspm.source_name,0)
+                    if t<5:
+                        seen[aspm.source_name] = t+1
+                        diff = time.time()-now
+                        showInfo(str(c)+aspm.source_name+" "+str(diff))
+                    now = time.time()
 
                 # skip sentence if it doesn't contain root of any word we're searching
                 found_root = next(filter(lambda root: root in sentence.sentence, roots), None)
@@ -554,9 +568,12 @@ class SentenceProductionManager:
 
                 # evaluate quality, check contains word lexically
                 # +check filtering fun (most likely = check it's not in db)
+                if not filtering_fun(sentence): continue
                 found_word = roots[found_root]
-                evaluation = self.quality_control.evaluate_quality(sentence, evaluate_translation=evaluate_translations)
-                if evaluation is QualityEvaluationResult.UNSUITABLE or not filtering_fun(sentence): continue
+                evaluation = self.quality_control.evaluate_quality(sentence)
+                if evaluation is QualityEvaluationResult.UNSUITABLE: continue
+                translation_evaluation = self.quality_control.evaluate_translation_quality(sentence)
+                if translation_evaluation is QualityEvaluationResult.UNSUITABLE: continue
 
                 yield found_word, ExampleSentence.from_candidate(sentence, aspm.source_tag, evaluation is QualityEvaluationResult.GOOD)
 

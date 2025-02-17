@@ -1,7 +1,8 @@
 import regex as re
 import time
 from tatoebator.sentences import SentenceProductionManager, ExampleSentence
-from tatoebator.sentences.sentence_production import TatoebaASPM, TatoebaSPM, JParaCrawlASPM
+from tatoebator.sentences.sentence_production import TatoebaASPM, TatoebaSPM, JParaCrawlASPM, \
+    JapaneseEnglishSubtitleCorpusASPM
 
 kana_matcher = re.compile(r"([\p{IsHira}\p{IsKatakana}ー–—]+)", re.UNICODE)
 kanji_matcher = re.compile(r"([\p{IsHan}]+)", re.UNICODE)
@@ -11,11 +12,12 @@ general_chars = r"\d"
 jap_text_matcher = re.compile(r"([" + japanese_chars + general_chars + "]+)", re.UNICODE)
 
 
-aspm = JParaCrawlASPM()
-pairs = aspm.get_distance_vs_score_scatterplot(1000)
-from matplotlib import pyplot as plt
-plt.scatter(*zip(*pairs))
-plt.show()
+aspm = JapaneseEnglishSubtitleCorpusASPM()
+c = 0
+for sentence in aspm.yield_sentences():
+    c+=1
+    if c%1000==0:
+        print(c)
 print(jjsj)
 
 spm = SentenceProductionManager()

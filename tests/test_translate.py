@@ -1,3 +1,5 @@
+import time
+
 from tatoebator.language_processing.translator import Translator
 
 text = """散々な思い出は悲しみを穿つほど
@@ -13,9 +15,14 @@ text = """散々な思い出は悲しみを穿つほど
 そう 怒りよ今 悪党蹴り飛ばして
 そりゃあ愛への罰だ
 もう眠くはないな ないなないな
-もう寂しくないさ ないさ"""
+もう寂しくないさ ないさ
+"""*100
 #print(tokenizer(text))
+now = time.time()
 for line in text.splitlines():
+    then = now
     print(line)
     print(Translator.jp_to_eng(line))
+    now = time.time()
+    print(now-then)
     print("")
