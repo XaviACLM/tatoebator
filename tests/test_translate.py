@@ -1,4 +1,4 @@
-from tatoebator.language_processing.translator import translate
+from tatoebator.language_processing.translator import Translator
 
 text = """散々な思い出は悲しみを穿つほど
 やるせない恨みはアイツのために
@@ -17,5 +17,5 @@ text = """散々な思い出は悲しみを穿つほど
 #print(tokenizer(text))
 for line in text.splitlines():
     print(line)
-    print(translate(line))
+    print(Translator.jp_to_eng(line))
     print("")
