@@ -14,10 +14,10 @@ jap_text_matcher = re.compile(r"([" + japanese_chars + general_chars + "]+)", re
 spm = SentenceProductionManager()
 spm.aspms = [JParaCrawlASPM()]
 for sentence in spm.yield_new_sentences_with_word("熱い", 20):
-    print(sentence.sentence, sentence.translation)
+    print(sentence.sentence, sentence.translation, sentence.credit)
     pass#print("")
 for sentence in spm.yield_new_sentences_with_word("やるせない", 10):
-    print(sentence.sentence, sentence.translation)
+    print(sentence.sentence, sentence.translation, sentence.credit)
     pass#print("")
 print(jjsj)
 

@@ -50,7 +50,7 @@ def distance_sentences(jp_text_1, jp_text_2):
 
 
 
-evaluator = ExampleSentenceQualityEvaluator(generate_missing_translations=False)
+evaluator = ExampleSentenceQualityEvaluator()
 def manythings_1000samples(skip=50):
     # sentences = JapaneseEnglishSubtitleCorpusASPM().yield_sentences()
 
