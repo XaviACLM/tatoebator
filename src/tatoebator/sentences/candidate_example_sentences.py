@@ -144,6 +144,7 @@ class ExampleSentenceQualityEvaluator:
                 discarded_sentences_logger.info(
                     f'Sentence must reasonably match machine translation of translation :: {example_sentence.sentence} / {example_sentence.translation}'
                 )
+                return QualityEvaluationResult.UNSUITABLE
 
         for filter_name, filter_fun in cls.post_translation_filters.items():
             if not filter_fun(example_sentence):

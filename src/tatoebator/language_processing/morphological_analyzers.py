@@ -3,6 +3,8 @@ import subprocess
 from dataclasses import dataclass
 from typing import List, Set
 
+from ..util import running_as_anki_addon
+
 
 @dataclass
 class Morpheme:
@@ -19,10 +21,6 @@ class Tokenizer:
 
 forced_utf8_env = os.environ.copy()
 forced_utf8_env["PYTHONUTF8"] = "1"
-
-
-# TODO remove this when testing is done
-def running_as_anki_addon(): return True
 
 
 if running_as_anki_addon():

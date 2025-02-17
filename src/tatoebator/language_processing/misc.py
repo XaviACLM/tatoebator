@@ -44,7 +44,7 @@ class JpSentenceSimilarityEstimate:
         kanji_1 = self.kanji_matcher.findall(jp_text_1)
         kanji_2 = self.kanji_matcher.findall(jp_text_2)
         if not (kanji_1 and kanji_2):
-            return 1  # will catch a lot of good sentences but cannot be helped
+            return 1  # will catch a lot of good sentences but cannot be helpedç
         return self.distance_many_to_many(kanji_1, kanji_2) / max(10, len(kanji_1) + len(kanji_2))
 
 

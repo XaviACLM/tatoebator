@@ -471,7 +471,12 @@ class JapaneseEnglishSubtitleCorpusASPM(ArbitrarySentenceProductionMethod):
 
 class SentenceProductionManager:
 
-    # regarding the abscence of...
+    # TODO in the future we might want to consider giving this an option to also return machine-translated tatoebas
+    #  this should only be used when the client (in the app) explicitly asks for it
+    #  e.g. a "generate sentences" button, and if clicking it doesn't generate enough sentences,
+    #  then a "generate machine-translated sentences" button
+
+    # regarding the absence of...
     # SentenceSearchNeocitiesASPM : dubious sourcing
     # TatoebaSPM :  fixing every new bug that crops up is a hassle, moreover easier to not have to include spms in model
     # ImmersionKitSPM : haven't asked permission + same as above + a lot of it does not make it past quality control
@@ -501,9 +506,9 @@ class SentenceProductionManager:
         if desired_amt <= 0: return
 
         for aspm in self.aspms_for_ingesting:
+            evaluate_translations = False if aspm.translations_reliable else True
             for sentence in aspm.yield_sentences():
-                evaluation = self.quality_control.evaluate_quality(sentence,
-                                                                   evaluate_translation=not aspm.translations_reliable)
+                evaluation = self.quality_control.evaluate_quality(sentence, evaluate_translation=evaluate_translations)
                 if evaluation is QualityEvaluationResult.UNSUITABLE or not filtering_fun(sentence): continue
                 yield ExampleSentence.from_candidate(sentence, aspm.source_tag, evaluation is QualityEvaluationResult.GOOD)
                 desired_amt -= 1
