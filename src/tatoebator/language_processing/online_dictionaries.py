@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from functools import cached_property
 from typing import List
 import re
 
@@ -30,8 +31,9 @@ class Dictionary:
 
     base_url = None
 
-    def __init__(self):
-        self.session = RobotsAwareSession(self.base_url, USER_AGENT)
+    @cached_property
+    def session(self):
+        return RobotsAwareSession(self.base_url, USER_AGENT)
 
     def get_definitions(self, word: str) -> Definitions:
         raise NotImplementedError()

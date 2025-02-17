@@ -13,47 +13,42 @@ class SentenceRepository:
         self.sentence_production_manager = SentenceProductionManager()
         self.media_manager = MediaManager()
 
-        # not really necessary since we already check w/ the db but using this should be faster than that
-        # (or not? sql is supposed to be fast ... but i really doubt this can hurt)
-        # note that this will (unlike the db) reset each execution
-        self.seen_sentences = set()
-
-        # same idea, also resets for each execution
-        # TODO wait, that's dumb
-        # following that thread it kinda seems like this class shouldn't own the sentence production manager, instead having it passed?
-        # or the sentence production manage should have some logic integrated with this to figure out where to start from its 'databanks'
-        self.arbitrary_yielder = self.sentence_production_manager.yield_starter_sentences()
-
-    def get_sentences(self, word, amt_desired, produce_new=True, ensure_audio=False) -> Tuple[bool, List[ExampleSentence]]:
+    def produce_sentences_for_word(self, word: str, desired_amt: int,
+                                   produce_new=True, ensure_audio=False) -> List[ExampleSentence]:
         """
         gets amt_desired sentences from the database. if there are not enough sentences and produce_new is true, produces some new sentences
         returns a bool (indicating whether it managed to get the desired amount - it might not, even if produce_new=True)
                 and the sentences.
         """
-        sentences = self.sentence_db_interface.get_sentences_by_word(word, max_desired_amt=amt_desired)
-        sentences = sentences[:amt_desired]
+        sentences = self.sentence_db_interface.get_sentences_by_word(word, desired_amt=desired_amt)
         if ensure_audio: self._ensure_audio(sentences)
-        if len(sentences) == amt_desired:
-            return True, sentences
-        if not produce_new:
-            return False, sentences
-        reached_desired_amt, produced_sentences = self._produce_new_sentences(word, amt_desired - len(sentences),
-                                                                              ensure_audio=ensure_audio)
-        return reached_desired_amt, sentences + produced_sentences
+        if len(sentences) == desired_amt or not produce_new:
+            return sentences
+        reached_desired_amt, produced_sentences = self._produce_new_sentences_for_word(word,
+                                                                                       desired_amt - len(sentences),
+                                                                                       ensure_audio=ensure_audio)
+        return sentences + produced_sentences
 
-    def produce_up_to_limit(self, word, max_desired_amt=SENTENCES_PER_CARD, ensure_audio=False) -> None:
-        # essentially the same as calling get_sentences and then discarding the return
-        # but i don't know, that would feel  like bad design somehow
-        sentences = self.sentence_db_interface.get_sentences_by_word(word, max_desired_amt=max_desired_amt)
-        if ensure_audio: self._ensure_audio(sentences)
-        amt_desired = max_desired_amt - len(sentences)
-        if amt_desired > 0:
-            self._produce_new_sentences(word, amt_desired, ensure_audio=ensure_audio)
+    def produce_sentences_for_words(self, word_desired_amts: Dict[str, int],
+                                   produce_new=True, ensure_audio=False) -> Dict[str, List[ExampleSentence]]:
+        words = list(word_desired_amts.keys())
+        sentences = self.sentence_db_interface.get_sentences_by_word_batched(word_desired_amts)
+        if ensure_audio: self._ensure_audio(sum(sentences.values(),[]))
+
+        missing_sentences_by_word = {word: word_desired_amts[word]-len(sentences[word]) for word in words}
+        produced_all_desired = max(missing_sentences_by_word.values()) <= 0
+        if not produce_new or produced_all_desired:
+            return sentences
+
+        new_sentences = self._produce_new_sentences_for_words(missing_sentences_by_word, ensure_audio=ensure_audio)
+        aggregated_sentences = {word: sentences[word]+new_sentences[word] for word in words}
+
+        return aggregated_sentences
 
     def count_lexical_word_ocurrences(self, lexical_words: List[str],
                                       min_comprehensibility: Optional[float] = None) -> Dict[str, int]:
         if min_comprehensibility is not None:
-            return self.sentence_db_interface\
+            return self.sentence_db_interface \
                 .count_keywords_by_sentence_comprehensibility(lexical_words, min_comprehensibility)
         return self.sentence_db_interface.count_keywords(lexical_words)
 
@@ -78,7 +73,11 @@ class SentenceRepository:
         if updated_sentences:
             self.sentence_db_interface.update_audio_file_ids(updated_sentences)
 
-    def _produce_new_sentences(self, word, amt_desired, ensure_audio=False) -> Tuple[bool, List[ExampleSentence]]:
+    def _produce_new_sentences_for_word(self, word: str, desired_amt: int, ensure_audio=False) -> List[ExampleSentence]:
+        return self._produce_new_sentences_for_words({word: desired_amt}, ensure_audio=ensure_audio)[word]
+
+    def _produce_new_sentences_for_words(self, word_desired_amts: Dict[str, int], ensure_audio=False) \
+            -> Dict[str, List[ExampleSentence]]:
         """
         does what it says on the tin
         only creates up to amt_desired sentences
@@ -86,26 +85,19 @@ class SentenceRepository:
         takes care not to insert any repeats or create any unnecessary audio files
         returns bool (indicating whether it managed to create amt_desired, False if it fell short), and created sentences
         """
-        sentences = []
-        for sentence in self.sentence_production_manager.yield_starter_sentences(word=word):
-
-            # avoid duplicates
-            if sentence.sentence in self.seen_sentences:
-                continue
-            self.seen_sentences.add(sentence.sentence)
-            if self.sentence_db_interface.check_sentence(sentence.sentence, commit=False) is not None:
-                continue
+        is_not_in_db = lambda s: self.sentence_db_interface.check_sentence(s.sentence, commit=False) is None
+        sentences = {word: [] for word in word_desired_amts}
+        for word, sentence in self.sentence_production_manager \
+                .yield_new_sentences_with_words(word_desired_amts, filtering_fun=is_not_in_db):
 
             if ensure_audio and sentence.audio_fileid is None:
                 self.media_manager.add_audio_file_to_sentence(sentence)
 
-            sentences.append(sentence)
-            amt_desired -= 1
-            if amt_desired == 0:
-                break
+            sentences[word].append(sentence)
 
-        self.sentence_db_interface.insert_sentences_batched(sentences, verify_not_repeated=False)
-        return amt_desired == 0, sentences
+        all_sentences = sum(sentences.values(), [])
+        self.sentence_db_interface.insert_sentences_batched(all_sentences, verify_not_repeated=False)
+        return sentences
 
     def _produce_new_sentences_arbitrarily(self, desired_amt, max_desired_sentences_per_word=SENTENCES_PER_CARD,
                                            block_size=50) -> bool:

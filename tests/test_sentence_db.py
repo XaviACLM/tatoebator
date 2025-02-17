@@ -63,8 +63,18 @@ from tatoebator.db import SentenceRepository
 
 sentence_repository = SentenceRepository()
 
+
+for word, sentences in sentence_repository.produce_sentences_for_words({"鳥":200,"空":200}).items():
+    print(word)
+    sentences.sort(key = lambda s:s.sentence)
+    for sentence in sentences:
+        print(f"\t{sentence.sentence} - {sentence.translation}")
+print(jjsj)
+
+
+
 def word_test(word="煙"):
-    _, sentences = sentence_repository.get_sentences(word, 40, ensure_audio=False, produce_new=True)
+    _, sentences = sentence_repository.produce_sentences_for_word(word, 40, ensure_audio=False, produce_new=True)
     print("returned",len(sentences),"sentences")
     for s in sentences:
         print(s.sentence)
@@ -125,4 +135,13 @@ sentence_db_manager.sentence_db_interface.update_known_unknown_counts()
 
 sentence_table = pd.read_sql_table(table_name='sentences',con=sentence_db_manager.sentence_db_interface.engine)
 print(sentence_table.to_string())
+"""
+
+"""
+coso = sentence_repository.sentence_db_interface.get_sentences_by_word_batched({"煙":2,"森":5})
+for word in coso:
+    print(word)
+    for sentence in coso[word]:
+        print(sentence.sentence)
+print(jjsj)
 """

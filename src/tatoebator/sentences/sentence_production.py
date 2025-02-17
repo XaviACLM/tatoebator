@@ -532,15 +532,18 @@ class SentenceProductionManager:
                                       filtering_fun: Callable[[CandidateExampleSentence], bool] = lambda s: True)\
             -> Iterator[ExampleSentence]:
 
-        yield from self.yield_new_sentences_with_words([word], {word:desired_amt}, filtering_fun)
+        yield from map(lambda pair: pair[1],
+                       self.yield_new_sentences_with_words([word], {word:desired_amt}, filtering_fun))
 
-    def yield_new_sentences_with_words(self, words: List[str], desired_amts: Dict[str, int],
+    def yield_new_sentences_with_words(self, word_desired_amts: Dict[str, int],
                                        filtering_fun: Callable[[CandidateExampleSentence], bool] = lambda s: True)\
-            -> Iterator[ExampleSentence]:
+            -> Iterator[Tuple[str, ExampleSentence]]:
 
-        if max(desired_amts.values()) <= 0: return
+        print("ynsww called w",word_desired_amts)
 
-        roots = {approximate_jp_root_form(word): word for word in words}
+        if max(word_desired_amts.values()) <= 0: return
+
+        roots = {approximate_jp_root_form(word): word for word in word_desired_amts}
         for aspm in self.aspms_for_searching:
             evaluate_translations = False if aspm.translations_reliable else True
             for sentence in aspm.yield_sentences():
@@ -555,12 +558,12 @@ class SentenceProductionManager:
                 evaluation = self.quality_control.evaluate_quality(sentence, evaluate_translation=evaluate_translations)
                 if evaluation is QualityEvaluationResult.UNSUITABLE or not filtering_fun(sentence): continue
 
-                yield ExampleSentence.from_candidate(sentence, aspm.source_tag, evaluation is QualityEvaluationResult.GOOD)
+                yield found_word, ExampleSentence.from_candidate(sentence, aspm.source_tag, evaluation is QualityEvaluationResult.GOOD)
 
                 # update search progress, break if finished
-                desired_amts[found_word] -= 1
-                if desired_amts[found_word] == 0:
-                    desired_amts.pop(found_word)
+                word_desired_amts[found_word] -= 1
+                if word_desired_amts[found_word] == 0:
+                    word_desired_amts.pop(found_word)
                     roots.pop(found_root)
-                if len(desired_amts) == 0:
+                if len(word_desired_amts) == 0:
                     return

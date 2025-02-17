@@ -140,6 +140,11 @@ class ExampleSentenceQualityEvaluator:
             )
             return QualityEvaluationResult.UNSUITABLE
         elif evaluate_translation:
+            # careful! translation, and so this filter, is not deterministic
+            # this is fine - the filter's design accepts having a significant amount of false negatives
+            # as long as we get very little false positives that's fine
+            # TODO would be good to execute this check two or three times for sentences where we don't have enough examples
+            #  complicated to pass that signal all the way down here, though
             if estimate_jp_sentence_distance(example_sentence.sentence, Translator.eng_to_jp(example_sentence.translation)) >= 0.15:
                 discarded_sentences_logger.info(
                     f'Sentence must reasonably match machine translation of translation :: {example_sentence.sentence} / {example_sentence.translation}'

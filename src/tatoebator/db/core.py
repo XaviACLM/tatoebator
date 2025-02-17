@@ -1,8 +1,8 @@
 import atexit
-from typing import List, Set, Dict
+from typing import List, Set, Dict, Optional
 
 from sqlalchemy import create_engine, Column, Integer, SmallInteger, String, Text, ForeignKey, Index, func, Boolean, \
-    case, update
+    case
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker, joinedload
 
 from ..sentences import ExampleSentence
@@ -174,7 +174,7 @@ class SentenceDbInterface:
                                # so None -> 0 is okay
                                n_known_words=row.n_known_words or 0)
 
-    def get_sentences_by_word(self, word, max_desired_amt: int = None):
+    def get_sentences_by_word(self, word: str, desired_amt: Optional[int] = None):
         """
         Retrieve sentences containing a certain word
         :param word: word to search for
@@ -188,27 +188,37 @@ class SentenceDbInterface:
                 .join(SentenceKeyword, Sentence.id == SentenceKeyword.sentence_id)
                 .join(Keyword, SentenceKeyword.keyword_id == Keyword.id)
                 .filter(Keyword.keyword == word)
-                .limit(max_desired_amt)
+                .limit(desired_amt)
                 .options(joinedload(Sentence.keywords).joinedload(SentenceKeyword.keyword))  # retain keywords
                 .all()
         )
 
         return list(map(SentenceDbInterface._row_to_example_sentence, results))
 
-    '''
-    # unused
-    def get_sentences_by_word_batched(self, words, ensure_audio=False):
-        """
-        Retrieve sentences grouped by keywords.
-        :param ensure_audio:  if true, sentences with no audio_fileid will generate one
-        :param words: List of keywords to search for.
-        :return: Dictionary where each keyword maps to a list of sentences.
-        """
+    def get_sentences_by_word_batched(self, word_desired_amts: Dict[str, int]):
+
         if self.session is None: self._open_session()
-        results = (
-            self.session.query(Keyword.keyword, Sentence)
-            .join(Sentence, Keyword.sentence_id == Sentence.id)
+
+        words = list(word_desired_amts.keys())
+        max_limit = max(word_desired_amts.values())
+
+        ids_by_word_query = (
+            self.session.query(Keyword.keyword,
+                               SentenceKeyword.sentence_id,
+                               func.row_number()
+                               .over(partition_by=Keyword.keyword, order_by=SentenceKeyword.sentence_id)
+                               .label("rn")
+                               )
+            .join(SentenceKeyword, SentenceKeyword.keyword_id == Keyword.id)
             .filter(Keyword.keyword.in_(words))
+            .subquery()
+        )
+
+        results = (
+            self.session.query(ids_by_word_query.c.keyword,
+                               Sentence)
+            .filter(ids_by_word_query.c.rn <= max_limit)
+            .join(Sentence, Sentence.id == ids_by_word_query.c.sentence_id)
             .all()
         )
 
@@ -217,19 +227,10 @@ class SentenceDbInterface:
             word_to_sentences[word].append(sentence)
 
         for word in words:
+            word_to_sentences[word] = word_to_sentences[word][:word_desired_amts[word]]
             word_to_sentences[word] = list(map(SentenceDbInterface._row_to_example_sentence, word_to_sentences[word]))
 
-        if ensure_audio:
-            updated_sentences = []
-            for sentence in itertools.chain(word_to_sentences.values()):
-                if sentence.audio_fileid is None:
-                    updated_sentences.append(sentence)
-                    sentence.generate_audio()
-            if updated_sentences:
-                self._update_audio_file_ids(updated_sentences)
-
         return word_to_sentences
-    '''
 
     def update_audio_file_ids(self, sentences: List[ExampleSentence]):
         """
