@@ -5,14 +5,29 @@ from googletrans import Translator as GoogleTranslator
 
 class Translator:
 
-    @staticmethod
-    def jp_to_eng(text: str):
-        translator = GoogleTranslator()
-        translation = asyncio.run(translator.translate(text, src='ja', dest='en'))
+    # used to fail when we used the same translator object for different requests
+    # seems not to happen anymore but we keep raise_exception=True to investigate - when we learn something about
+    # exceptions we will be able to handle them... retrying a couple times, re-instantiating the TL object maybe
+
+    def __init__(self):
+        self.translator = GoogleTranslator(raise_exception=True)
+
+    def jp_to_eng(self, text: str):
+        translation = asyncio.run(self.translator.translate(text, src='ja', dest='en'))
         return translation.text
 
-    @staticmethod
-    def eng_to_jp(text: str):
-        translator = GoogleTranslator()
-        translation = asyncio.run(translator.translate(text, src='en', dest='ja'))
+    def eng_to_jp(self, text: str):
+        translation = asyncio.run(self.translator.translate(text, src='en', dest='ja'))
         return translation.text
+
+    async def async_jp_to_eng(self, text: str):
+        translation = await self.translator.translate(text, src='ja', dest='en')
+        return translation.text
+
+    async def async_eng_to_jp(self, text: str):
+        translation = await self.translator.translate(text, src='en', dest='ja')
+        return translation.text
+
+    async def async_eng_to_jp(self, text: str):
+        await asyncio.sleep(10)
+        return "Oh man look at this fake translation. This isn't even japanese lol. Have a couple hanzi 私貴方"

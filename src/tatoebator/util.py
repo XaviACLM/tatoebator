@@ -1,6 +1,8 @@
+import asyncio
 import os
 import sys
 from hashlib import sha256
+from typing import Callable, Any, AsyncIterator
 
 
 def deterministic_hash(string: str) -> str:
@@ -78,3 +80,14 @@ class CircularBuffer:
     def push(self, value):
         self.buffer[self.index] = value
         self.index = (self.index + 1) % self.size
+
+
+def sync_from_async(async_gen: Callable[[Any], AsyncIterator[Any]]):
+    def sync_gen(*args, **kwargs):
+        async_iterator = aiter(async_gen(*args, **kwargs))
+        while True:
+            try:
+                yield asyncio.run(anext(async_iterator))
+            except StopAsyncIteration:
+                break
+    return sync_gen

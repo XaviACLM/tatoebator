@@ -1,3 +1,4 @@
+import asyncio
 import csv
 import itertools
 import os
@@ -16,8 +17,9 @@ from ..config import SEVENZIP_EXE
 from ..constants import CACHE_DIR, TEMP_FILES_DIR, PATH_TO_SOURCES_FILE, USER_AGENT, EXTERNAL_DATASETS_DIR
 from .candidate_example_sentences import ExampleSentenceQualityEvaluator, QualityEvaluationResult
 from .example_sentences import CandidateExampleSentence, ExampleSentence
-from ..language_processing import approximate_jp_root_form
+from ..language_processing import approximate_jp_root_form, Translator
 from ..robots import RobotsAwareSession
+from ..util import sync_from_async
 
 
 def get_source_tag(source_name: str, license: str):
@@ -541,26 +543,10 @@ class SentenceProductionManager:
 
         if max(word_desired_amts.values()) <= 0: return
 
-        from aqt.utils import showInfo
-        showInfo("ynsww called w" + " ".join(word_desired_amts.keys()))
-        c=0
-        import time
-        now = time.time()
-        seen = dict()
-
         roots = {approximate_jp_root_form(word): word for word in word_desired_amts}
         for aspm in self.aspms_for_searching:
             evaluate_translations = False if aspm.translations_reliable else True
             for sentence in aspm.yield_sentences():
-
-                c+=1
-                if c%1000==0:
-                    t = seen.get(aspm.source_name,0)
-                    if t<5:
-                        seen[aspm.source_name] = t+1
-                        diff = time.time()-now
-                        showInfo(str(c)+aspm.source_name+" "+str(diff))
-                    now = time.time()
 
                 # skip sentence if it doesn't contain root of any word we're searching
                 found_root = next(filter(lambda root: root in sentence.sentence, roots), None)
@@ -584,3 +570,114 @@ class SentenceProductionManager:
                     roots.pop(found_root)
                 if len(word_desired_amts) == 0:
                     return
+
+    @sync_from_async
+    async def async_yield_new_sentences_with_words(self, word_desired_amts: Dict[str, int],
+                                             filtering_fun: Callable[[CandidateExampleSentence], bool] = lambda s: True,
+                                             max_parallel_translations = 10)\
+            -> Iterator[Tuple[str, ExampleSentence]]:
+
+        if max(word_desired_amts.values()) <= 0: return
+
+        roots = {approximate_jp_root_form(word): word for word in word_desired_amts}
+
+        # TODO pass this on from up high
+        translator = Translator()
+
+        BATCH_SIZE = 3
+
+        awaiting_batched_translation_queue = asyncio.Queue(maxsize=BATCH_SIZE)
+        passed_all_checks_queue = asyncio.Queue(maxsize=1)
+        batched_translation_tasks = set()
+        single_translation_tasks = set()
+
+        awaiting_batched_translation_type = Tuple[str, bool, int, CandidateExampleSentence]
+        awaiting_single_translation_type = Tuple[int, str, bool, int, CandidateExampleSentence]
+        passed_all_checks_type = Tuple[str, ExampleSentence]
+
+        async def generate_and_primary_check():
+            for aspm in self.aspms_for_searching:
+                evaluate_translations = False if aspm.translations_reliable else True
+                source_tag = aspm.source_tag
+                for sentence in aspm.yield_sentences():
+
+                    # skip sentence if it doesn't contain root of any word we're searching
+                    found_root = next(filter(lambda root: root in sentence.sentence, roots), None)
+                    if found_root is None: continue
+
+                    # evaluate quality, check contains word lexically
+                    # +check filtering fun (most likely = check it's not in db)
+                    if not filtering_fun(sentence): continue
+                    found_word = roots[found_root]
+                    evaluation = self.quality_control.evaluate_quality(sentence, word = found_word)
+                    if evaluation is QualityEvaluationResult.UNSUITABLE: continue
+                    is_good = evaluation is QualityEvaluationResult.GOOD
+
+                    if evaluate_translations:
+                        res: awaiting_batched_translation_type = (found_root, is_good, source_tag, sentence)
+                        await awaiting_batched_translation_queue.put(res)
+                        if awaiting_batched_translation_queue.qsize() > BATCH_SIZE:
+                            await translation_eval_job_batch_task()
+                    else:
+                        res: passed_all_checks_type = (found_root, ExampleSentence.from_candidate(sentence, source_tag, is_good))
+                        await passed_all_checks_queue.put(res)
+            if awaiting_batched_translation_queue.qsize() > 0:
+                await translation_eval_job_batch_task()
+
+        awaiting_single_translation_type = Tuple[int, str, bool, int, CandidateExampleSentence]
+
+        async def translation_eval_job_batch_task():
+            batch = [await awaiting_batched_translation_queue.get() for _ in range(BATCH_SIZE)]
+            task = asyncio.create_task(batched_translation_eval_task(batch))
+            batched_translation_tasks.add(task)
+            task.add_done_callback(batched_translation_tasks.discard)
+
+        async def single_translation_eval_task(item: awaiting_single_translation_type):
+            counter, found_root, is_good, source_tag, sentence = item
+            machine_translation = await translator.async_eng_to_jp(sentence.translation)
+            evaluation = self.quality_control.evaluate_translation_quality(sentence, machine_translation)
+            if evaluation is QualityEvaluationResult.UNSUITABLE:
+                # TODO redo if necessary... you know
+                return
+            res: passed_all_checks_type = (found_root, ExampleSentence.from_candidate(sentence, source_tag, is_good))
+            await passed_all_checks_queue.put(res)
+
+        async def batched_translation_eval_task(batch: List[awaiting_batched_translation_type]):
+            translation_batch = "\n".join([sentence.translation for _,_,_, sentence in batch])
+            machine_translations = (await translator.async_eng_to_jp(translation_batch)).split("\n")
+            if len(machine_translations) != len(translation_batch):
+                for item in batch:
+                    res: awaiting_single_translation_type = 0, *item
+                    task = asyncio.create_task(single_translation_eval_task(res))
+                    single_translation_tasks.add(task)
+                    task.add_done_callback(single_translation_tasks.discard)
+                return
+
+            for (found_root, is_good, source_tag, sentence), machine_translation in zip(batch, machine_translations):
+                evaluation = self.quality_control.evaluate_translation_quality(sentence, machine_translation)
+                if evaluation is QualityEvaluationResult.UNSUITABLE:
+                    # TODO redo if necessary... you know
+                    continue
+                res: passed_all_checks_type = (found_root, ExampleSentence.from_candidate(sentence, source_tag, is_good))
+                await passed_all_checks_queue.put(res)
+
+        producer_task = asyncio.create_task(generate_and_primary_check())
+
+        while (not producer_task.done()
+               or batched_translation_tasks
+               or single_translation_tasks
+               or awaiting_batched_translation_queue
+               or awaiting_single_translation_type
+               or passed_all_checks_queue):
+            found_root, sentence = await passed_all_checks_queue.get()
+            yield sentence
+
+            found_word = roots[found_root]
+
+            # update search progress, break if finished
+            word_desired_amts[found_word] -= 1
+            if word_desired_amts[found_word] == 0:
+                word_desired_amts.pop(found_word)
+                roots.pop(found_root)
+            if len(word_desired_amts) == 0:
+                break
