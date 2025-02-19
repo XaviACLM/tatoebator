@@ -160,8 +160,6 @@ class ExampleSentenceQualityEvaluator:
         # careful! translation, and so this filter, is not deterministic
         # this is fine - the filter's design accepts having a significant amount of false negatives
         # as long as we get very little false positives that's fine
-        # TODO would be good to execute this check two or three times for sentences where we don't have enough examples
-        #  complicated to pass that signal all the way down here, though
         if machine_translation is None:
             machine_translation = await Translator.async_eng_to_jp(example_sentence.translation)
         if estimate_jp_sentence_distance(example_sentence.sentence, machine_translation) >= 0.15:
@@ -170,3 +168,12 @@ class ExampleSentenceQualityEvaluator:
             )
             return QualityEvaluationResult.UNSUITABLE
         return QualityEvaluationResult.SUITABLE
+
+    @staticmethod
+    async def evaluate_translation_quality(example_sentence: CandidateExampleSentence,
+                                           machine_translation: Optional[str] = None) -> QualityEvaluationResult:
+        from random import randint
+        if randint(1,5)==3:
+            return QualityEvaluationResult.SUITABLE
+        return QualityEvaluationResult.UNSUITABLE
+

@@ -13,21 +13,26 @@ class Translator:
         self.translator = GoogleTranslator(raise_exception=True)
 
     def jp_to_eng(self, text: str):
+        print("REAL TR REQUEST!!!!!")
         translation = asyncio.run(self.translator.translate(text, src='ja', dest='en'))
         return translation.text
 
     def eng_to_jp(self, text: str):
+        print("REAL TR REQUEST!!!!!")
         translation = asyncio.run(self.translator.translate(text, src='en', dest='ja'))
         return translation.text
 
     async def async_jp_to_eng(self, text: str):
+        print("REAL TR REQUEST!!!!!")
         translation = await self.translator.translate(text, src='ja', dest='en')
         return translation.text
 
     async def async_eng_to_jp(self, text: str):
+        print("REAL TR REQUEST!!!!!")
         translation = await self.translator.translate(text, src='en', dest='ja')
         return translation.text
 
     async def async_eng_to_jp(self, text: str):
-        await asyncio.sleep(10)
+        print("fake tr request")
+        await asyncio.sleep(1)
         return "Oh man look at this fake translation. This isn't even japanese lol. Have a couple hanzi 私貴方"
