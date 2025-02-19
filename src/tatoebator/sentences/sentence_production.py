@@ -504,7 +504,7 @@ class SentenceProductionManager:
     aspms_for_searching = [
         TatoebaASPM(),
         JapaneseEnglishSubtitleCorpusASPM(),
-        # JParaCrawlASPM(),
+        JParaCrawlASPM(),
     ]
 
     def __init__(self):
@@ -598,10 +598,14 @@ class SentenceProductionManager:
         passed_all_checks_type = Tuple[str, ExampleSentence]
 
         async def generate_and_primary_check():
+            c=0
             for aspm in self.aspms_for_searching:
                 evaluate_translations = False if aspm.translations_reliable else True
                 source_tag = aspm.source_tag
                 for sentence in aspm.yield_sentences():
+                    c+=1
+                    if c%10000==0:
+                        print("schloopin", c)
 
                     # skip sentence if it doesn't contain root of any word we're searching
                     found_root = next(filter(lambda root: root_desired_amts[root] > root_being_processed_amts[root]
@@ -703,27 +707,33 @@ class SentenceProductionManager:
         while (not producer_task.done()
                or batched_translation_tasks
                or single_translation_tasks
-               or awaiting_batched_translation_queue
-               or awaiting_single_translation_type # <- oh no
-               or passed_all_checks_queue):
+               or not awaiting_batched_translation_queue.empty()
+               or not passed_all_checks_queue.empty()):
             print("main loop PRE", producer_task.done(), len(batched_translation_tasks), len(single_translation_tasks))
-            print("cont...",awaiting_batched_translation_queue, awaiting_single_translation_type, passed_all_checks_queue)
-            print("cont...",awaiting_batched_translation_queue.qsize(), awaiting_single_translation_queue.qsize(), passed_all_checks_queue.qsize())
+            print("cont...",awaiting_batched_translation_queue, passed_all_checks_queue)
+            print("cont...",awaiting_batched_translation_queue.qsize(), passed_all_checks_queue.qsize())
+            print("cont...", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
             for task in single_translation_tasks:
                 print(task.done(), task)
-            print("conted")
-            found_root, sentence = await passed_all_checks_queue.get()
-            print("main loop POST", [task.get_name() for task in asyncio.all_tasks()])
-            yield sentence
+            print("conted", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
+            if not passed_all_checks_queue.empty():
+                print("yielding")
+                found_root, sentence = await passed_all_checks_queue.get()
+                print("gonna yieeeeld")
+                yield sentence
+                print("yielded")
 
-            found_word = roots[found_root]
+                found_word = roots[found_root]
 
-            # update search progress, break if finished
-            if root_desired_amts[found_root] == 0:
-                root_desired_amts.pop(found_root)
-                roots.pop(found_root)
-            if len(root_desired_amts) == 0:
-                break
+                # update search progress, break if finished
+                if root_desired_amts[found_root] == 0:
+                    root_desired_amts.pop(found_root)
+                    roots.pop(found_root)
+                if len(root_desired_amts) == 0:
+                    break
+            else:
+                await asyncio.sleep(0)
+            print("main loop POST", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
 
             # some of these tasks don't get discarded properly
             # absolutely no idea why. they all have the callback. whatever
