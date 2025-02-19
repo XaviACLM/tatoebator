@@ -13,26 +13,31 @@ class Translator:
         self.translator = GoogleTranslator(raise_exception=True)
 
     def jp_to_eng(self, text: str):
-        print("REAL TR REQUEST!!!!!")
         translation = asyncio.run(self.translator.translate(text, src='ja', dest='en'))
         return translation.text
 
     def eng_to_jp(self, text: str):
-        print("REAL TR REQUEST!!!!!")
         translation = asyncio.run(self.translator.translate(text, src='en', dest='ja'))
         return translation.text
 
     async def async_jp_to_eng(self, text: str):
-        print("REAL TR REQUEST!!!!!")
         translation = await self.translator.translate(text, src='ja', dest='en')
         return translation.text
 
     async def async_eng_to_jp(self, text: str):
-        print("REAL TR REQUEST!!!!!")
         translation = await self.translator.translate(text, src='en', dest='ja')
         return translation.text
 
+    c=0
+
     async def async_eng_to_jp(self, text: str):
-        print("fake tr request")
+        self.c += 1
+        #print("fake tr request",self.c)
+        #print("\t"+text.replace("\n","\n\t"))
         await asyncio.sleep(1)
-        return "Oh man look at this fake translation. This isn't even japanese lol. Have a couple hanzi 私貴方"
+        n = text.count("\n")
+        from random import randint
+        if randint(0,2)==0:
+            return "Oh man look at this fake translation. This isn't even japanese lol. Have a couple hanzi 私貴方"
+        else:
+            return "\n".join(["私貴方"]*(n+1))

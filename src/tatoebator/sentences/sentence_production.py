@@ -68,6 +68,7 @@ class ArbitrarySentenceProductionMethod(TaggedSource):
 
     last_seen_index = 0
     translations_reliable = False
+    amt_sentences = None
 
     def yield_sentences(self, start_at: int = 0) -> Iterator[CandidateExampleSentence]:
         raise NotImplementedError()
@@ -164,6 +165,7 @@ class TatoebaASPM(ArbitrarySentenceProductionMethod):
     source_name = 'Tatoeba (via DB download)'
     license = "CC-BY 2.0 Fr"
     translations_reliable = True
+    amt_sentences = 275845
 
     def __init__(self):
         super().__init__()
@@ -350,6 +352,7 @@ class SentenceSearchNeocitiesASPM(ArbitrarySentenceProductionMethod):
     source_name = "sentencesearch.neocities.org"
     license = "Unknown"
     translations_reliable = False
+    amt_sentences = 45434
 
     def __init__(self):
         super().__init__()
@@ -394,6 +397,7 @@ class ManyThingsTatoebaASPM(ArbitrarySentenceProductionMethod):
     source_name = "ManyThings.org Sentence Pairs"
     license = "CC-BY 2.0 Fr"
     translations_reliable = True
+    amt_sentences = 109964
 
     def __init__(self):
         super().__init__()
@@ -431,6 +435,7 @@ class JParaCrawlASPM(ArbitrarySentenceProductionMethod):
     source_name = "JParaCrawl"
     license = "https://www.kecl.ntt.co.jp/icl/lirg/jparacrawl/"
     translations_reliable = False
+    amt_sentences = 25740835
 
     def __init__(self):
         super().__init__()
@@ -466,6 +471,7 @@ class JapaneseEnglishSubtitleCorpusASPM(ArbitrarySentenceProductionMethod):
     source_name = "Japanese-English Subtitle Corpus"
     license = "CC BY-SA 4.0"
     translations_reliable = False
+    amt_sentences = 2801388
 
     def __init__(self):
         super().__init__()
@@ -509,6 +515,7 @@ class SentenceProductionManager:
 
     def __init__(self):
         self.quality_control = ExampleSentenceQualityEvaluator()
+        self.amt_searchable_sentences = sum([aspm.amt_sentences for aspm in self.aspms_for_searching])
 
     def yield_starter_sentences(self, desired_amt: int,
                                 filtering_fun: Callable[[CandidateExampleSentence], bool] = lambda s: True)\
@@ -577,38 +584,40 @@ class SentenceProductionManager:
                                              filtering_fun: Callable[[CandidateExampleSentence], bool] = lambda s: True)\
             -> Iterator[Tuple[str, ExampleSentence]]:
 
+        # abandon all hope ye who enter here
+
         if max(word_desired_amts.values()) <= 0: return
 
         roots = {approximate_jp_root_form(word): word for word in word_desired_amts}
         root_desired_amts = {root: word_desired_amts[word] for root, word in roots.items()}
+        root_desired_remaining = root_desired_amts.copy()
         root_being_processed_amts = {root: 0 for root in roots}
 
         # TODO pass this on from up high
         translator = Translator()
 
+        MAX_PARALLEL_TRANSLATIONS = 5
         BATCH_SIZE = 5
+        MAX_TRIES = 1
 
         awaiting_batched_translation_queue = asyncio.Queue(maxsize=BATCH_SIZE)
         passed_all_checks_queue = asyncio.Queue(maxsize=1)
         batched_translation_tasks = set()
         single_translation_tasks = set()
 
-        awaiting_batched_translation_type = Tuple[str, bool, int, CandidateExampleSentence]
-        awaiting_single_translation_type = Tuple[int, str, bool, int, CandidateExampleSentence]
+        awaiting_translation_type = Tuple[int, str, bool, int, CandidateExampleSentence]
         passed_all_checks_type = Tuple[str, ExampleSentence]
 
         async def generate_and_primary_check():
-            c=0
+            idx = 0
             for aspm in self.aspms_for_searching:
                 evaluate_translations = False if aspm.translations_reliable else True
                 source_tag = aspm.source_tag
                 for sentence in aspm.yield_sentences():
-                    c+=1
-                    if c%10000==0:
-                        print("schloopin", c)
+                    idx += 1
 
                     # skip sentence if it doesn't contain root of any word we're searching
-                    found_root = next(filter(lambda root: root_desired_amts[root] > root_being_processed_amts[root]
+                    found_root = next(filter(lambda root: root_desired_remaining[root] > root_being_processed_amts[root]
                                                           and root in sentence.sentence, roots), None)
                     if found_root is None: continue
 
@@ -620,86 +629,81 @@ class SentenceProductionManager:
                     if evaluation is QualityEvaluationResult.UNSUITABLE: continue
                     root_being_processed_amts[found_root] += 1
                     is_good = evaluation is QualityEvaluationResult.GOOD
+
+                    search_ratio = idx/self.amt_searchable_sentences
+                    found_ratio = root_desired_remaining[found_root]/root_desired_amts[found_root]
+                    urgent = search_ratio + found_ratio > 1
+                    starting_index = 0 if not urgent else MAX_TRIES-1
+
                     if evaluate_translations:
-                        res: awaiting_batched_translation_type = (found_root, is_good, source_tag, sentence)
-                        print("generate 1 PRE", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
+                        res: awaiting_translation_type = (starting_index, found_root, is_good, source_tag, sentence)
                         await awaiting_batched_translation_queue.put(res)
-                        print("generate 1 POST", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
                         if awaiting_batched_translation_queue.qsize() >= BATCH_SIZE:
-                            print("generate 2 PRE", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
                             await translation_eval_job_batch_task(BATCH_SIZE)
-                            print("generate 2 POST", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
-                            print("generate 3 PRE", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
                             await asyncio.sleep(0) # yield execution (to translator)
-                            print("generate 3 POST", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
                     else:
                         res: passed_all_checks_type = (found_root, ExampleSentence.from_candidate(sentence, source_tag, is_good))
-                        print("generate 4 PRE", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
                         await passed_all_checks_queue.put(res)
-                        print("generate 4 POST", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
             if awaiting_batched_translation_queue.qsize() > 0:
-                print("generate 5 PRE", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
                 await translation_eval_job_batch_task(awaiting_batched_translation_queue.qsize())
-                print("generate 5 POST", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
-            print("generate EXIT", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
 
         async def translation_eval_job_batch_task(this_batch_size: int):
-            print("tejbt 1 PRE", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
             batch = [await awaiting_batched_translation_queue.get() for _ in range(this_batch_size)]
-            print("tejbt 1 POST", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
+            while (len(batched_translation_tasks) + 1) * BATCH_SIZE + len(
+                    single_translation_tasks) > MAX_PARALLEL_TRANSLATIONS:
+                await asyncio.sleep(0.1)
             task = asyncio.create_task(batched_translation_eval_task(batch))
-            task.set_name("batch-tl")
             batched_translation_tasks.add(task)
             task.add_done_callback(batched_translation_tasks.discard)
-            print("tejbt EXIT", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
 
-        async def single_translation_eval_task(item: awaiting_single_translation_type):
-            counter, found_root, is_good, source_tag, sentence = item
-            print("stet 1 PRE", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
+        async def single_translation_eval_task(item: awaiting_translation_type):
+            amt_tries, found_root, is_good, source_tag, sentence = item
             machine_translation = await translator.async_eng_to_jp(sentence.translation)
-            print("stet 1 POST", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
-            print("stet 2 PRE", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
             evaluation = await self.quality_control.evaluate_translation_quality(sentence, machine_translation)
-            print("stet 2 POST", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
             if evaluation is QualityEvaluationResult.UNSUITABLE:
                 root_being_processed_amts[found_root] -= 1
-                # TODO redo if necessary... you know
-                print("stet EXIT 1", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
+
+                amt_tries += 1
+                if amt_tries >= MAX_TRIES: return
+                item = (amt_tries, found_root, is_good, source_tag, sentence)
+                while (len(batched_translation_tasks)-1) * BATCH_SIZE + len(
+                        single_translation_tasks) + 1 > MAX_PARALLEL_TRANSLATIONS:
+                    await asyncio.sleep(0.1)
+                task = asyncio.create_task(single_translation_eval_task(item))
+                task.set_name("single-tl")
+                single_translation_tasks.add(task)
+                task.add_done_callback(single_translation_tasks.discard)
+
                 return
             res: passed_all_checks_type = (found_root, ExampleSentence.from_candidate(sentence, source_tag, is_good))
-            print("stet 3 PRE", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
             await passed_all_checks_queue.put(res)
-            print("stet 3 POST", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
-            print("stet EXIT 2", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
 
-        async def batched_translation_eval_task(batch: List[awaiting_batched_translation_type]):
-            translation_batch = "\n".join([sentence.translation for _,_,_, sentence in batch])
-            print("btet 1 PRE", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
+        async def batched_translation_eval_task(batch: List[awaiting_translation_type]):
+            translation_batch = "\n".join([sentence.translation for _,_,_,_, sentence in batch])
             machine_translations = (await translator.async_eng_to_jp(translation_batch)).split("\n")
-            print("btet 1 POST", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
-            if len(machine_translations) != len(translation_batch):
+            if len(machine_translations) != len(batch):
                 for item in batch:
-                    res: awaiting_single_translation_type = 0, *item
-                    task = asyncio.create_task(single_translation_eval_task(res))
+                    while (len(batched_translation_tasks)-1) * BATCH_SIZE + len(
+                            single_translation_tasks) + 1 > MAX_PARALLEL_TRANSLATIONS:
+                        await asyncio.sleep(0.1)
+                    task = asyncio.create_task(single_translation_eval_task(item))
                     task.set_name("single-tl")
                     single_translation_tasks.add(task)
                     task.add_done_callback(single_translation_tasks.discard)
-                print("btet EXIT 1", [task.get_name() for task in asyncio.all_tasks()])
                 return
 
-            for (found_root, is_good, source_tag, sentence), machine_translation in zip(batch, machine_translations):
-                print("btet 2 PRE", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
+            for (amt_tries, found_root, is_good, source_tag, sentence), machine_translation in zip(batch, machine_translations):
                 evaluation = await self.quality_control.evaluate_translation_quality(sentence, machine_translation)
-                print("btet 2 POST", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
                 if evaluation is QualityEvaluationResult.UNSUITABLE:
                     root_being_processed_amts[found_root] -= 1
-                    # TODO redo if necessary... you know
+
+                    amt_tries += 1
+                    if amt_tries >= MAX_TRIES: continue
+                    await awaiting_batched_translation_queue.put((amt_tries, found_root, is_good, source_tag, sentence))
+
                     continue
                 res: passed_all_checks_type = (found_root, ExampleSentence.from_candidate(sentence, source_tag, is_good))
-                print("btet 3 PRE", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
                 await passed_all_checks_queue.put(res)
-                print("btet 3 POST", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
-            print("btet EXIT 2", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
 
         producer_task = asyncio.create_task(generate_and_primary_check())
         producer_task.set_name("producer")
@@ -709,33 +713,21 @@ class SentenceProductionManager:
                or single_translation_tasks
                or not awaiting_batched_translation_queue.empty()
                or not passed_all_checks_queue.empty()):
-            print("main loop PRE", producer_task.done(), len(batched_translation_tasks), len(single_translation_tasks))
-            print("cont...",awaiting_batched_translation_queue, passed_all_checks_queue)
-            print("cont...",awaiting_batched_translation_queue.qsize(), passed_all_checks_queue.qsize())
-            print("cont...", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
-            for task in single_translation_tasks:
-                print(task.done(), task)
-            print("conted", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
             if not passed_all_checks_queue.empty():
-                print("yielding")
                 found_root, sentence = await passed_all_checks_queue.get()
-                print("gonna yieeeeld")
-                yield sentence
-                print("yielded")
-
                 found_word = roots[found_root]
+                yield found_word, sentence
+
 
                 # update search progress, break if finished
-                if root_desired_amts[found_root] == 0:
-                    root_desired_amts.pop(found_root)
+                if root_desired_remaining[found_root] == 0:
+                    root_desired_remaining.pop(found_root)
                     roots.pop(found_root)
-                if len(root_desired_amts) == 0:
+                if len(root_desired_remaining) == 0:
                     break
             else:
                 await asyncio.sleep(0)
-            print("main loop POST", [(task.get_name(),task.done()) for task in asyncio.all_tasks()])
 
             # some of these tasks don't get discarded properly
             # absolutely no idea why. they all have the callback. whatever
             single_translation_tasks = {task for task in single_translation_tasks if not task.done()}
-        print("main done")
