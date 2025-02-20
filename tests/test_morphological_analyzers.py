@@ -1,5 +1,5 @@
 from tatoebator.language_processing.lexical_analysis import group_text_by_part_of_speech, WordSpeechType
-from tatoebator.language_processing.morphological_analyzers import DefaultTokenizer
+from tatoebator.language_processing import DefaultTokenizer
 
 tokenizer = DefaultTokenizer()
 text = """散々な思い出は悲しみを穿つほど
@@ -19,12 +19,16 @@ text = """散々な思い出は悲しみを穿つほど
 text = """火のない所に煙は立たないということは、誰も否定することはできません。
 エレベーターから煙の臭いがします。
 あの山は昔煙を吐いていた。"""
-text="""
-自由になるのは大変だろう
-"""
-for morpheme in tokenizer(text):
-    print(morpheme)
-
+texts=["自由になるのは大変だろう",
+       "自由になるのは大変だろう\n",
+       "\n自由になるのは大変だろう",
+       "\n自由になるのは大変だろう\n",
+       ]
+for text in texts:
+    for morpheme in tokenizer(text):
+        print(morpheme)
+    print("")
+print(jjsj)
 for type, words in group_text_by_part_of_speech(text).items():
     print(type)
     print(words)

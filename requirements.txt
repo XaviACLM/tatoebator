@@ -2,3 +2,4 @@ googletrans
 sqlalchemy
 voicevox-client
 titlecase
+jaconv

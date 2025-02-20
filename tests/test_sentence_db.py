@@ -1,15 +1,11 @@
 
 from tatoebator.db import SentenceRepository
 
-# TODO verify that we have stopped propagating output (at least from defaults - mecab, voicepeak)
-
 # TODO add new sentences menu (with semi automatic translations)
 
 # TODO interface (or manager?) logic that uses known_words and trusted fields to decide what to query
-# TODO maybe aspm only inserts new sentences if MORE than one word is underrepresented in the db
 
 # TODO type annotations, docs, privating, eliminating "__main__" blocks...
-# automated robots respecting
 
 
 # TODO figure out the general flow of the app. user stories or whatever. when do we actually need to use the sentence db?
@@ -33,7 +29,6 @@ from tatoebator.db import SentenceRepository
 #maybe eventually? https://eow.alc.co.jp/search?q=%e3%81%99%e3%82%8b -> translations, usage, but ehh
 
 
-#TODO hide cmd's (sudachi?) and voicevoxes
 
 #TODO create notetype, deck
 #TODO note creation
@@ -41,9 +36,6 @@ from tatoebator.db import SentenceRepository
 # and the random sorting, minute-based
 
 #TODO port decks (incl. rtk to migaku... somehow?)
-
-#TODO furigana - in db? might be unnecessarily large, so we can take an audio-like approach
-# it seems like i halfway did this already. only the field but have to investigate at some point
 
 # TODO put all files other than temp_files in tatoebator/user_files (not in src/tatoebator/user_files!!)
 # TODO help menus
@@ -57,6 +49,14 @@ from tatoebator.db import SentenceRepository
 
 
 sentence_repository = SentenceRepository()
+
+
+for word, sentences in sentence_repository.produce_sentences_for_words({"鳥":200,"空":200}, produce_new=False, ensure_audio=False, with_furigana=True).items():
+    print(word)
+    sentences.sort(key = lambda s:s.sentence)
+    for sentence in sentences:
+        print(f"\t{sentence.furigana} - {sentence.translation}")
+print(jjsj)
 
 
 for word, sentences in sentence_repository.produce_sentences_for_words({"鳥":200,"空":200}).items():
