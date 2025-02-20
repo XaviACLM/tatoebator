@@ -24,14 +24,6 @@ from tatoebator.db import SentenceRepository
 
 # TODO make it so it doesnt crash instantly if robots requests fail. Offline mode in general
 
-# TODO re: jparacrawl - gotta verify the translations aren't wang (some clearly are). But putting this in qualityControl would be too costly.
-#  similar to the audio, check the translation quality when stuff is pulled OUT of the database
-#  unlike audio this may fail, so we'll need logic to delete failures from the database
-#  and requery until we get the required amount
-#  as for evaluation translation quality: probably bagofwords jaccard. not that critical, only to eliminate nonsense
-# TODO ugh but translation quality in jparacrawl is kinda crap actually
-#  either bite the bullet and machine translate them (but why even use a bilingual corpus then?!?!)
-#  or look at the other corpora. We'll do that first, might strike lucky
 
 # CC-BY 2.0 : we can do anything as long as we credit properly, indicate changes, and propagate the license
 # A note on propagating the license - from what I understand this doesnt' mean the whole project has to be CC-BY 2.0
@@ -54,6 +46,8 @@ from tatoebator.db import SentenceRepository
 
 # TODO put all files other than temp_files in tatoebator/user_files (not in src/tatoebator/user_files!!)
 # TODO help menus
+
+# TODO option to add machine translated sentences (tag them in db + gui)
 
 # include other corpora:
 # https://www.phontron.com/japanese-translation-data.php

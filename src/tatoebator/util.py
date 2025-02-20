@@ -82,12 +82,24 @@ class CircularBuffer:
         self.index = (self.index + 1) % self.size
 
 
-def sync_from_async(async_gen: Callable[[Any], AsyncIterator[Any]]):
+def sync_gen_from_async_gen(async_gen: Callable[[Any], AsyncIterator[Any]]):
     def sync_gen(*args, **kwargs):
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         async_iterator = aiter(async_gen(*args, **kwargs))
-        while True:
-            try:
-                yield asyncio.run(anext(async_iterator))
-            except StopAsyncIteration:
-                break
+        try:
+            while True:
+                yield loop.run_until_complete(anext(async_iterator))
+        except StopAsyncIteration:
+            pass
+        finally:
+            loop.close()
     return sync_gen
+
+
+# this seems unwise
+def get_asyncio_event_loop():
+    try:
+        return asyncio.get_running_loop()
+    except:
+        return asyncio.new_event_loop()

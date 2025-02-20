@@ -1,3 +1,5 @@
+import asyncio
+
 import regex as re
 import time
 from tatoebator.sentences import SentenceProductionManager, ExampleSentence
@@ -11,7 +13,23 @@ japanese_chars = r"\p{IsHira}\p{IsKatakana}\p{IsHan}・、。ー「」『』【�
 general_chars = r"\d"
 jap_text_matcher = re.compile(r"([" + japanese_chars + general_chars + "]+)", re.UNICODE)
 
+# TODO it works worse than before!! how?? same performance would make sense but worse?? why?!?!
+spm = SentenceProductionManager()
+for word, sentence in spm.yield_new_sentences_with_words({"やるせない":10}):
+    print(sentence.sentence)
+    print(sentence.translation)
+    print(sentence.source_tag, sentence.credit)
+    print("")
+print("\n"*5)
+for word, sentence in spm.async_yield_new_sentences_with_words({"やるせない":10}):
+    print(sentence.sentence)
+    print(sentence.translation)
+    print(sentence.source_tag, sentence.credit)
+    print("")
 
+print(jjsj)
+
+"""
 aspm = JapaneseEnglishSubtitleCorpusASPM()
 c = 0
 for sentence in aspm.yield_sentences():
@@ -19,7 +37,9 @@ for sentence in aspm.yield_sentences():
     if c%1000==0:
         print(c)
 print(jjsj)
+"""
 
+"""
 spm = SentenceProductionManager()
 spm.aspms = [JParaCrawlASPM()]
 #for sentence in spm.yield_new_sentences_with_word("熱い", 20):
@@ -29,7 +49,7 @@ spm.aspms = [JParaCrawlASPM()]
 for sentence in spm.yield_new_sentences_with_words(["熱い", "やるせない"], {"熱い":20, "やるせない":10}):
     print(sentence.sentence, sentence.translation, sentence.credit)
 print(jjsj)
-
+"""
 
 """
 aspm1 = JParaCrawlASPM()

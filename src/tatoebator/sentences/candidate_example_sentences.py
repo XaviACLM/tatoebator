@@ -155,25 +155,19 @@ class ExampleSentenceQualityEvaluator:
         return QualityEvaluationResult.GOOD
 
     @staticmethod
-    async def evaluate_translation_quality(example_sentence: CandidateExampleSentence,
-                                           machine_translation: Optional[str] = None) -> QualityEvaluationResult:
+    def evaluate_translation_quality(example_sentence: CandidateExampleSentence,
+                                     machine_translation: Optional[str] = None,
+                                     translator: Optional[Translator] = None) -> QualityEvaluationResult:
         # careful! translation, and so this filter, is not deterministic
         # this is fine - the filter's design accepts having a significant amount of false negatives
         # as long as we get very little false positives that's fine
         if machine_translation is None:
-            machine_translation = await Translator.async_eng_to_jp(example_sentence.translation)
-        if estimate_jp_sentence_distance(example_sentence.sentence, machine_translation) >= 0.15:
+            if translator is None:
+                raise Exception("ExampleSentenceQualityController.evaluate_translation_quality requires a machine_translation or translator be passed")
+            machine_translation = translator.eng_to_jp(example_sentence.translation)
+        if estimate_jp_sentence_distance(example_sentence.sentence, machine_translation) >= 0.25:
             discarded_sentences_logger.info(
                 f'Sentence must reasonably match machine translation of translation :: {example_sentence.sentence} / {example_sentence.translation}'
             )
             return QualityEvaluationResult.UNSUITABLE
         return QualityEvaluationResult.SUITABLE
-
-    @staticmethod
-    async def evaluate_translation_quality(example_sentence: CandidateExampleSentence,
-                                           machine_translation: Optional[str] = None) -> QualityEvaluationResult:
-        from random import randint
-        if randint(1,5)==3:
-            return QualityEvaluationResult.SUITABLE
-        return QualityEvaluationResult.UNSUITABLE
-

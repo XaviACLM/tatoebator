@@ -30,7 +30,7 @@ class JpSentenceSimilarityEstimate:
     def distance(self, k1, k2):
         if k1 == k2: return 0
         neighbors = self.related_pairs.get(k1, None)
-        if neighbors is None: return 0
+        if neighbors is None: return 0 # ignore unknown kanji (obs. this dist is not symmetric)
         return int(k2 not in neighbors)
 
     def distance_one_to_many(self, k, ks):
@@ -44,7 +44,7 @@ class JpSentenceSimilarityEstimate:
         kanji_1 = self.kanji_matcher.findall(jp_text_1)
         kanji_2 = self.kanji_matcher.findall(jp_text_2)
         if not (kanji_1 and kanji_2):
-            return 1  # will catch a lot of good sentences but cannot be helpedç
+            return 1  # will catch a lot of good sentences but cannot be helped
         return self.distance_many_to_many(kanji_1, kanji_2) / max(10, len(kanji_1) + len(kanji_2))
 
 
