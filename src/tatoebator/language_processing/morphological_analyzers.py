@@ -24,11 +24,15 @@ forced_utf8_env = os.environ.copy()
 forced_utf8_env["PYTHONUTF8"] = "1"
 
 
-# TODO remove
-def running_as_anki_addon(): return True
-
-
-if running_as_anki_addon():
+# commented out this whole thing because of a grave error I cannot fix re: getting reading forms from sudachipy
+# I can't know if this is just me not knowing how to use it, but
+# sudachipy.Morpheme.reading_form() gives incorrect results
+# at least "ha" where "ha" should be read as "wa"
+# i see no other method of the class that could work for this
+# may well be I'm unable to find the correct method or it's just not exposed by the API
+# but in general the point is sudachipy cannot be relied upon for readings
+'''
+if running_as_anki_addon() or True:
     from ..timed_resource_manager import TimedResourceManager
     from ..config import SUDACHI_EXE
 
@@ -96,15 +100,14 @@ if running_as_anki_addon():
 else:
     import sudachipy
 
-
     def from_sudachipy_morpheme(morpheme: sudachipy.Morpheme) -> Morpheme:
         part_of_speech = set(morpheme.part_of_speech())
         if "*" in part_of_speech: part_of_speech.remove("*")
         return Morpheme(surface=morpheme.raw_surface(),
                         part_of_speech=part_of_speech,
                         dictionary_form=morpheme.dictionary_form(),
-                        is_oov=morpheme.is_oov())
-
+                        is_oov=morpheme.is_oov(),
+                        reading=morpheme.reading_form())
 
     class SudachiTokenizer(Tokenizer):
         def __init__(self):
@@ -113,6 +116,7 @@ else:
 
         def __call__(self, text):
             return list(map(from_sudachipy_morpheme, self.tokenizer.tokenize(text, self.mode)))
+'''
 
 if running_as_anki_addon():
     from ..timed_resource_manager import TimedResourceManager
@@ -199,15 +203,17 @@ else:
                 part_of_speech = set(split_features[:6])
                 if "*" in part_of_speech: part_of_speech.remove("*")
                 dictionary_form = split_features[6]
+                reading = split_features[8]
                 is_oov = len(split_features) < 9
                 # unless surface == '': # BOS/EOS
                 if not surface == '':  # BOS/EOS
-                    morphemes.append(Morpheme(surface, part_of_speech, dictionary_form, is_oov))
+                    morphemes.append(Morpheme(surface, part_of_speech, dictionary_form, is_oov, reading))
                 node = node.next
             return morphemes
 
 
 DefaultTokenizer = MeCabTokenizer
+DefaultTokenizer = SudachiTokenizer
 
 
 class DictionaryFormComputer:
