@@ -9,7 +9,7 @@ class TimedResourceManager:
     after a period of inactivity.
     """
 
-    def __init__(self, timeout=60):
+    def __init__(self, timeout: int = 60):
         self.timeout = timeout
         self.last_request_time = None
         self.is_resource_running = False

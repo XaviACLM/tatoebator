@@ -20,7 +20,7 @@ class Definitions:
 
     @property
     def complete(self):
-        return self.en and self.jp
+        return bool(self.en and self.jp)
 
     @classmethod
     def empty(cls):
@@ -29,11 +29,14 @@ class Definitions:
 
 class Dictionary:
 
-    base_url = None
+    _base_url = None
 
     @cached_property
-    def session(self):
-        return RobotsAwareSession(self.base_url, USER_AGENT)
+    def _session(self):
+        return RobotsAwareSession(self._base_url, USER_AGENT)
+
+    def get_maximum_rate(self) -> float:
+        return self._session.get_maximum_rate()
 
     def get_definitions(self, word: str) -> Definitions:
         raise NotImplementedError()
@@ -57,14 +60,14 @@ class EnglishDictionary(Dictionary):
 
 class TanoshiiDictionary(Dictionary):
 
-    base_url = f"https://www.tanoshiijapanese.com"
+    _base_url = f"https://www.tanoshiijapanese.com"
 
     def get_definitions(self, word) -> Definitions:
         url = f"{self.base_url}/dictionary/index.cfm?j={word}&e=&search=Search+>"
-        return self.get_definitions_from_url(word, url)
+        return self._get_definitions_from_url(word, url)
 
-    def get_definitions_from_url(self, word, url):
-        response = self.session.get(url)
+    def _get_definitions_from_url(self, word, url):
+        response = self._session.get(url)
 
         if response.status_code != 200:
             raise Exception(f"Something went wrong with the tanoshiijp request - status code {response.status_code}")
@@ -86,7 +89,7 @@ class TanoshiiDictionary(Dictionary):
 
             new_url = f"{self.base_url}{found_url[2:]}"
 
-            return self.get_definitions_from_url(word, new_url)
+            return self._get_definitions_from_url(word, new_url)
 
         elif decider_elem.name == 'div':
             # jp_elem = decider_elem.find('span', class_='copyable')
@@ -124,12 +127,12 @@ class TanoshiiDictionary(Dictionary):
 
 class JishoDictionary(EnglishDictionary):
 
-    base_url = "https://jisho.org/"
+    _base_url = "https://jisho.org/"
 
     def _get_en_definition(self, word) -> List[str]:
         url = f"{self.base_url}/api/v1/search/words?keyword={word}"
 
-        response = self.session.get(url)
+        response = self._session.get(url)
 
         data = response.json()["data"]
 
@@ -150,11 +153,11 @@ class JishoDictionary(EnglishDictionary):
 
 class WeblioDictionary(Dictionary):
 
-    base_url = f"https://ejje.weblio.jp"
+    _base_url = f"https://ejje.weblio.jp"
 
     def get_definitions(self, word: str) -> Definitions:
         url = f"https://ejje.weblio.jp/english-thesaurus/content/{word}"
-        response = self.session.get(url)
+        response = self._session.get(url)
 
         if response.status_code != 200:
             raise Exception(f"Something went wrong with the tanoshiijp request - status code {response.status_code}")
@@ -173,10 +176,10 @@ class WeblioDictionary(Dictionary):
 
 class DefinitionFetcher:
 
-    dictionaries: List[Dictionary] = [WeblioDictionary(), TanoshiiDictionary(), JishoDictionary()]
+    _dictionaries: List[Dictionary] = [WeblioDictionary(), TanoshiiDictionary(), JishoDictionary()]
 
     def __init__(self):
-        self.dictionaries.sort(key=lambda x: -x.session.maximum_rate())
+        self._dictionaries.sort(key=lambda x: -x.get_maximum_rate())
 
     def get_definitions(self, word: str) -> Definitions:
         for definitions in self._yield_aggregated_definitions(word):
@@ -195,7 +198,7 @@ class DefinitionFetcher:
 
     def _yield_aggregated_definitions(self, word: str):
         definitions = Definitions.empty()
-        for dictionary in self.dictionaries:
+        for dictionary in self._dictionaries:
             definitions = definitions + dictionary.get_definitions(word)
             yield definitions
 

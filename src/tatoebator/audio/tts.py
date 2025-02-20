@@ -32,9 +32,9 @@ class VoicevoxInterface(TimedResourceManager, metaclass=TransientSingleton):
 
 
 class WOkadaInterface(TimedResourceManager, metaclass=TransientSingleton):
-    startup_time = 15
-    port = 19000
-    base_url = f"http://localhost:{port}"
+    _startup_time = 15
+    _port = 19000
+    _base_url = f"http://localhost:{_port}"
 
     def _start_resource(self):
         self._process = subprocess.Popen(
@@ -51,7 +51,7 @@ class WOkadaInterface(TimedResourceManager, metaclass=TransientSingleton):
                 )
 
             try:
-                response = requests.get(f"{self.base_url}/api/hello")
+                response = requests.get(f"{self._base_url}/api/hello")
                 if response.status_code == 200:
                     # running!
                     break
@@ -68,13 +68,13 @@ class WOkadaInterface(TimedResourceManager, metaclass=TransientSingleton):
         self._process = None
 
     def _process_request(self, request_payload):
-        url = f"{self.base_url}/api/tts-manager/operation/generateVoice"
+        url = f"{self._base_url}/api/tts-manager/operation/generateVoice"
         return requests.post(url, json=request_payload).content
 
 
 class TTSManager:
     def __init__(self):
-        self.voice_use_counts = [0] * self.amt_voices
+        self._voice_use_counts = [0] * self.amt_voices
 
     @property
     def amt_voices(self):
@@ -83,13 +83,13 @@ class TTSManager:
     def _select_voice_idx(self):
         # randomly selects voice from 0-self.amt_voices, but making sure to keep it fairly balanced
         max_diff = 5
-        if max(self.voice_use_counts) - min(self.voice_use_counts) >= max_diff:
+        if max(self._voice_use_counts) - min(self._voice_use_counts) >= max_diff:
             voice_idx = min(
-                range(self.amt_voices), key=self.voice_use_counts.__getitem__
+                range(self.amt_voices), key=self._voice_use_counts.__getitem__
             )
         else:
             voice_idx = randint(0, self.amt_voices - 1)
-        self.voice_use_counts[voice_idx] += 1
+        self._voice_use_counts[voice_idx] += 1
         return voice_idx
 
     def _get_voice_by_idx(self, voice_idx):
@@ -127,8 +127,8 @@ class TTSManager:
 class WOkadaManager(TTSManager, metaclass=TransientSingleton):
     def __init__(self, timeout=30):
         super().__init__()
-        self.interface = WOkadaInterface(timeout=timeout)
-        atexit.register(self.interface.shutdown)
+        self._interface = WOkadaInterface(timeout=timeout)
+        atexit.register(self._interface.shutdown)
 
     @property
     def amt_voices(self):
@@ -147,7 +147,7 @@ class WOkadaManager(TTSManager, metaclass=TransientSingleton):
             "cutMethod": "Slice by every punct",
         }
 
-        data = self.interface.process_request_managed(request_payload)
+        data = self._interface.process_request_managed(request_payload)
 
         with open(output_path, "wb") as f:
             f.write(data)
@@ -159,8 +159,8 @@ VOICEVOX_VOICES = [0, 13, 14, 30, 81]
 class VoicevoxManager(TTSManager, metaclass=TransientSingleton):
     def __init__(self, timeout=30):
         super().__init__()
-        self.interface = VoicevoxInterface(timeout=timeout)
-        atexit.register(self.interface.shutdown)
+        self._interface = VoicevoxInterface(timeout=timeout)
+        atexit.register(self._interface.shutdown)
 
     @property
     def amt_voices(self):
@@ -175,7 +175,7 @@ class VoicevoxManager(TTSManager, metaclass=TransientSingleton):
                 "Can't handle speeds other than 1 in voicevox (might be possible, just didn't check)"
             )
 
-        data = self.interface.process_request_managed(sentence, voice)
+        data = self._interface.process_request_managed(sentence, voice)
 
         with open(output_path, "wb") as f:
             f.write(data)
@@ -207,7 +207,7 @@ VOICEPEAK_VOICES = [  # default speaking params for some extra character (very m
 
 
 class VoicepeakManager(TTSManager, metaclass=TransientSingleton):
-    max_retries = 5
+    _max_retries = 5
 
     @property
     def amt_voices(self):

@@ -11,9 +11,9 @@ from ..util import deterministic_hash
 
 class MediaManager:
     def __init__(self, temp_file_name: str = 'temp_audio_file.mp3'):
-        self.temp_file_name = temp_file_name
-        self.temp_path = os.path.join(TEMP_FILES_DIR, self.temp_file_name)
         self.tts_manager = DefaultTTSManager()
+        self._temp_file_name = temp_file_name
+        self._temp_path = os.path.join(TEMP_FILES_DIR, self._temp_file_name)
 
     def _filename_from_id(self, sentence_id: str):
         return f"{ADDON_NAME}.{sentence_id}.mp3"
@@ -23,9 +23,9 @@ class MediaManager:
         sentence_filename = self._filename_from_id(sentence_id)
         sentence_path = os.path.join(MEDIA_DIR, sentence_filename)
         if not os.path.exists(sentence_path):
-            self.tts_manager.create_audio(sentence, speed=speed, file_dir=TEMP_FILES_DIR, file_name=self.temp_file_name)
-            convert_bitrate(self.temp_path, sentence_path, AUDIO_BITRATE)
-            os.remove(self.temp_path)
+            self.tts_manager.create_audio(sentence, speed=speed, file_dir=TEMP_FILES_DIR, file_name=self._temp_file_name)
+            convert_bitrate(self._temp_path, sentence_path, AUDIO_BITRATE)
+            os.remove(self._temp_path)
         return sentence_id
 
     def add_audio_file_to_sentence(self, sentence: ExampleSentence, speed=0.8, desired_id=None):

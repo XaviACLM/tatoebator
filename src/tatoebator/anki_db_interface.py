@@ -15,8 +15,8 @@ class AnkiDbInterface:
         # TODO
         #  this will have to be read from somewhere later, with a fancy menu built from the functions in find_relevant_ids
         #  for now it's just hardcoded.
-        self._other_vocabulary_decks = [(1699173573926, 1437620882055, 1),  # deck_id, notetype_id, field_num
-                                 (1704665226577, 1629856136563, 0)]
+        self.other_vocabulary_decks = [(1699173573926, 1437620882055, 1),  # deck_id, notetype_id, field_num
+                                       (1704665226577, 1629856136563, 0)]
 
     # not a real function, just keeping code that will be useful when we make a menu for this
     def find_relevant_ids(self):
@@ -86,6 +86,7 @@ class AnkiDbInterface:
         return {WordInLibraryType.NOT_IN_LIBRARY: unknown_words,
                 WordInLibraryType.IN_LIBRARY_KNOWN: known_words,
                 WordInLibraryType.IN_LIBRARY_NEW: pending_words, }
+
     @staticmethod
     def _get_known_words_in_deck(deck_id, notetype_id, field_num):
         col = mw.col
@@ -104,7 +105,7 @@ class AnkiDbInterface:
 
     def group_text_by_library(self, words):
         classified = {kind: set() for kind in WordInLibraryType}
-        for deck_id, notetype_id, field_num in self._other_vocabulary_decks:
+        for deck_id, notetype_id, field_num in self.other_vocabulary_decks:
             classified_deck = self._search_cards_in_deck(deck_id, notetype_id, field_num, words)
             for kind in WordInLibraryType:
                 classified[kind] = classified[kind].union(classified_deck[kind])
@@ -115,7 +116,7 @@ class AnkiDbInterface:
 
     def get_known_words(self):
         known_words = set()
-        for deck_id, notetype_id, field_num in self._other_vocabulary_decks:
+        for deck_id, notetype_id, field_num in self.other_vocabulary_decks:
             known_words.update(self._get_known_words_in_deck(deck_id, notetype_id, field_num))
         return known_words
 

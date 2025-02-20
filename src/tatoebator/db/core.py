@@ -60,42 +60,42 @@ class Keyword(Base):
 
 class SentenceDbInterface:
     def __init__(self):
-        self.engine = create_engine(DATABASE_URL)
-        Base.metadata.create_all(self.engine)
-        atexit.register(self.engine.dispose)
+        self._engine = create_engine(DATABASE_URL)
+        Base.metadata.create_all(self._engine)
+        atexit.register(self._engine.dispose)
 
-        self.Session = sessionmaker(bind=self.engine)
-        self.session = None  # do we really need to worry about this? keeping a single session should be fine...
+        self._session_constructor = sessionmaker(bind=self._engine)
+        self._session = None  # do we really need to worry about this? keeping a single session should be fine...
 
     def _open_session(self):
-        self.session = self.Session()
+        self._session = self._session_constructor()
 
     def close_session(self):
         # careful, doesn't commit!!
-        self.session.close()
+        self._session.close()
 
     def check_sentence(self, sentence: str, commit=True):
-        if self.session is None: self._open_session()
-        existing = self.session.query(Sentence).filter_by(japanese=sentence).first()
-        if commit: self.session.commit()
+        if self._session is None: self._open_session()
+        existing = self._session.query(Sentence).filter_by(japanese=sentence).first()
+        if commit: self._session.commit()
         return existing or None  # None if existing is falsey
 
     def count_n_sentences(self):
-        if self.session is None: self._open_session()
+        if self._session is None: self._open_session()
 
-        return self.session.query(func.count(Sentence.id)).scalar()
+        return self._session.query(func.count(Sentence.id)).scalar()
 
     def _insert_keywords(self, keywords: Set[str]) -> Dict[str, int]:
         keywords_in_database = {k.keyword: k for k in
-                                self.session.query(Keyword).filter(Keyword.keyword.in_(keywords)).all()}
+                                self._session.query(Keyword).filter(Keyword.keyword.in_(keywords)).all()}
         keywords_to_insert = {k: Keyword(keyword=k, known=False) for k in keywords if k not in keywords_in_database}
-        self.session.add_all(keywords_to_insert.values())
-        self.session.flush()
+        self._session.add_all(keywords_to_insert.values())
+        self._session.flush()
         keywords_in_database.update(keywords_to_insert)
         return {k: keyword.id for k, keyword in keywords_in_database.items()}
 
     def insert_sentence(self, sentence, verify_not_repeated=True):
-        if self.session is None: self._open_session()
+        if self._session is None: self._open_session()
 
         if verify_not_repeated:
             existing = self.check_sentence(sentence.sentence, commit=False)
@@ -104,21 +104,21 @@ class SentenceDbInterface:
 
         # insert sentence
         new_sentence = self._row_from_example_sentence(sentence)
-        self.session.add(new_sentence)
-        self.session.flush()  # Flush to get the new sentence ID
+        self._session.add(new_sentence)
+        self._session.flush()  # Flush to get the new sentence ID
 
         # insert keywords that aren't already present, get keyword -> db id map
         keyword_to_id = self._insert_keywords(set(sentence.lexical_words))
 
         # use sentence id and keyword id map to insert SentenceKeyword Pairs
-        self.session.add_all([SentenceKeyword(sentence_id=new_sentence.id, keyword_id=keyword_to_id[lw])
-                              for lw in sentence.lexical_words])
-        self.session.flush()
+        self._session.add_all([SentenceKeyword(sentence_id=new_sentence.id, keyword_id=keyword_to_id[lw])
+                               for lw in sentence.lexical_words])
+        self._session.flush()
 
-        self.session.commit()
+        self._session.commit()
 
     def insert_sentences_batched(self, sentences, verify_not_repeated=True):
-        if self.session is None: self._open_session()
+        if self._session is None: self._open_session()
 
         keyword_by_sentence = []
         keywords_to_insert = set()
@@ -130,8 +130,8 @@ class SentenceDbInterface:
                     raise Exception(f"Sentence already exists with ID {existing.id}.")
 
             new_sentence = self._row_from_example_sentence(sentence)
-            self.session.add(new_sentence)
-            self.session.flush()  # Flush to get ID for keywords
+            self._session.add(new_sentence)
+            self._session.flush()  # Flush to get ID for keywords
 
             keywords_to_insert.update(sentence.lexical_words)
             keyword_by_sentence.append((new_sentence.id, sentence.lexical_words))
@@ -142,9 +142,9 @@ class SentenceDbInterface:
             relations_to_insert.extend([SentenceKeyword(sentence_id=sentence_id,
                                                         keyword_id=keyword_to_id[keyword])
                                         for keyword in keywords])
-        self.session.add_all(relations_to_insert)
-        self.session.flush()
-        self.session.commit()
+        self._session.add_all(relations_to_insert)
+        self._session.flush()
+        self._session.commit()
 
     @classmethod
     def _row_from_example_sentence(cls, sentence: ExampleSentence):
@@ -186,10 +186,10 @@ class SentenceDbInterface:
         :param ensure_audio: if true, sentences with no audio_fileid will generate one
         :return: list of found sentences, as ExampleSentences
         """
-        if self.session is None: self._open_session()
+        if self._session is None: self._open_session()
 
         results = (
-            self.session.query(Sentence)
+            self._session.query(Sentence)
                 .join(SentenceKeyword, Sentence.id == SentenceKeyword.sentence_id)
                 .join(Keyword, SentenceKeyword.keyword_id == Keyword.id)
                 .filter(Keyword.keyword == word)
@@ -202,26 +202,26 @@ class SentenceDbInterface:
 
     def get_sentences_by_word_batched(self, word_desired_amts: Dict[str, int]):
 
-        if self.session is None: self._open_session()
+        if self._session is None: self._open_session()
 
         words = list(word_desired_amts.keys())
         max_limit = max(word_desired_amts.values())
 
         ids_by_word_query = (
-            self.session.query(Keyword.keyword,
-                               SentenceKeyword.sentence_id,
-                               func.row_number()
-                               .over(partition_by=Keyword.keyword, order_by=SentenceKeyword.sentence_id)
-                               .label("rn")
-                               )
+            self._session.query(Keyword.keyword,
+                                SentenceKeyword.sentence_id,
+                                func.row_number()
+                                .over(partition_by=Keyword.keyword, order_by=SentenceKeyword.sentence_id)
+                                .label("rn")
+                                )
             .join(SentenceKeyword, SentenceKeyword.keyword_id == Keyword.id)
             .filter(Keyword.keyword.in_(words))
             .subquery()
         )
 
         results = (
-            self.session.query(ids_by_word_query.c.keyword,
-                               Sentence)
+            self._session.query(ids_by_word_query.c.keyword,
+                                Sentence)
             .filter(ids_by_word_query.c.rn <= max_limit)
             .join(Sentence, Sentence.id == ids_by_word_query.c.sentence_id)
             .all()
@@ -242,21 +242,21 @@ class SentenceDbInterface:
         Updates the database with new audio_file_id values for sentences.
         :param sentences: List of ExampleSentence objects with updated audio_fileid.
         """
-        if self.session is None:
+        if self._session is None:
             self._open_session()
 
         updates = {sentence.sentence: sentence.audio_fileid for sentence in sentences}
-        self.session.query(Sentence).filter(Sentence.japanese.in_(updates.keys())).update(
+        self._session.query(Sentence).filter(Sentence.japanese.in_(updates.keys())).update(
             {"audio_file_id": case(updates, value=Sentence.japanese)},
             synchronize_session=False
         )
 
-        self.session.commit()
+        self._session.commit()
 
     def count_keywords(self, keywords):
-        if self.session is None: self._open_session()
+        if self._session is None: self._open_session()
         result = (
-            self.session.query(Keyword.keyword, func.count(Keyword.keyword))
+            self._session.query(Keyword.keyword, func.count(Keyword.keyword))
                 .filter(Keyword.keyword.in_(keywords))
                 .join(SentenceKeyword, Keyword.id == SentenceKeyword.keyword_id)
                 .group_by(Keyword.keyword)
@@ -266,9 +266,9 @@ class SentenceDbInterface:
         return {keyword: counts.get(keyword, 0) for keyword in keywords}
 
     def count_keywords_by_sentence_comprehensibility(self, keywords, min_comprehensibility):
-        if self.session is None: self._open_session()
+        if self._session is None: self._open_session()
         result = (
-            self.session.query(Keyword.keyword, func.count(Keyword.keyword))
+            self._session.query(Keyword.keyword, func.count(Keyword.keyword))
                 .filter(Keyword.keyword.in_(keywords))
                 .join(SentenceKeyword, Keyword.id == SentenceKeyword.keyword_id)
                 .join(Sentence, SentenceKeyword.sentence_id == Sentence.id)
@@ -280,12 +280,12 @@ class SentenceDbInterface:
         return {keyword: counts.get(keyword, 0) for keyword in keywords}
 
     def get_all_audio_ids(self) -> Set[str]:
-        if self.session is None:
+        if self._session is None:
             self._open_session()
 
         referenced_audio_ids = set(
             row[0] for row in
-            self.session.query(Sentence.audio_file_id).filter(Sentence.audio_file_id.isnot(None)).all()
+            self._session.query(Sentence.audio_file_id).filter(Sentence.audio_file_id.isnot(None)).all()
         )
 
         return referenced_audio_ids
@@ -295,11 +295,11 @@ class SentenceDbInterface:
         self._update_unknown_counts()
 
     def _update_known_counts(self, reset_to_zero=False):
-        if self.session is None:
+        if self._session is None:
             self._open_session()
 
         knowns_by_id = (
-            self.session.query(
+            self._session.query(
                 SentenceKeyword.sentence_id,
                 func.count(SentenceKeyword.id).label("count")
             )
@@ -309,10 +309,10 @@ class SentenceDbInterface:
                 .subquery()
         )
 
-        self.session.query(Sentence).update(
+        self._session.query(Sentence).update(
             {
                 Sentence.n_known_words: (
-                    self.session.query(knowns_by_id.c.count)
+                    self._session.query(knowns_by_id.c.count)
                         .filter(Sentence.id == knowns_by_id.c.sentence_id)
                         .as_scalar()
                 )
@@ -320,22 +320,22 @@ class SentenceDbInterface:
             synchronize_session=False
         )
 
-        self.session.commit()
+        self._session.commit()
 
     def _update_unknown_counts(self):
-        if self.session is None:
+        if self._session is None:
             self._open_session()
 
-        self.session.query(Sentence).update(
+        self._session.query(Sentence).update(
             {Sentence.n_unknown_words: Sentence.n_keywords - Sentence.n_known_words},
             synchronize_session=False
         )
 
-        self.session.commit()
+        self._session.commit()
 
     def update_known_field(self, known_words):
-        if self.session is None:
+        if self._session is None:
             self._open_session()
-        self.session.query(Keyword).filter(Keyword.keyword.in_(known_words)).update({"known": True},
-                                                                                    synchronize_session=False)
-        self.session.commit()
+        self._session.query(Keyword).filter(Keyword.keyword.in_(known_words)).update({"known": True},
+                                                                                     synchronize_session=False)
+        self._session.commit()

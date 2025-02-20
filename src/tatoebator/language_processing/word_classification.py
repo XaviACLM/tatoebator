@@ -22,8 +22,7 @@ def group_text_by_learnability(text, anki_db_interface: AnkiDbInterface):
     # punctuation is discarded
     classified[WordLearnableType.GRAMMATICAL_WORD] = classified_speech[WordSpeechType.GRAMMATICAL_WORD]
     classified[WordLearnableType.NOT_IN_DICTIONARY] = classified[WordLearnableType.NOT_IN_DICTIONARY].union(
-        classified_speech[
-            WordSpeechType.PROPER_NOUN_PERSON])
+        classified_speech[WordSpeechType.PROPER_NOUN_PERSON])
     classified[WordLearnableType.PROPER_NOUN_NONPERSON] = classified_speech[WordSpeechType.PROPER_NOUN_NONPERSON]
 
     # lexical words are split acc to whether we know them already

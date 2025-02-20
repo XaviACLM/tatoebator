@@ -6,15 +6,18 @@ from functools import cached_property
 from .unicode_ranges import UnicodeRange as ur, UnicodeRange
 from ..constants import EXTERNAL_DATASETS_DIR
 
-strictly_japanese_chars_matcher = re.compile(fr"[{ur.hiragana}{ur.katakana}{ur.kanji}ー]")
+_strictly_japanese_chars_matcher = re.compile(fr"[{ur.hiragana}{ur.katakana}{ur.kanji}ー]")
+
 
 def japanese_chars_ratio(text: str) -> float:
-    return len(re.findall(strictly_japanese_chars_matcher, text)) / len(text)
+    return len(re.findall(_strictly_japanese_chars_matcher, text)) / len(text)
+
 
 def approximate_jp_root_form(word: str) -> str:
         return word[:-1] if word[-1] in "いうくすつぬふむゆるぐずづぶぷ" else word
 
-class JpSentenceSimilarityEstimate:
+
+class _JpSentenceSimilarityEstimator:
 
     kanji_matcher = re.compile(fr"[{UnicodeRange.kanji}]")
 
@@ -48,4 +51,4 @@ class JpSentenceSimilarityEstimate:
         return self.distance_many_to_many(kanji_1, kanji_2) / max(10, len(kanji_1) + len(kanji_2))
 
 
-estimate_jp_sentence_distance = JpSentenceSimilarityEstimate().distance_sentences
+estimate_jp_sentence_distance = _JpSentenceSimilarityEstimator().distance_sentences

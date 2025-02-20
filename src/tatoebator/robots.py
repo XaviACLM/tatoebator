@@ -12,13 +12,13 @@ class RobotsAwareSession(requests.Session):
         super().__init__()
         self.base_url = base_url
         self.user_agent = user_agent#"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.3"
-        self.robots_parser = RobotFileParser()
+        self._robots_parser = RobotFileParser()
         self._load_robots_txt()
         self._setup_rate_constraints()
 
     def _setup_rate_constraints(self):
-        self.crawl_delay = self.robots_parser.crawl_delay(self.user_agent) or 0
-        request_rate = self.robots_parser.request_rate(self.user_agent)
+        self.crawl_delay = self._robots_parser.crawl_delay(self.user_agent) or 0
+        request_rate = self._robots_parser.request_rate(self.user_agent)
         if request_rate is None:
             self.last_request_time = time.time() - self.crawl_delay
             self.request_buffer = None
@@ -42,11 +42,11 @@ class RobotsAwareSession(requests.Session):
         robots_url = f"{self.base_url}/robots.txt"
         robots_data = super().request("GET", robots_url)
         if robots_data.status_code in (401, 403):
-            self.robots_parser.disallow_all = True
+            self._robots_parser.disallow_all = True
         elif robots_data.status_code in range(400,500):
-            self.robots_parser.allow_all = True
+            self._robots_parser.allow_all = True
         else:
-            self.robots_parser.parse(robots_data.content.decode("utf-8").splitlines())
+            self._robots_parser.parse(robots_data.content.decode("utf-8").splitlines())
 
     def request(self, method, url, *args, **kwargs):
         # Parse the URL to get the path
@@ -54,7 +54,7 @@ class RobotsAwareSession(requests.Session):
         path = parsed_url.path
 
         # Check if the path is allowed by robots.txt
-        if not self.robots_parser.can_fetch(self.user_agent, url):
+        if not self._robots_parser.can_fetch(self.user_agent, url):
             raise Exception(f"Access to {url} is disallowed by robots.txt")
 
         self._wait_for_rate_constraints()
@@ -62,9 +62,9 @@ class RobotsAwareSession(requests.Session):
         # Proceed with the request
         return super().request(method, url, *args, **kwargs)
 
-    def maximum_rate(self):
+    def get_maximum_rate(self):
         delay = self.crawl_delay or 0
         if self.request_buffer:
-            delay = max(delay, len(self.request_buffer.buffer)/self.request_rate_seconds)
+            delay = max(delay, len(self.request_buffer.buffer) / self.request_rate_seconds)
         if delay == 0: return float("inf")
         return 1/delay

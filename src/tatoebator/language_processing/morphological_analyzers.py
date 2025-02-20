@@ -123,7 +123,7 @@ if running_as_anki_addon():
     from ..config import MECAB_EXE
 
 
-    def process_mecab_cli_output_line(line: str) -> Morpheme:
+    def _process_mecab_cli_output_line(line: str) -> Morpheme:
         # remove lineskip (not really necessary b/c we never grab the final feature)
         line = line[:-1]
         surface, features = line.split('\t')
@@ -139,36 +139,36 @@ if running_as_anki_addon():
     class MeCabResource(TimedResourceManager):
         def _start_resource(self):
             mecab_path, mecab_exe = os.path.split(MECAB_EXE)
-            self.process = subprocess.Popen([mecab_exe],
-                                            cwd=mecab_path,
-                                            stdout=subprocess.PIPE,
-                                            stdin=subprocess.PIPE,
-                                            stderr=subprocess.PIPE,
-                                            text=True, encoding='utf-8',
-                                            shell=False,
-                                            env=forced_utf8_env,
-                                            creationflags=subprocess.CREATE_NO_WINDOW)
+            self._process = subprocess.Popen([mecab_exe],
+                                             cwd=mecab_path,
+                                             stdout=subprocess.PIPE,
+                                             stdin=subprocess.PIPE,
+                                             stderr=subprocess.PIPE,
+                                             text=True, encoding='utf-8',
+                                             shell=False,
+                                             env=forced_utf8_env,
+                                             creationflags=subprocess.CREATE_NO_WINDOW)
 
         def _stop_resource(self):
-            self.process.stdin.close()
-            self.process.terminate()
-            self.process.wait()
+            self._process.stdin.close()
+            self._process.terminate()
+            self._process.wait()
 
         def _process_request(self, text):
             text = text.replace("\n", " ")
-            self.process.stdin.write(text + "\n")
-            self.process.stdin.flush()
+            self._process.stdin.write(text + "\n")
+            self._process.stdin.flush()
             # grab items from readline until EOS
-            return iter(self.process.stdout.readline, "EOS\n")
+            return iter(self._process.stdout.readline, "EOS\n")
 
 
     class MeCabTokenizer(Tokenizer):
         def __init__(self):
-            self.mecab_resource = MeCabResource()
+            self._mecab_resource = MeCabResource()
 
         def __call__(self, text):
-            output = self.mecab_resource.process_request_managed(text)
-            return list(map(process_mecab_cli_output_line, output))
+            output = self._mecab_resource.process_request_managed(text)
+            return list(map(_process_mecab_cli_output_line, output))
 
 
     """
@@ -192,11 +192,11 @@ else:
 
     class MeCabTokenizer:
         def __init__(self):
-            self.tagger = MeCab.Tagger("-Ochasen")
+            self._tagger = MeCab.Tagger("-Ochasen")
 
         def __call__(self, text):
             morphemes = []
-            node = self.tagger.parseToNode(text)
+            node = self._tagger.parseToNode(text)
             while node is not None:
                 surface = node.surface
                 split_features = node.feature.split(",")
@@ -215,15 +215,15 @@ else:
 DefaultTokenizer = MeCabTokenizer
 
 
-class DictionaryFormComputer:
+class _DictionaryFormComputer:
 
-    tokenizer = DefaultTokenizer()
+    _tokenizer = DefaultTokenizer()
 
     def compute(self, word):
-        morphemes = self.tokenizer(word)
+        morphemes = self._tokenizer(word)
         if len(morphemes) != 1:
             return None
         return morphemes[0].dictionary_form
 
 
-dictionary_form = DictionaryFormComputer().compute
+dictionary_form = _DictionaryFormComputer().compute

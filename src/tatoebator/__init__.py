@@ -12,7 +12,7 @@ from .tatoebator import Tatoebator
 
 
 # introduces import hook that replaces unless with if not
-# commented out b/c it messes with tracebacks (most likely this is b/c i didn't do it right)
+# commented out b/c it messes with tracebacks (because we were lazy about it)
 # from .language_extensions.ast_transformers import install_unless
 # install_unless()
 

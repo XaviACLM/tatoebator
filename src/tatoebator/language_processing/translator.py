@@ -15,7 +15,7 @@ class Translator:
     # the capacity to estimate how many requests it has left - so it can warn the gui if relevant
 
     def __init__(self):
-        self.translator = GoogleTranslator(raise_exception=True)
+        self._google_translator = GoogleTranslator(raise_exception=True)
 
     # sync methods just instantiate a new translator to avoid having to worry abt the event loop
     def jp_to_eng(self, text: str):
@@ -27,9 +27,9 @@ class Translator:
         return translation.text
 
     async def async_jp_to_eng(self, text: str):
-        translation = await self.translator.translate(text, src='ja', dest='en')
+        translation = await self._google_translator.translate(text, src='ja', dest='en')
         return translation.text
 
     async def async_eng_to_jp(self, text: str):
-        translation = await self.translator.translate(text, src='en', dest='ja')
+        translation = await self._google_translator.translate(text, src='en', dest='ja')
         return translation.text

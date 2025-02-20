@@ -80,11 +80,11 @@ class NewWordsTableWidget(QWidget):
         self.sentence_repository = sentence_repository
         self.definition_fetcher = definition_fetcher
 
-        self.n_sentences_per_word = {word: 0 for word in words}
-        self.n_sentences_per_word_50 = {word: 0 for word in words}
-        self.n_sentences_per_word_80 = {word: 0 for word in words}
-        self.did_search_sentences = {word: False for word in words}
-        self.cached_definitions = dict()
+        self._n_sentences_per_word = {word: 0 for word in words}
+        self._n_sentences_per_word_50 = {word: 0 for word in words}
+        self._n_sentences_per_word_80 = {word: 0 for word in words}
+        self._did_search_sentences = {word: False for word in words}
+        self._cached_definitions = dict()
 
         # reorder to put grammaticalized words at the end
         # funny indexing mostly to preserve order but also to count amt_grammaticalized
@@ -96,8 +96,8 @@ class NewWordsTableWidget(QWidget):
                 words.append(words.pop(j))
                 amt_grammaticalized += 1
 
-        self.words = words
-        self.n_rows = len(words)
+        self._words = words
+        self._n_rows = len(words)
         self._init_ui()
 
         self._uncheck_grammaticalized(amt_grammaticalized)
@@ -105,13 +105,13 @@ class NewWordsTableWidget(QWidget):
     def get_new_word_data(self) -> Dict[str, Definitions]:
         return {self.table.item(i, 1).text(): Definitions(self.table.item(i, 5).text().split("\n- "),
                                                           self.table.item(i, 6).text().split("\n- "))
-                for i in range(self.n_rows) if self._is_idx_selected(i)}
+                for i in range(self._n_rows) if self._is_idx_selected(i)}
 
     def _init_ui(self):
         layout = QVBoxLayout()
 
         # Create the table
-        self.table = AutoResizeTableWidget(self.n_rows, 7, forced_resize_columns=[5, 6])
+        self.table = AutoResizeTableWidget(self._n_rows, 7, forced_resize_columns=[5, 6])
         self.table.setHorizontalHeaderLabels(
             ['Include', 'Name', '# Sentences', '#S>50%', '#S>80%', 'Translation', 'Definition'])
 
@@ -130,7 +130,7 @@ class NewWordsTableWidget(QWidget):
 
         self.table.verticalHeader().setVisible(False)
 
-        for row, name in enumerate(self.words):
+        for row, name in enumerate(self._words):
             self.table.setItem(row, 0, QTableWidgetItem())
             self.table.item(row, 0).setFlags(self.table.item(row, 0).flags() | Qt.ItemFlag.ItemIsUserCheckable)
             self.table.item(row, 0).setCheckState(Qt.CheckState.Checked)
@@ -202,7 +202,7 @@ class NewWordsTableWidget(QWidget):
         self._update_sentence_counts()
 
     def _uncheck_grammaticalized(self, amt_grammaticalized: int):
-        for row in range(self.n_rows - amt_grammaticalized, self.n_rows):
+        for row in range(self._n_rows - amt_grammaticalized, self._n_rows):
             self.table.item(row, 0).setCheckState(Qt.CheckState.Unchecked)
 
     def _handle_table_change(self, item: QTableWidgetItem):
@@ -227,15 +227,15 @@ class NewWordsTableWidget(QWidget):
         self._update_sentence_counts_gui_at_row(row)
 
     def _update_sentence_counts_gui(self):
-        for row in range(self.n_rows):
+        for row in range(self._n_rows):
             if self._is_idx_selected(row):
                 self._update_sentence_counts_gui_at_row(row)
 
     def _update_sentence_counts_gui_at_row(self, row: int):
-        name = self.words[row]
-        s00 = self.n_sentences_per_word[name]
-        s50 = self.n_sentences_per_word_50[name]
-        s80 = self.n_sentences_per_word_80[name]
+        name = self._words[row]
+        s00 = self._n_sentences_per_word[name]
+        s50 = self._n_sentences_per_word_50[name]
+        s80 = self._n_sentences_per_word_80[name]
         self.table.item(row, 2).setText(str(s00))
         self.table.item(row, 3).setText(str(s50))
         self.table.item(row, 4).setText(str(s80))
@@ -248,18 +248,18 @@ class NewWordsTableWidget(QWidget):
         return self.table.item(idx, 0).checkState() == Qt.CheckState.Checked
 
     def _update_sentence_counts(self):
-        self.n_sentences_per_word = self.sentence_repository.count_lexical_word_ocurrences(self.words)
-        self.n_sentences_per_word_50 = self.sentence_repository \
-            .count_lexical_word_ocurrences(self.words, min_comprehensibility=0.5)
-        self.n_sentences_per_word_80 = self.sentence_repository \
-            .count_lexical_word_ocurrences(self.words, min_comprehensibility=0.8)
+        self._n_sentences_per_word = self.sentence_repository.count_lexical_word_ocurrences(self._words)
+        self._n_sentences_per_word_50 = self.sentence_repository \
+            .count_lexical_word_ocurrences(self._words, min_comprehensibility=0.5)
+        self._n_sentences_per_word_80 = self.sentence_repository \
+            .count_lexical_word_ocurrences(self._words, min_comprehensibility=0.8)
         self._update_sentence_counts_gui()
         self._update_sentence_button_highlighting()
 
     def _update_sentence_button_highlighting(self):
-        for idx, word in enumerate(self.words):
-            if self.n_sentences_per_word[word] < self.sentences_per_word_quota \
-                    and not self.did_search_sentences[word] \
+        for idx, word in enumerate(self._words):
+            if self._n_sentences_per_word[word] < self.sentences_per_word_quota \
+                    and not self._did_search_sentences[word] \
                     and self._is_idx_selected(idx):
                 self.button_sentences.setStyleSheet(
                     "QPushButton { background-color: palette(highlight); color: palette(highlighted-text); }"
@@ -269,8 +269,8 @@ class NewWordsTableWidget(QWidget):
             self.button_sentences.setStyleSheet("")
 
     def _produce_missing_sentences(self):
-        words_to_process = [word for idx, word in enumerate(self.words)
-                            if self._is_idx_selected(idx) and not self.did_search_sentences[word]]
+        words_to_process = [word for idx, word in enumerate(self._words)
+                            if self._is_idx_selected(idx) and not self._did_search_sentences[word]]
         if not words_to_process: return
         with ProgressDialog("Producing sentences...", 100) as progress:
 
@@ -281,11 +281,11 @@ class NewWordsTableWidget(QWidget):
                                                                   for word in words_to_process},
                                                                  progress_callback=progress_callback)
             for word in words_to_process:
-                self.did_search_sentences[word] = True
+                self._did_search_sentences[word] = True
             self._update_sentence_counts()
 
     def _generate_translations(self):
-        words_to_process = [(idx,word) for idx, word in enumerate(self.words)
+        words_to_process = [(idx,word) for idx, word in enumerate(self._words)
                             if self._is_idx_selected(idx)]
         if not words_to_process: return
         with ProgressDialog("Fetching translations...", len(words_to_process)) as progress:
@@ -296,7 +296,7 @@ class NewWordsTableWidget(QWidget):
                 self.table.item(i, 5).setText(self._get_translation(word))
 
     def _generate_definitions(self):
-        words_to_process = [(idx,word) for idx,word in enumerate(self.words)
+        words_to_process = [(idx,word) for idx,word in enumerate(self._words)
                             if self._is_idx_selected(idx)]
         if not words_to_process: return
         with ProgressDialog("Fetching definitions...", len(words_to_process)) as progress:
@@ -307,22 +307,22 @@ class NewWordsTableWidget(QWidget):
                 self.table.item(i, 6).setText(self._get_definition(word))
 
     def _get_translation(self, word):
-        if word not in self.cached_definitions:
+        if word not in self._cached_definitions:
             definitions = self.definition_fetcher.get_definitions(word)
-            self.cached_definitions[word] = definitions
-        return "\n".join((f"- {line}" for line in self.cached_definitions[word].en))
+            self._cached_definitions[word] = definitions
+        return "\n".join((f"- {line}" for line in self._cached_definitions[word].en))
 
     def _get_definition(self, word):
-        if word not in self.cached_definitions:
+        if word not in self._cached_definitions:
             definitions = self.definition_fetcher.get_definitions(word)
-            self.cached_definitions[word] = definitions
-        return "\n".join((f"- {line}" for line in self.cached_definitions[word].jp))
+            self._cached_definitions[word] = definitions
+        return "\n".join((f"- {line}" for line in self._cached_definitions[word].jp))
 
     def _remove_unselected(self):
         words_to_remove = []
         idxs_to_remove = []
         remaining_words = []
-        for idx,word in enumerate(self.words):
+        for idx,word in enumerate(self._words):
             if not self._is_idx_selected(idx):
                 idxs_to_remove.append(idx)
                 words_to_remove.append(word)
@@ -330,19 +330,19 @@ class NewWordsTableWidget(QWidget):
                 remaining_words.append(word)
 
         for word in words_to_remove:
-            self.n_sentences_per_word.pop(word)
-            self.n_sentences_per_word_50.pop(word)
-            self.n_sentences_per_word_80.pop(word)
-            self.did_search_sentences.pop(word)
+            self._n_sentences_per_word.pop(word)
+            self._n_sentences_per_word_50.pop(word)
+            self._n_sentences_per_word_80.pop(word)
+            self._did_search_sentences.pop(word)
 
         for idx in idxs_to_remove[::-1]:
             self.table.removeRow(idx)
 
-        self.words = remaining_words
-        self.n_rows = len(remaining_words)
+        self._words = remaining_words
+        self._n_rows = len(remaining_words)
 
     def _check_before_continuing(self):
-        if min(self.n_sentences_per_word.values()) >= self.sentences_per_word_quota\
+        if min(self._n_sentences_per_word.values()) >= self.sentences_per_word_quota\
             or ask_yes_no_question(f"Some of the selected words have a low (<{self.sentences_per_word_quota}) amount"\
                                 + " of example sentences available for them. Proceed anyway?"):
             self.continuing_from.emit()

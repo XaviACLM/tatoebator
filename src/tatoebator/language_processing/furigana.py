@@ -1,7 +1,7 @@
 import re
 from dataclasses import dataclass
 from functools import wraps
-from typing import List, Callable, Optional
+from typing import List, Callable, Optional, Union
 
 import jaconv
 
@@ -31,7 +31,7 @@ class KanjiWithFurigana:
     furigana: str
 
 
-TextWithFurigana = List[str | KanjiWithFurigana]
+TextWithFurigana = List[Union[str, KanjiWithFurigana]]
 
 
 def repr_with_formatting(text_with_furigana: TextWithFurigana,
@@ -47,13 +47,12 @@ def repr_with_formatting(text_with_furigana: TextWithFurigana,
     """
     final_text = []
     for element in text_with_furigana:
-        match element:
-            case KanjiWithFurigana(_, _) as kanji:
-                final_text.append(kanji_formatter(kanji))
-            case str(_) as plain_string:
-                final_text.append(string_formatter(plain_string))
-            case _:
-                raise TypeError("An element from the list passed to furigana.repr_with_formatting has unknown type")
+        if isinstance(element, KanjiWithFurigana):
+            final_text.append(kanji_formatter(element))
+        elif isinstance(element, str):
+            final_text.append(string_formatter(element))
+        else:
+            raise TypeError("An element from the list passed to furigana.repr_with_formatting has unknown type")
     return "".join(final_text)
 
 
@@ -105,7 +104,7 @@ def _split_okurigana(text: str, hiragana: str) -> TextWithFurigana:
     return kanji_split
 
 
-def verify_no_unknown_characters(known_character_matcher: re.Pattern):
+def _verify_no_unknown_characters(known_character_matcher: re.Pattern):
     def decorator(func):
         @wraps(func)
         def decorated_func(text: str, *args, check_valid: bool = False, **kwargs):
@@ -122,7 +121,7 @@ def verify_no_unknown_characters(known_character_matcher: re.Pattern):
     return decorator
 
 
-@verify_no_unknown_characters(allowed_characters_matcher)
+@_verify_no_unknown_characters(allowed_characters_matcher)
 def _split_furigana_line(text: str,
                          ignore_unknown_words=False,
                          tokenizer=DefaultTokenizer()  # function gets its own (unique) instance
@@ -151,25 +150,6 @@ def _split_furigana_line(text: str,
         else:
             furiganized_text.append(surface)
     return furiganized_text
-
-
-def find_troublesome_characters(text: str) -> List[str]:
-    """
-    Helper function. Finds words within passed text for which MeCab is unable to find a reading
-    :param text: text to search
-    :return: list of words from text that MeCab could not find a reading for
-    """
-    mecab = MeCab.Tagger("-Ochasen")
-    node = mecab.parseToNode(text)
-
-    result = []
-    while node is not None:
-        surface = node.surface
-        if re.search(kanji_matcher, surface) is not None:
-            if len(node.feature.split(",")) < 8:
-                result.append(surface)
-        node = node.next
-    return result
 
 
 def split_furigana(text: str, ignore_unknown_words=False) -> TextWithFurigana:

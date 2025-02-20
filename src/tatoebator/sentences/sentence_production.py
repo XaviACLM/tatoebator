@@ -22,7 +22,7 @@ from ..robots import RobotsAwareSession
 from ..util import sync_gen_from_async_gen
 
 
-def get_source_tag(source_name: str, license: str):
+def _get_source_tag(source_name: str, license: str):
     if ";" in source_name: raise Exception(f"Names passed to get_source_tag cannot contain ';' ({source_name})")
     if not os.path.exists(PATH_TO_SOURCES_FILE):
         with open(PATH_TO_SOURCES_FILE, 'w', encoding='utf-8') as sources_file:
@@ -56,7 +56,7 @@ class TaggedSource:
         self._generate_source_tag()
 
     def _generate_source_tag(self):
-        self.source_tag = get_source_tag(self.source_name, self.license)
+        self.source_tag = _get_source_tag(self.source_name, self.license)
 
 
 class SentenceProductionMethod(TaggedSource):
@@ -78,16 +78,16 @@ class TatoebaSPM(SentenceProductionMethod):
     source_name = 'Tatoeba (via API)'
     license = "CC-BY 2.0 Fr"
 
-    base_url = "https://api.tatoeba.org"
-    get_sentence_url = "https://api.tatoeba.org/unstable/sentences"
-    default_params = "lang=jpn&trans%3Alang=eng&sort=created"
-    stringent_params = "&is_orphan=no&is_unapproved=no&trans%3Ais_direct=yes&trans%3Ais_unapproved=no&trans%3Ais_orphan=no"
-    block_size = 30
+    _base_url = "https://api.tatoeba.org"
+    _get_sentence_url = "https://api.tatoeba.org/unstable/sentences"
+    _default_params = "lang=jpn&trans%3Alang=eng&sort=created"
+    _stringent_params = "&is_orphan=no&is_unapproved=no&trans%3Ais_direct=yes&trans%3Ais_unapproved=no&trans%3Ais_orphan=no"
+    _block_size = 30
 
     def __init__(self, stringent=True):
         super().__init__()
-        self.query_string = f"{self.get_sentence_url}?{self.default_params}{self.stringent_params if stringent else ''}&limit={self.block_size}"
-        self.session = RobotsAwareSession(self.base_url, USER_AGENT)
+        self.query_string = f"{self._get_sentence_url}?{self._default_params}{self._stringent_params if stringent else ''}&limit={self._block_size}"
+        self.session = RobotsAwareSession(self._base_url, USER_AGENT)
 
     def yield_sentences(self, word):
         # this api is quite buggy, actually - shame, have to make the code uglier
@@ -139,14 +139,14 @@ class ImmersionKitSPM(SentenceProductionMethod):
     license = 'Unknown'
     translations_reliable = False
 
-    base_url = "https://apiv2.immersionkit.com"
-    get_sentence_url = "https://apiv2.immersionkit.com/search?"
-    default_params = "index=&exactMatch=false&limit=0&sort=sentence_length%3Aasc"
+    _base_url = "https://apiv2.immersionkit.com"
+    _get_sentence_url = "https://apiv2.immersionkit.com/search?"
+    _default_params = "index=&exactMatch=false&limit=0&sort=sentence_length%3Aasc"
 
     def __init__(self):
         super().__init__()
-        self.query_string = f"{self.get_sentence_url}?{self.default_params}"
-        self.session = RobotsAwareSession(self.base_url, USER_AGENT)
+        self.query_string = f"{self._get_sentence_url}?{self._default_params}"
+        self.session = RobotsAwareSession(self._base_url, USER_AGENT)
 
     def yield_sentences(self, word):
         url = f"{self.query_string}&q={word}"
@@ -162,25 +162,27 @@ class ImmersionKitSPM(SentenceProductionMethod):
 
 
 class TatoebaASPM(ArbitrarySentenceProductionMethod):
+
     source_name = 'Tatoeba (via DB download)'
     license = "CC-BY 2.0 Fr"
     translations_reliable = True
     amt_sentences = 275845
 
+    _pairs_filepath = os.path.join(CACHE_DIR, 'tatoeba_pairs_data.tsv')
+    _en_filepath = os.path.join(CACHE_DIR, 'tatoeba_en')
+    _jp_filepath = os.path.join(CACHE_DIR, 'tatoeba_jp')
+
     def __init__(self):
         super().__init__()
-        self.pairs_filepath = os.path.join(CACHE_DIR, 'tatoeba_pairs_data.tsv')
-        self.en_filepath = os.path.join(CACHE_DIR, 'tatoeba_en')
-        self.jp_filepath = os.path.join(CACHE_DIR, 'tatoeba_jp')
         self._ensure_data()
 
     def _ensure_data(self):
-        if not os.path.exists(self.pairs_filepath):
+        if not os.path.exists(self._pairs_filepath):
             self._download_pairs_data_to_cache()
-        if not os.path.exists(self.en_filepath):
+        if not os.path.exists(self._en_filepath):
             self._download_lan_data_to_cache('en')
             self._cull_lan_data('en')
-        if not os.path.exists(self.jp_filepath):
+        if not os.path.exists(self._jp_filepath):
             self._download_lan_data_to_cache('jp')
             self._cull_lan_data('jp')
 
@@ -248,7 +250,7 @@ class TatoebaASPM(ArbitrarySentenceProductionMethod):
 
         download_response = tatoeba_session.get(download_url)
         download_response.raise_for_status()
-        with open(self.pairs_filepath, "wb") as file:
+        with open(self._pairs_filepath, "wb") as file:
             file.write(download_response.content[3:]) # some weird characters at the start (?)
 
     def _download_lan_data_to_cache(self, language: str):
@@ -270,14 +272,14 @@ class TatoebaASPM(ArbitrarySentenceProductionMethod):
 
     def _cull_lan_data(self, language: str):
         if language == 'jp':
-            lan_filepath = self.jp_filepath
+            lan_filepath = self._jp_filepath
         elif language == 'en':
-            lan_filepath = self.en_filepath
+            lan_filepath = self._en_filepath
         else:
             raise Exception("Incorrect language in TatoebaASPM._cull_lan_data")
         first_number_matcher = re.compile(r"(?:ï»¿)?(\d+)\t")
         second_number_matcher = re.compile(r"(?:ï»¿)?\d+\t(\d+)\n")
-        with open(self.pairs_filepath, 'r') as pair_file:
+        with open(self._pairs_filepath, 'r') as pair_file:
             if language == 'en':
                 pair_idxs = set(map(lambda line: int(first_number_matcher.match(line).group(1)), pair_file))
             if language == 'jp':
@@ -313,7 +315,7 @@ class TatoebaASPM(ArbitrarySentenceProductionMethod):
     def _read_lan_file(self, language_tag: str):
         if language_tag not in ['jp','en']: raise Exception("Incorrect language tag in TatoebaASPM._read_lan_file")
         data = {}
-        filepath = self.en_filepath if language_tag == 'en' else self.jp_filepath
+        filepath = self._en_filepath if language_tag == 'en' else self._jp_filepath
         with open(filepath, encoding='utf-8') as file:
             reader = csv.reader(file, delimiter='\t')
             for idx, text, owner in reader:
@@ -327,7 +329,7 @@ class TatoebaASPM(ArbitrarySentenceProductionMethod):
 
         merged_data = []
         seen_jp_idx = set()  # To drop duplicates
-        with open(self.pairs_filepath, encoding='utf-8') as f:
+        with open(self._pairs_filepath, encoding='utf-8') as f:
             for _ in range(start_at): next(f)
             reader = csv.reader(f, delimiter='\t')
             for en_idx, jp_idx in reader:
@@ -354,24 +356,25 @@ class SentenceSearchNeocitiesASPM(ArbitrarySentenceProductionMethod):
     translations_reliable = False
     amt_sentences = 45434
 
+    _filepath = os.path.join(CACHE_DIR, 'ssneocities_data.json')
+
     def __init__(self):
         super().__init__()
-        self.filepath = os.path.join(CACHE_DIR, 'ssneocities_data.json')
-        if not os.path.exists(self.filepath):
+        if not os.path.exists(self._filepath):
             self._download_data_to_cache()
 
     def _download_data_to_cache(self):
         url = 'https://sentencesearch.neocities.org/data/all_v11.json'
         response = requests.get(url)
         response.raise_for_status()
-        with open(self.filepath, 'wb') as file:
+        with open(self._filepath, 'wb') as file:
             file.write(response.content)
 
     def yield_sentences(self, start_at: int = 0) -> Iterator[CandidateExampleSentence]:
         # sometimes a space precedes the newline (?)
         jap_pattern = re.compile(r'^ {4}"jap":\s"(.*?)", ?$')
         eng_pattern = re.compile(r'^ {4}"eng":\s"(.*?)"$')
-        with open(self.filepath, 'r', encoding='utf-8') as file:
+        with open(self._filepath, 'r', encoding='utf-8') as file:
 
             line_number = 6*start_at
             for _ in range(start_at):
@@ -401,8 +404,8 @@ class ManyThingsTatoebaASPM(ArbitrarySentenceProductionMethod):
 
     def __init__(self):
         super().__init__()
-        self.filepath = os.path.join(CACHE_DIR, 'manythings_tatoeba.txt')
-        if not os.path.exists(self.filepath):
+        self._filepath = os.path.join(CACHE_DIR, 'manythings_tatoeba.txt')
+        if not os.path.exists(self._filepath):
             self._download_data_to_cache()
 
     def _download_data_to_cache(self):
@@ -413,14 +416,14 @@ class ManyThingsTatoebaASPM(ArbitrarySentenceProductionMethod):
             with open(zip_filepath, 'wb') as file:
                 file.write(response.content)
         with zipfile.ZipFile(zip_filepath, 'r') as zip_ref:
-            with zip_ref.open('jpn.txt') as orig, open(self.filepath, 'wb') as dest:
+            with zip_ref.open('jpn.txt') as orig, open(self._filepath, 'wb') as dest:
                 dest.write(orig.read())
         os.remove(zip_filepath)
 
     def yield_sentences(self, start_at: int = 0) -> Iterator[CandidateExampleSentence]:
         line_matcher = re.compile(r'([^\t]+)\t([^\t]+)\t([^\t]+)')
         license_matcher = re.compile(r'CC-BY 2\.0 \(France\) Attribution: tatoeba\.org #\d+ \((.+)\) & #\d+ \((.+)\)\n')
-        with open(self.filepath, 'r', encoding='utf-8') as file:
+        with open(self._filepath, 'r', encoding='utf-8') as file:
             for _ in range(start_at): next(file)
             self.last_seen_index = start_at
             for line in file:
@@ -441,12 +444,12 @@ class JParaCrawlASPM(ArbitrarySentenceProductionMethod):
         super().__init__()
         # 10GB, so manual download required
         # find the compressed files at https://www.kecl.ntt.co.jp/icl/lirg/jparacrawl/
-        self.filepath = os.path.join(EXTERNAL_DATASETS_DIR, 'en-ja.bicleaner05.txt')
+        self._filepath = os.path.join(EXTERNAL_DATASETS_DIR, 'en-ja.bicleaner05.txt')
 
     def yield_sentences(self, start_at: int = 0) -> Iterator[CandidateExampleSentence]:
         line_matcher = re.compile(r"([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\n")
         self.last_seen_index = start_at
-        with open(self.filepath, 'r', encoding='utf-8') as file:
+        with open(self._filepath, 'r', encoding='utf-8') as file:
             for _ in range(start_at): next(file)
             for line in file:
                 source_1, source_2, score, en_text, jp_text = line_matcher.fullmatch(line).groups()
@@ -502,24 +505,24 @@ class SentenceProductionManager:
     # TatoebaSPM :  fixing every new bug that crops up is a hassle, moreover easier to not have to include spms in model
     # ImmersionKitSPM : haven't asked permission + same as above + a lot of it does not make it past quality control
 
-    # TODO ask permission for jesc and jparacrawl
+    # TODO get response re permission for jparacrawl
 
-    aspms_for_ingesting = [
+    _aspms_for_ingesting = [
         ManyThingsTatoebaASPM(),
 
     ]
 
-    aspms_for_searching = [
+    _aspms_for_searching = [
         TatoebaASPM(),
         JapaneseEnglishSubtitleCorpusASPM(),
         JParaCrawlASPM(),
     ]
 
     def __init__(self):
-        self.quality_control = ExampleSentenceQualityEvaluator()
-        self.amt_searchable_sentences = sum([aspm.amt_sentences for aspm in self.aspms_for_searching])
-        self.amt_starter_sentences = sum([aspm.amt_sentences for aspm in self.aspms_for_ingesting])
-        self.translator = Translator()
+        self._quality_control = ExampleSentenceQualityEvaluator()
+        self.amt_searchable_sentences = sum([aspm.amt_sentences for aspm in self._aspms_for_searching])
+        self.amt_starter_sentences = sum([aspm.amt_sentences for aspm in self._aspms_for_ingesting])
+        self._translator = Translator() #  TODO pass this on from up high
 
     def yield_starter_sentences(self, desired_amt: Optional[int] = None,
                                 filtering_fun: Callable[[CandidateExampleSentence], bool] = lambda s: True)\
@@ -532,10 +535,10 @@ class SentenceProductionManager:
         if desired_amt is None: desired_amt = self.amt_starter_sentences
         if desired_amt <= 0: return
 
-        for aspm in self.aspms_for_ingesting:
+        for aspm in self._aspms_for_ingesting:
             evaluate_translations = False if aspm.translations_reliable else True
             for sentence in aspm.yield_sentences():
-                evaluation = self.quality_control.evaluate_quality(sentence)
+                evaluation = self._quality_control.evaluate_quality(sentence)
                 if evaluation is QualityEvaluationResult.UNSUITABLE or not filtering_fun(sentence): continue
                 yield ExampleSentence.from_candidate(sentence, aspm.source_tag, evaluation is QualityEvaluationResult.GOOD)
                 desired_amt -= 1
@@ -562,7 +565,7 @@ class SentenceProductionManager:
         if max(word_desired_amts.values()) <= 0: return
 
         roots = {approximate_jp_root_form(word): word for word in word_desired_amts}
-        for aspm in self.aspms_for_searching:
+        for aspm in self._aspms_for_searching:
             evaluate_translations = False if aspm.translations_reliable else True
             for sentence in aspm.yield_sentences():
 
@@ -574,9 +577,9 @@ class SentenceProductionManager:
                 # +check filtering fun (most likely = check it's not in db)
                 if not filtering_fun(sentence): continue
                 found_word = roots[found_root]
-                evaluation = self.quality_control.evaluate_quality(sentence)
+                evaluation = self._quality_control.evaluate_quality(sentence)
                 if evaluation is QualityEvaluationResult.UNSUITABLE: continue
-                translation_evaluation = self.quality_control.evaluate_translation_quality(sentence, translator=self.translator)
+                translation_evaluation = self._quality_control.evaluate_translation_quality(sentence, translator=self._translator)
                 if translation_evaluation is QualityEvaluationResult.UNSUITABLE: continue
 
                 yield found_word, ExampleSentence.from_candidate(sentence, aspm.source_tag, evaluation is QualityEvaluationResult.GOOD)
@@ -644,7 +647,7 @@ class SentenceProductionManager:
 
         async def generate_and_primary_check():
             idx = 0
-            for aspm in self.aspms_for_searching:
+            for aspm in self._aspms_for_searching:
                 evaluate_translations = False if aspm.translations_reliable else True
                 source_tag = aspm.source_tag
                 for sentence in aspm.yield_sentences():
@@ -663,7 +666,7 @@ class SentenceProductionManager:
                     if sentence.sentence in seen_sentences: continue
                     if not filtering_fun(sentence): continue
                     found_word = roots[found_root]
-                    evaluation = self.quality_control.evaluate_quality(sentence, word=found_word)
+                    evaluation = self._quality_control.evaluate_quality(sentence, word=found_word)
                     if evaluation is QualityEvaluationResult.UNSUITABLE: continue
                     is_good = evaluation is QualityEvaluationResult.GOOD
 
@@ -699,8 +702,8 @@ class SentenceProductionManager:
 
         async def single_translation_eval_task(item: awaiting_translation_type):
             amt_tries, found_root, is_good, source_tag, sentence = item
-            machine_translation = await self.translator.async_eng_to_jp(sentence.translation)
-            evaluation = self.quality_control.evaluate_translation_quality(sentence, machine_translation)
+            machine_translation = await self._translator.async_eng_to_jp(sentence.translation)
+            evaluation = self._quality_control.evaluate_translation_quality(sentence, machine_translation)
             if evaluation is QualityEvaluationResult.UNSUITABLE:
 
                 # if no more tries, give up on this sentence
@@ -727,7 +730,7 @@ class SentenceProductionManager:
 
         async def batched_translation_eval_task(batch: List[awaiting_translation_type]):
             translation_batch = "\n".join([sentence.translation for _,_,_,_, sentence in batch])
-            machine_translations = (await self.translator.async_eng_to_jp(translation_batch)).split("\n")
+            machine_translations = (await self._translator.async_eng_to_jp(translation_batch)).split("\n")
             if len(machine_translations) != len(batch):
                 # if the batch translation went wrong (batch elements got mixed up), send everything to single tl
                 # don't increase n_attempts counter, this wasn't a real tl attempt bc it didn't go to evaluation
@@ -745,7 +748,7 @@ class SentenceProductionManager:
             # this mirrors the code in single tl eval, except failures are sent back to the batch translation queue
             # (instead of single tl queue)
             for (amt_tries, found_root, is_good, source_tag, sentence), machine_translation in zip(batch, machine_translations):
-                evaluation = self.quality_control.evaluate_translation_quality(sentence, machine_translation)
+                evaluation = self._quality_control.evaluate_translation_quality(sentence, machine_translation)
                 if evaluation is QualityEvaluationResult.UNSUITABLE:
                     amt_tries += 1
                     if amt_tries >= max_retranslation_attempts:
@@ -785,7 +788,3 @@ class SentenceProductionManager:
                     break
             else:
                 await asyncio.sleep(0)
-
-            # some of these tasks don't get discarded properly
-            # absolutely no idea why. they all have the callback. whatever
-            # single_translation_tasks = {task for task in single_translation_tasks if not task.done()}

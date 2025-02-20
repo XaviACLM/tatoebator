@@ -28,7 +28,7 @@ try:
     import ctypes
     import ctypes.wintypes as wt
 
-    class ClipboardGetter:
+    class _ClipboardGetter:
         CF_UNICODETEXT = 13
 
         u32 = ctypes.WinDLL('user32')
@@ -61,7 +61,7 @@ try:
             return text
 
 
-    get_clipboard_text = ClipboardGetter.get_clipboard_text
+    get_clipboard_text = _ClipboardGetter.get_clipboard_text
 
 except ModuleNotFoundError:
 
