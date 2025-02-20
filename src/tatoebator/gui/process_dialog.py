@@ -22,10 +22,11 @@ class ProgressDialog:
         self.dialog.show()
         return self  # Allows calling `set_message()`
 
-    def update_progress(self, message: Optional[str] = None):
+    def update_progress(self, message: Optional[str] = None, value: Optional[int] = None):
         """Update progress message."""
         if self.dialog:
-            self.dialog.setValue(self.dialog.value() + 1)
+            value = value or self.dialog.value() + 1
+            self.dialog.setValue(value)
             if message: self.dialog.setLabelText(message)
             QApplication.processEvents()  # Keep UI responsive
 

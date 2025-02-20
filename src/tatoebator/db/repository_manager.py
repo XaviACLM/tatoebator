@@ -1,4 +1,4 @@
-from typing import List, Tuple, Dict, Set, Optional
+from typing import List, Tuple, Dict, Set, Optional, Callable, Any
 
 from ..sentences import ExampleSentence
 from ..sentences import SentenceProductionManager
@@ -19,7 +19,9 @@ class SentenceRepository:
             self._ingest_starter_sentences()
 
     def produce_sentences_for_word(self, word: str, desired_amt: int,
-                                   produce_new=True, ensure_audio=False) -> List[ExampleSentence]:
+                                   produce_new=True, ensure_audio=False,
+                                   progress_callback: Optional[Callable[..., None]] = None)\
+            -> List[ExampleSentence]:
         """
         gets amt_desired sentences from the database. if there are not enough sentences and produce_new is true, produces some new sentences
         returns a bool (indicating whether it managed to get the desired amount - it might not, even if produce_new=True)
@@ -29,13 +31,16 @@ class SentenceRepository:
         if ensure_audio: self._ensure_audio(sentences)
         if len(sentences) == desired_amt or not produce_new:
             return sentences
-        reached_desired_amt, produced_sentences = self._produce_new_sentences_for_word(word,
-                                                                                       desired_amt - len(sentences),
-                                                                                       ensure_audio=ensure_audio)
+        produced_sentences = self._produce_new_sentences_for_word(word,
+                                                                  desired_amt - len(sentences),
+                                                                  ensure_audio=ensure_audio,
+                                                                  progress_callback=progress_callback)
         return sentences + produced_sentences
 
     def produce_sentences_for_words(self, word_desired_amts: Dict[str, int],
-                                   produce_new=True, ensure_audio=False) -> Dict[str, List[ExampleSentence]]:
+                                    produce_new=True, ensure_audio=False,
+                                    progress_callback: Optional[Callable[..., None]] = None)\
+            -> Dict[str, List[ExampleSentence]]:
         words = list(word_desired_amts.keys())
         sentences = self.sentence_db_interface.get_sentences_by_word_batched(word_desired_amts)
         if ensure_audio: self._ensure_audio(sum(sentences.values(),[]))
@@ -45,7 +50,9 @@ class SentenceRepository:
         if not produce_new or produced_all_desired:
             return sentences
 
-        new_sentences = self._produce_new_sentences_for_words(missing_sentences_by_word, ensure_audio=ensure_audio)
+        new_sentences = self._produce_new_sentences_for_words(missing_sentences_by_word,
+                                                              ensure_audio=ensure_audio,
+                                                              progress_callback=progress_callback)
         aggregated_sentences = {word: sentences[word]+new_sentences[word] for word in words}
 
         return aggregated_sentences
@@ -78,10 +85,16 @@ class SentenceRepository:
         if updated_sentences:
             self.sentence_db_interface.update_audio_file_ids(updated_sentences)
 
-    def _produce_new_sentences_for_word(self, word: str, desired_amt: int, ensure_audio=False) -> List[ExampleSentence]:
-        return self._produce_new_sentences_for_words({word: desired_amt}, ensure_audio=ensure_audio)[word]
+    def _produce_new_sentences_for_word(self, word: str, desired_amt: int, ensure_audio=False,
+                                        progress_callback: Optional[Callable[..., None]] = None)\
+            -> List[ExampleSentence]:
+        return self._produce_new_sentences_for_words({word: desired_amt},
+                                                     ensure_audio=ensure_audio,
+                                                     progress_callback=progress_callback
+                                                     )[word]
 
-    def _produce_new_sentences_for_words(self, word_desired_amts: Dict[str, int], ensure_audio=False) \
+    def _produce_new_sentences_for_words(self, word_desired_amts: Dict[str, int], ensure_audio=False,
+                                         progress_callback: Optional[Callable[..., None]] = None) \
             -> Dict[str, List[ExampleSentence]]:
         """
         does what it says on the tin
@@ -93,7 +106,9 @@ class SentenceRepository:
         is_not_in_db = lambda s: self.sentence_db_interface.check_sentence(s.sentence, commit=False) is None
         sentences = {word: [] for word in word_desired_amts}
         for word, sentence in self.sentence_production_manager \
-                .yield_new_sentences_with_words(word_desired_amts, filtering_fun=is_not_in_db):
+                .yield_new_sentences_with_words(word_desired_amts,
+                                                filtering_fun=is_not_in_db,
+                                                progress_callback=progress_callback):
 
             if ensure_audio and sentence.audio_fileid is None:
                 self.media_manager.add_audio_file_to_sentence(sentence)

@@ -7,7 +7,7 @@ import subprocess
 import zipfile
 from difflib import SequenceMatcher
 from functools import lru_cache
-from typing import Optional, Iterator, List, Dict, Callable, Tuple, AsyncGenerator
+from typing import Optional, Iterator, List, Dict, Callable, Tuple, AsyncGenerator, Any
 from urllib import parse as parse_url
 
 import requests
@@ -543,11 +543,14 @@ class SentenceProductionManager:
                     return
 
     def yield_new_sentences_with_word(self, word: str, desired_amt: int,
-                                      filtering_fun: Callable[[CandidateExampleSentence], bool] = lambda s: True)\
+                                      filtering_fun: Callable[[CandidateExampleSentence], bool] = lambda s: True,
+                                      progress_callback: Optional[Callable[..., None]] = None)\
             -> Iterator[ExampleSentence]:
 
         yield from map(lambda pair: pair[1],
-                       self.yield_new_sentences_with_words({word: desired_amt}, filtering_fun))
+                       self.yield_new_sentences_with_words({word: desired_amt},
+                                                           filtering_fun,
+                                                           progress_callback=progress_callback))
 
     def snyc_yield_new_sentences_with_words(self, word_desired_amts: Dict[str, int],
                                        filtering_fun: Callable[[CandidateExampleSentence], bool] = lambda s: True)\
@@ -591,7 +594,8 @@ class SentenceProductionManager:
                                              filtering_fun: Callable[[CandidateExampleSentence], bool] = lambda s: True,
                                              max_parallel_translations: int = 50,
                                              translation_batch_size: int = 5,
-                                             max_retranslation_attempts: int = 3)\
+                                             max_retranslation_attempts: int = 3,
+                                             progress_callback: Optional[Callable[..., None]] = None)\
             -> Iterator[Tuple[str, ExampleSentence]]:  # isense gets confused re: decorator
         """
         searches the searchable aspms for example sentences containing any of the words in word_desired_amts
@@ -645,6 +649,9 @@ class SentenceProductionManager:
                 source_tag = aspm.source_tag
                 for sentence in aspm.yield_sentences():
                     idx += 1
+                    search_ratio = idx/self.amt_searchable_sentences
+                    if idx%1000==0:
+                        progress_callback(aspm.source_name, search_ratio)
 
                     # skip sentence if it doesn't contain root of any word we're searching for
                     found_root = next(filter(lambda root: root_desired_remaining[root] > root_being_processed_amts[root]
@@ -665,7 +672,6 @@ class SentenceProductionManager:
                     # if the proportion of sentences found for this word is lesser than the proportion of the
                     # searching db we've looked through, mark it as urgent:
                     # meaning it will attempt to be retranslated a few times if the quality check fails
-                    search_ratio = idx/self.amt_searchable_sentences
                     found_ratio = root_desired_remaining[found_root]/root_desired_amts[found_root]
                     urgent = search_ratio + found_ratio > 1
                     starting_index = 0 if not urgent else max_retranslation_attempts-1

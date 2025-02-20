@@ -4,7 +4,7 @@ from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtGui import QColor, QFontMetrics
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
-    QHeaderView, QScrollArea, QHBoxLayout, QPushButton, QStyledItemDelegate, QPlainTextEdit
+    QHeaderView, QScrollArea, QHBoxLayout, QPushButton, QStyledItemDelegate, QPlainTextEdit, QProgressDialog
 )
 
 from .process_dialog import ProgressDialog
@@ -272,12 +272,16 @@ class NewWordsTableWidget(QWidget):
         words_to_process = [word for idx, word in enumerate(self.words)
                             if self._is_idx_selected(idx) and not self.did_search_sentences[word]]
         if not words_to_process: return
-        with ProgressDialog("Producing sentences...", len(words_to_process)) as progress:
-            self.sentence_repository.produce_sentences_for_words({word: self.sentences_per_word_ideally for word in words_to_process})
+        with ProgressDialog("Producing sentences...", 100) as progress:
+
+            def progress_callback(aspm_name, search_ratio):
+                progress.update_progress(f"Scanning {aspm_name}...", int(search_ratio*100))
+
+            self.sentence_repository.produce_sentences_for_words({word: self.sentences_per_word_ideally
+                                                                  for word in words_to_process},
+                                                                 progress_callback=progress_callback)
             for word in words_to_process:
                 self.did_search_sentences[word] = True
-            #    progress.update_progress(f"Processing word: {word}")
-            #    self.sentence_repository.produce_up_to_limit(word)
             self._update_sentence_counts()
 
     def _generate_translations(self):
