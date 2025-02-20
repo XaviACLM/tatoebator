@@ -1,11 +1,11 @@
+import re
 from dataclasses import dataclass
 from functools import cached_property
 from typing import List
-import re
 
 from bs4 import BeautifulSoup
 
-from .morphological_analyzers import DefaultTokenizer, dictionary_form
+from . import dictionary_form
 from ..constants import USER_AGENT
 from ..robots import RobotsAwareSession
 

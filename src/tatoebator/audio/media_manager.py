@@ -1,12 +1,12 @@
 import os
 from typing import Set
 
-from ..sentences import ExampleSentence
-from ..config import AUDIO_BITRATE
-from ..constants import TEMP_FILES_DIR, ADDON_NAME, MEDIA_DIR
-from ..util import deterministic_hash
 from .ffmpeg_interface import convert_bitrate
 from .tts2 import DefaultTTSManager
+from ..config import AUDIO_BITRATE
+from ..constants import TEMP_FILES_DIR, ADDON_NAME, MEDIA_DIR
+from ..sentences import ExampleSentence
+from ..util import deterministic_hash
 
 
 class MediaManager:

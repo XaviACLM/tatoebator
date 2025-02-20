@@ -3,6 +3,7 @@ from enum import Enum
 from aqt import mw
 from aqt.utils import showInfo
 
+
 class WordInLibraryType(Enum):
     NOT_IN_LIBRARY = 1
     IN_LIBRARY_KNOWN = 2

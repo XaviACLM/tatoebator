@@ -7,16 +7,16 @@ import subprocess
 import zipfile
 from difflib import SequenceMatcher
 from functools import lru_cache
-from typing import Optional, Iterator, List, Dict, Callable, Tuple, AsyncGenerator, Any
+from typing import Optional, Iterator, List, Dict, Callable, Tuple
 from urllib import parse as parse_url
 
 import requests
 from titlecase import titlecase
 
-from ..config import SEVENZIP_EXE
-from ..constants import CACHE_DIR, TEMP_FILES_DIR, PATH_TO_SOURCES_FILE, USER_AGENT, EXTERNAL_DATASETS_DIR
 from .candidate_example_sentences import ExampleSentenceQualityEvaluator, QualityEvaluationResult
 from .example_sentences import CandidateExampleSentence, ExampleSentence
+from ..config import SEVENZIP_EXE
+from ..constants import CACHE_DIR, TEMP_FILES_DIR, PATH_TO_SOURCES_FILE, USER_AGENT, EXTERNAL_DATASETS_DIR
 from ..language_processing import approximate_jp_root_form, Translator
 from ..robots import RobotsAwareSession
 from ..util import sync_gen_from_async_gen

@@ -1,7 +1,7 @@
 import os
 import subprocess
 from dataclasses import dataclass
-from typing import List, Set
+from typing import List, Set, Optional
 
 from ..util import running_as_anki_addon
 
@@ -12,7 +12,7 @@ class Morpheme:
     part_of_speech: Set[str]
     dictionary_form: str
     is_oov: bool
-    reading: str
+    reading: Optional[str]
 
 
 class Tokenizer:
@@ -132,7 +132,7 @@ if running_as_anki_addon():
         if "*" in part_of_speech: part_of_speech.remove("*")
         dictionary_form = features[6]
         is_oov = len(features) < 9
-        reading = features[8]
+        reading = None if is_oov else  features[8]
         return Morpheme(surface, part_of_speech, dictionary_form, is_oov, reading)
 
 
@@ -203,8 +203,8 @@ else:
                 part_of_speech = set(split_features[:6])
                 if "*" in part_of_speech: part_of_speech.remove("*")
                 dictionary_form = split_features[6]
-                reading = split_features[8]
                 is_oov = len(split_features) < 9
+                reading = None if is_oov else split_features[8]
                 # unless surface == '': # BOS/EOS
                 if not surface == '':  # BOS/EOS
                     morphemes.append(Morpheme(surface, part_of_speech, dictionary_form, is_oov, reading))
@@ -213,7 +213,6 @@ else:
 
 
 DefaultTokenizer = MeCabTokenizer
-DefaultTokenizer = SudachiTokenizer
 
 
 class DictionaryFormComputer:

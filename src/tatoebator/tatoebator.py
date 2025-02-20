@@ -1,13 +1,13 @@
 from typing import List, Optional
 
+from aqt import gui_hooks
+
 from .anki_db_interface import AnkiDbInterface
-from .gui import MineNewWordsWidget, NewWordsTableWidget, word_miner_menu
 from .db import SentenceRepository
+from .gui import MineNewWordsWidget, NewWordsTableWidget
 from .gui.word_miner_menu import MinerFieldDataCache
 from .language_processing import japanese_chars_ratio, DefinitionFetcher
 from .util import get_clipboard_text
-
-from aqt import gui_hooks
 
 
 class Tatoebator:

@@ -1,10 +1,11 @@
 from typing import List, Dict, Set, Optional, Callable
 
-from ..sentences import ExampleSentence
-from ..sentences import SentenceProductionManager
 from ..audio import MediaManager
 from ..constants import SENTENCES_PER_CARD
 from ..db.core import SentenceDbInterface
+from ..language_processing import add_furigana_html
+from ..sentences import ExampleSentence
+from ..sentences import SentenceProductionManager
 
 
 class SentenceRepository:
@@ -147,4 +148,4 @@ class SentenceRepository:
 
     def _add_furigana(self, sentences):
         for sentence in sentences:
-            raise NotImplementedError()
+            sentence.furigana = add_furigana_html(sentence.sentence)

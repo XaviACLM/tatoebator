@@ -4,13 +4,13 @@ from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtGui import QColor, QFontMetrics
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
-    QHeaderView, QScrollArea, QHBoxLayout, QPushButton, QStyledItemDelegate, QPlainTextEdit, QProgressDialog
+    QHeaderView, QScrollArea, QHBoxLayout, QPushButton, QStyledItemDelegate, QPlainTextEdit
 )
 
 from .process_dialog import ProgressDialog
 from .util import ask_yes_no_question
-from ..language_processing import grammaticalized_words, DefinitionFetcher, Definitions
 from ..db import SentenceRepository
+from ..language_processing import grammaticalized_words, DefinitionFetcher, Definitions
 
 
 # this delegate courtesy of chatGPT

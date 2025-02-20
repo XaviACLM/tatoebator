@@ -1,7 +1,8 @@
 import time
-import requests
-from urllib.robotparser import RobotFileParser
 from urllib.parse import urlparse
+from urllib.robotparser import RobotFileParser
+
+import requests
 
 from .util import CircularBuffer
 

@@ -1,12 +1,12 @@
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Union
+from typing import Optional, List, Dict
 
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QLabel, QTextEdit, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QSpacerItem, QSizePolicy
 
+from .word_displays import QWordDisplay, QSelectableWordDisplay
 from ..anki_db_interface import AnkiDbInterface
 from ..language_processing import group_text_by_learnability, WordLearnableType
-from .word_displays import QWordDisplay, QSelectableWordDisplay
 
 
 @dataclass

@@ -1,13 +1,12 @@
 import logging
+import re
 from enum import Enum
 from functools import cached_property
 from typing import Optional, List
 
-import re
-
-from ..language_processing import lexical_content, estimate_jp_sentence_distance
 from ..language_processing import Translator
 from ..language_processing import UnicodeRange as ur
+from ..language_processing import lexical_content, estimate_jp_sentence_distance
 
 
 class CandidateExampleSentence:

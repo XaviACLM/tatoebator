@@ -5,8 +5,8 @@ from sqlalchemy import create_engine, Column, Integer, SmallInteger, String, Tex
     case
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker, joinedload
 
-from ..sentences import ExampleSentence
 from ..constants import DATABASE_URL
+from ..sentences import ExampleSentence
 
 Base = declarative_base()
 

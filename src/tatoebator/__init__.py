@@ -19,7 +19,7 @@ from .tatoebator import Tatoebator
 if running_as_anki_addon():
 
     from aqt import mw
-    from aqt.utils import qconnect, showInfo
+    from aqt.utils import qconnect
     from aqt.qt import QAction
 
     from .gui import MineNewWordsWidget
