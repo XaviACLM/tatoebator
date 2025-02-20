@@ -518,9 +518,10 @@ class SentenceProductionManager:
     def __init__(self):
         self.quality_control = ExampleSentenceQualityEvaluator()
         self.amt_searchable_sentences = sum([aspm.amt_sentences for aspm in self.aspms_for_searching])
+        self.amt_starter_sentences = sum([aspm.amt_sentences for aspm in self.aspms_for_ingesting])
         self.translator = Translator()
 
-    def yield_starter_sentences(self, desired_amt: int,
+    def yield_starter_sentences(self, desired_amt: Optional[int] = None,
                                 filtering_fun: Callable[[CandidateExampleSentence], bool] = lambda s: True)\
             -> Iterator[ExampleSentence]:
         """
@@ -528,12 +529,13 @@ class SentenceProductionManager:
         :param desired_amt: how many sentences to ingest from the 'basic sentences' corpora (ManyThingsTatoeba)
         :param filtering_fun: meant to be a callback fun that checks whether a sentence is in the db
         """
+        if desired_amt is None: desired_amt = self.amt_starter_sentences
         if desired_amt <= 0: return
 
         for aspm in self.aspms_for_ingesting:
             evaluate_translations = False if aspm.translations_reliable else True
             for sentence in aspm.yield_sentences():
-                evaluation = self.quality_control.evaluate_quality(sentence, evaluate_translation=evaluate_translations)
+                evaluation = self.quality_control.evaluate_quality(sentence)
                 if evaluation is QualityEvaluationResult.UNSUITABLE or not filtering_fun(sentence): continue
                 yield ExampleSentence.from_candidate(sentence, aspm.source_tag, evaluation is QualityEvaluationResult.GOOD)
                 desired_amt -= 1

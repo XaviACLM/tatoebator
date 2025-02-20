@@ -9,9 +9,14 @@ from ..db.core import SentenceDbInterface
 
 class SentenceRepository:
     def __init__(self):
-        self.sentence_db_interface = SentenceDbInterface()
         self.sentence_production_manager = SentenceProductionManager()
+        self.sentence_db_interface = SentenceDbInterface()
         self.media_manager = MediaManager()
+        self._ensure_starter_sentences()
+
+    def _ensure_starter_sentences(self):
+        if self.sentence_db_interface.count_n_sentences() < self.sentence_production_manager.amt_starter_sentences*0.5:
+            self._ingest_starter_sentences()
 
     def produce_sentences_for_word(self, word: str, desired_amt: int,
                                    produce_new=True, ensure_audio=False) -> List[ExampleSentence]:
@@ -99,30 +104,17 @@ class SentenceRepository:
         self.sentence_db_interface.insert_sentences_batched(all_sentences, verify_not_repeated=False)
         return sentences
 
-    def _produce_new_sentences_arbitrarily(self, desired_amt, max_desired_sentences_per_word=SENTENCES_PER_CARD,
-                                           block_size=50) -> bool:
-
-        # TODO rewrite
-
+    def _ingest_starter_sentences(self, max_desired_sentences_per_word: int = SENTENCES_PER_CARD, block_size: int = 50):
+        is_not_in_db = lambda s: self.sentence_db_interface.check_sentence(s.sentence, commit=False) is None
         block = []
-        for sentence in self.arbitrary_yielder:
-
-            # avoid duplicates
-            if sentence.sentence in self.seen_sentences:
-                continue
-            self.seen_sentences.add(sentence.sentence)
-            if self.sentence_db_interface.check_sentence(sentence.sentence, commit=False) is not None:
-                continue
+        for sentence in self.sentence_production_manager.yield_starter_sentences(filtering_fun=is_not_in_db):
 
             # check there is at least one lexical word which doesn't already exist a lot within the db
             least_present_lexical_word = min(self.sentence_db_interface.count_keywords(sentence.lexical_words).values())
             if least_present_lexical_word >= max_desired_sentences_per_word: continue
 
             block.append(sentence)
-            if len(block) == min(block_size, desired_amt):
+            if len(block) == block_size:
                 self.sentence_db_interface.insert_sentences_batched(block, verify_not_repeated=False)
                 block = []
-                desired_amt -= block_size
-                if desired_amt <= 0:
-                    return True
-        return False
+        self.sentence_db_interface.insert_sentences_batched(block, verify_not_repeated=False)

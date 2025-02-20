@@ -43,6 +43,7 @@ from tatoebator.db import SentenceRepository
 #TODO port decks (incl. rtk to migaku... somehow?)
 
 #TODO furigana - in db? might be unnecessarily large, so we can take an audio-like approach
+# it seems like i halfway did this already. only the field but have to investigate at some point
 
 # TODO put all files other than temp_files in tatoebator/user_files (not in src/tatoebator/user_files!!)
 # TODO help menus

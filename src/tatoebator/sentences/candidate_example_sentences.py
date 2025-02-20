@@ -115,7 +115,8 @@ class ExampleSentenceQualityEvaluator:
     }
 
     @classmethod
-    def evaluate_quality(cls, example_sentence: CandidateExampleSentence, word: str = None) -> QualityEvaluationResult:
+    def evaluate_quality(cls, example_sentence: CandidateExampleSentence, word: Optional[str] = None)\
+            -> QualityEvaluationResult:
 
         for filter_name, filter_fun in cls.pre_translation_filters.items():
             if not filter_fun(example_sentence):

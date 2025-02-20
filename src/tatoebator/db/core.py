@@ -80,6 +80,11 @@ class SentenceDbInterface:
         if commit: self.session.commit()
         return existing or None  # None if existing is falsey
 
+    def count_n_sentences(self):
+        if self.session is None: self._open_session()
+
+        return self.session.query(func.count(Sentence.id)).scalar()
+
     def _insert_keywords(self, keywords: Set[str]) -> Dict[str, int]:
         keywords_in_database = {k.keyword: k for k in
                                 self.session.query(Keyword).filter(Keyword.keyword.in_(keywords)).all()}
