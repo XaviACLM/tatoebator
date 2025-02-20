@@ -244,7 +244,7 @@ class CrackedVoicepeakManager(TTSManager, metaclass=TransientSingleton):
         for _ in range(self.max_retries):
             # contains no info about whether process succeeded or failed (occasionally fails)
             # i think this is similar to the last issue - yumekey doesn't propagate return states either
-            subprocess.run(command, encoding="utf-16")
+            subprocess.run(command, encoding="utf-16", stdout=subprocess.DEVNULL)
             # so we gotta check ourselves whether the file got generated
             # be careful with this! we only ever call this into a temp file with a fixed name
             # it should always be deleted before this method is called, so this search should work, but it's fragile

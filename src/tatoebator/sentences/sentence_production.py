@@ -7,7 +7,7 @@ import subprocess
 import zipfile
 from difflib import SequenceMatcher
 from functools import lru_cache
-from typing import Optional, Iterator, List, Dict, Callable, Tuple
+from typing import Optional, Iterator, List, Dict, Callable, Tuple, AsyncGenerator
 from urllib import parse as parse_url
 
 import requests
@@ -502,6 +502,8 @@ class SentenceProductionManager:
     # TatoebaSPM :  fixing every new bug that crops up is a hassle, moreover easier to not have to include spms in model
     # ImmersionKitSPM : haven't asked permission + same as above + a lot of it does not make it past quality control
 
+    # TODO ask permission for jesc and jparacrawl
+
     aspms_for_ingesting = [
         ManyThingsTatoebaASPM(),
 
@@ -543,11 +545,14 @@ class SentenceProductionManager:
             -> Iterator[ExampleSentence]:
 
         yield from map(lambda pair: pair[1],
-                       self.yield_new_sentences_with_words([word], {word:desired_amt}, filtering_fun))
+                       self.yield_new_sentences_with_words({word: desired_amt}, filtering_fun))
 
-    def yield_new_sentences_with_words(self, word_desired_amts: Dict[str, int],
+    def snyc_yield_new_sentences_with_words(self, word_desired_amts: Dict[str, int],
                                        filtering_fun: Callable[[CandidateExampleSentence], bool] = lambda s: True)\
             -> Iterator[Tuple[str, ExampleSentence]]:
+
+        # synchronous version of the function below
+        # unused, fallback in case problems crop up
 
         if max(word_desired_amts.values()) <= 0: return
 
@@ -580,29 +585,52 @@ class SentenceProductionManager:
                     return
 
     @sync_gen_from_async_gen
-    async def async_yield_new_sentences_with_words(self, word_desired_amts: Dict[str, int],
-                                             filtering_fun: Callable[[CandidateExampleSentence], bool] = lambda s: True)\
-            -> Iterator[Tuple[str, ExampleSentence]]:
+    async def yield_new_sentences_with_words(self, word_desired_amts: Dict[str, int],
+                                             filtering_fun: Callable[[CandidateExampleSentence], bool] = lambda s: True,
+                                             max_parallel_translations: int = 20,
+                                             translation_batch_size: int = 5,
+                                             max_retranslation_attempts: int = 3)\
+            -> Iterator[Tuple[str, ExampleSentence]]:  # isense gets confused re: decorator
+        """
+        searches the searchable aspms for example sentences containing any of the words in word_desired_amts
+        puts them through quality control, incl. tl quality. tries to return as many sentences
+         as requested in word_desired_amts, but may run short.
+
+        only returns sentences that satisfy filtering_fun (usually a callback of sorts meant to determine if
+         a sentence is already in the db)
+
+        uses asyncio to run translation requests in parallel - max_parallel_translations specifies how many
+        batches translations to try to keep the amount of api requests down - translation_batch_size
+        :param word_desired_amts: dict word -> int, how many sentences to return per each word
+        :param filtering_fun: bool callable on ExampleSentence - if false sentence is discarded
+        :param max_parallel_translations: -
+        :param translation_batch_size: -
+        :param max_retranslation_attempts: -
+        :return: yields (word, ExampleSentence) pairs where word is in ExampleSentence (lexically, as verified by qc)
+        """
 
         # abandon all hope ye who enter here
+        # this is very bad code. much too complicated a task for a first experience with asyncio
 
         if max(word_desired_amts.values()) <= 0: return
 
         roots = {approximate_jp_root_form(word): word for word in word_desired_amts}
+
+        # same as word_desired_amts but with roots (roots are passed around more easily)
         root_desired_amts = {root: word_desired_amts[word] for root, word in roots.items()}
+        # same as root_desired_amts but updated along the way to reflect how many we've already found
         root_desired_remaining = root_desired_amts.copy()
+        # counts sentences that are currently going through TL eval
         root_being_processed_amts = {root: 0 for root in roots}
 
-        MAX_PARALLEL_TRANSLATIONS = 5
-        BATCH_SIZE = 5
-        MAX_TRIES = 3
-
-        awaiting_batched_translation_queue = asyncio.Queue(maxsize=BATCH_SIZE)
+        awaiting_batched_translation_queue = asyncio.Queue(maxsize=translation_batch_size)
         passed_all_checks_queue = asyncio.Queue(maxsize=1)
         batched_translation_tasks = set()
         single_translation_tasks = set()
 
+        # attempts_left, root, is_good, source_tag, c.e.sentence
         awaiting_translation_type = Tuple[int, str, bool, int, CandidateExampleSentence]
+        # root, e.sentence
         passed_all_checks_type = Tuple[str, ExampleSentence]
 
         async def generate_and_primary_check():
@@ -613,7 +641,7 @@ class SentenceProductionManager:
                 for sentence in aspm.yield_sentences():
                     idx += 1
 
-                    # skip sentence if it doesn't contain root of any word we're searching
+                    # skip sentence if it doesn't contain root of any word we're searching for
                     found_root = next(filter(lambda root: root_desired_remaining[root] > root_being_processed_amts[root]
                                                           and root in sentence.sentence, roots), None)
                     if found_root is None: continue
@@ -624,20 +652,24 @@ class SentenceProductionManager:
                     found_word = roots[found_root]
                     evaluation = self.quality_control.evaluate_quality(sentence, word=found_word)
                     if evaluation is QualityEvaluationResult.UNSUITABLE: continue
-                    root_being_processed_amts[found_root] += 1
                     is_good = evaluation is QualityEvaluationResult.GOOD
 
+                    root_being_processed_amts[found_root] += 1
+
+                    # if the proportion of sentences found for this word is lesser than the proportion of the
+                    # searching db we've looked through, mark it as urgent:
+                    # meaning it will attempt to be retranslated a few times if the quality check fails
                     search_ratio = idx/self.amt_searchable_sentences
                     found_ratio = root_desired_remaining[found_root]/root_desired_amts[found_root]
                     urgent = search_ratio + found_ratio > 1
-                    starting_index = 0 if not urgent else MAX_TRIES-1
+                    starting_index = 0 if not urgent else max_retranslation_attempts-1
 
                     if evaluate_translations:
                         res: awaiting_translation_type = (starting_index, found_root, is_good, source_tag, sentence)
                         await awaiting_batched_translation_queue.put(res)
-                        if awaiting_batched_translation_queue.qsize() >= BATCH_SIZE:
-                            await translation_eval_job_batch_task(BATCH_SIZE)
-                            await asyncio.sleep(0) # yield execution (to translator)
+                        if awaiting_batched_translation_queue.qsize() >= translation_batch_size:
+                            await translation_eval_job_batch_task(translation_batch_size)
+                            await asyncio.sleep(0)  # yield execution (to translator)
                     else:
                         res: passed_all_checks_type = (found_root, ExampleSentence.from_candidate(sentence, source_tag, is_good))
                         await passed_all_checks_queue.put(res)
@@ -646,8 +678,8 @@ class SentenceProductionManager:
 
         async def translation_eval_job_batch_task(this_batch_size: int):
             batch = [await awaiting_batched_translation_queue.get() for _ in range(this_batch_size)]
-            while (len(batched_translation_tasks) + 1) * BATCH_SIZE + len(
-                    single_translation_tasks) > MAX_PARALLEL_TRANSLATIONS:
+            while (len(batched_translation_tasks) + 1) * translation_batch_size + len(
+                    single_translation_tasks) > max_parallel_translations:
                 await asyncio.sleep(0.1)
             task = asyncio.create_task(batched_translation_eval_task(batch))
             batched_translation_tasks.add(task)
@@ -658,19 +690,25 @@ class SentenceProductionManager:
             machine_translation = await self.translator.async_eng_to_jp(sentence.translation)
             evaluation = self.quality_control.evaluate_translation_quality(sentence, machine_translation)
             if evaluation is QualityEvaluationResult.UNSUITABLE:
+
+                # if no more tries, give up on this sentence
                 amt_tries += 1
-                if amt_tries >= MAX_TRIES:
+                if amt_tries >= max_retranslation_attempts:
                     root_being_processed_amts[found_root] -= 1
                     return
+
+                # otherwise try again - create a new single tl task
                 item = (amt_tries, found_root, is_good, source_tag, sentence)
-                while (len(batched_translation_tasks)-1) * BATCH_SIZE + len(
-                        single_translation_tasks) + 1 > MAX_PARALLEL_TRANSLATIONS:
+                while (len(batched_translation_tasks)-1) * translation_batch_size + len(
+                        single_translation_tasks) + 1 > max_parallel_translations:
                     await asyncio.sleep(0.1)
                 task = asyncio.create_task(single_translation_eval_task(item))
                 task.set_name("single-tl")
                 single_translation_tasks.add(task)
                 task.add_done_callback(single_translation_tasks.discard)
                 return
+
+            # if tl check passes, this sentence is no longer being processed. send it to final queue
             root_being_processed_amts[found_root] -= 1
             res: passed_all_checks_type = (found_root, ExampleSentence.from_candidate(sentence, source_tag, is_good))
             await passed_all_checks_queue.put(res)
@@ -679,9 +717,11 @@ class SentenceProductionManager:
             translation_batch = "\n".join([sentence.translation for _,_,_,_, sentence in batch])
             machine_translations = (await self.translator.async_eng_to_jp(translation_batch)).split("\n")
             if len(machine_translations) != len(batch):
+                # if the batch translation went wrong (batch elements got mixed up), send everything to single tl
+                # don't increase n_attempts counter, this wasn't a real tl attempt bc it didn't go to evaluation
                 for item in batch:
-                    while (len(batched_translation_tasks)-1) * BATCH_SIZE + len(
-                            single_translation_tasks) + 1 > MAX_PARALLEL_TRANSLATIONS:
+                    while (len(batched_translation_tasks)-1) * translation_batch_size + len(
+                            single_translation_tasks) + 1 > max_parallel_translations:
                         await asyncio.sleep(0.1)
                     task = asyncio.create_task(single_translation_eval_task(item))
                     task.set_name("single-tl")
@@ -689,11 +729,14 @@ class SentenceProductionManager:
                     task.add_done_callback(single_translation_tasks.discard)
                 return
 
+            # if batch translation worked, evaluate everything normally
+            # this mirrors the code in single tl eval, except failures are sent back to the batch translation queue
+            # (instead of single tl queue)
             for (amt_tries, found_root, is_good, source_tag, sentence), machine_translation in zip(batch, machine_translations):
                 evaluation = self.quality_control.evaluate_translation_quality(sentence, machine_translation)
                 if evaluation is QualityEvaluationResult.UNSUITABLE:
                     amt_tries += 1
-                    if amt_tries >= MAX_TRIES:
+                    if amt_tries >= max_retranslation_attempts:
                         root_being_processed_amts[found_root] -= 1
                         continue
                     await awaiting_batched_translation_queue.put((amt_tries, found_root, is_good, source_tag, sentence))
@@ -712,10 +755,10 @@ class SentenceProductionManager:
                or not awaiting_batched_translation_queue.empty()
                or not passed_all_checks_queue.empty()):
             if not passed_all_checks_queue.empty():
+
                 found_root, sentence = await passed_all_checks_queue.get()
                 found_word = roots[found_root]
                 yield found_word, sentence
-
 
                 # update search progress, break if finished
                 if root_desired_remaining[found_root] == 0:
@@ -728,4 +771,4 @@ class SentenceProductionManager:
 
             # some of these tasks don't get discarded properly
             # absolutely no idea why. they all have the callback. whatever
-            single_translation_tasks = {task for task in single_translation_tasks if not task.done()}
+            # single_translation_tasks = {task for task in single_translation_tasks if not task.done()}

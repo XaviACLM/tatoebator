@@ -48,6 +48,7 @@ if running_as_anki_addon():
                                             stdin=subprocess.PIPE,
                                             stderr=subprocess.PIPE,
                                             text=True, encoding='utf-8',
+                                            shell=False,
                                             env=forced_utf8_env)
 
         def _stop_resource(self):
@@ -131,6 +132,7 @@ if running_as_anki_addon():
                                             stdin=subprocess.PIPE,
                                             stderr=subprocess.PIPE,
                                             text=True, encoding='utf-8',
+                                            shell=False,
                                             env=forced_utf8_env)
 
         def _stop_resource(self):

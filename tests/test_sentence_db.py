@@ -1,7 +1,7 @@
 
 from tatoebator.db import SentenceRepository
 
-# TODO stop propagating output from every cli ever
+# TODO verify that we have stopped propagating output (at least from defaults - mecab, voicepeak)
 
 # TODO add new sentences menu (with semi automatic translations)
 

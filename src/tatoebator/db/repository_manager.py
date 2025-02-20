@@ -83,7 +83,7 @@ class SentenceRepository:
         only creates up to amt_desired sentences
         saves them all to the db
         takes care not to insert any repeats or create any unnecessary audio files
-        returns bool (indicating whether it managed to create amt_desired, False if it fell short), and created sentences
+        returns created sentences
         """
         is_not_in_db = lambda s: self.sentence_db_interface.check_sentence(s.sentence, commit=False) is None
         sentences = {word: [] for word in word_desired_amts}
@@ -101,6 +101,9 @@ class SentenceRepository:
 
     def _produce_new_sentences_arbitrarily(self, desired_amt, max_desired_sentences_per_word=SENTENCES_PER_CARD,
                                            block_size=50) -> bool:
+
+        # TODO rewrite
+
         block = []
         for sentence in self.arbitrary_yielder:
 

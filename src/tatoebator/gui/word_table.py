@@ -103,9 +103,8 @@ class NewWordsTableWidget(QWidget):
         self._uncheck_grammaticalized(amt_grammaticalized)
 
     def get_new_word_data(self) -> Dict[str, Definitions]:
-        #TODO split
-        return {self.table.item(i, 1).text(): Definitions(self.table.item(i, 5).text(),
-                                                          self.table.item(i, 6).text())
+        return {self.table.item(i, 1).text(): Definitions(self.table.item(i, 5).text().split("\n- "),
+                                                          self.table.item(i, 6).text().split("\n- "))
                 for i in range(self.n_rows) if self._is_idx_selected(i)}
 
     def _init_ui(self):

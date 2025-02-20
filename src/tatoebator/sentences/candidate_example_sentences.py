@@ -48,11 +48,6 @@ class CandidateExampleSentence:
     def lexical_words(self):
         return self._lexical_words or lexical_content(self.sentence)
 
-    def generate_translation(self):
-        # TODO this shouldn't be here. using google translate to generate a translation is a decision,
-        #  no need to 'canonize' it by baking in a function for it much less with this name
-        self.translation = Translator.eng_to_jp(self.sentence)
-
     # these used to be cached
     # (in fact they used to be in an entirely different class that served only to hold caches on Candidates
     # but surely the overhead is insignificant

@@ -13,15 +13,8 @@ japanese_chars = r"\p{IsHira}\p{IsKatakana}\p{IsHan}・、。ー「」『』【�
 general_chars = r"\d"
 jap_text_matcher = re.compile(r"([" + japanese_chars + general_chars + "]+)", re.UNICODE)
 
-# TODO it works worse than before!! how?? same performance would make sense but worse?? why?!?!
 spm = SentenceProductionManager()
 for word, sentence in spm.yield_new_sentences_with_words({"やるせない":10}):
-    print(sentence.sentence)
-    print(sentence.translation)
-    print(sentence.source_tag, sentence.credit)
-    print("")
-print("\n"*5)
-for word, sentence in spm.async_yield_new_sentences_with_words({"やるせない":10}):
     print(sentence.sentence)
     print(sentence.translation)
     print(sentence.source_tag, sentence.credit)
