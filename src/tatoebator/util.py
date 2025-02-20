@@ -86,20 +86,13 @@ def sync_gen_from_async_gen(async_gen: Callable[[Any], AsyncIterator[Any]]):
     def sync_gen(*args, **kwargs):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        async_iterator = aiter(async_gen(*args, **kwargs))
+        # can't do aiter/anext normally bc these keywords are not in Python 3.9 ( the version that anki uses )
+        async_iterator = async_gen(*args, **kwargs).__aiter__()
         try:
             while True:
-                yield loop.run_until_complete(anext(async_iterator))
+                yield loop.run_until_complete(async_iterator.__anext__())
         except StopAsyncIteration:
             pass
         finally:
             loop.close()
     return sync_gen
-
-
-# this seems unwise
-def get_asyncio_event_loop():
-    try:
-        return asyncio.get_running_loop()
-    except:
-        return asyncio.new_event_loop()

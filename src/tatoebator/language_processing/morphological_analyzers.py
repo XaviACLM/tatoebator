@@ -127,13 +127,16 @@ if running_as_anki_addon():
 
     class MeCabResource(TimedResourceManager):
         def _start_resource(self):
-            self.process = subprocess.Popen([MECAB_EXE],
+            mecab_path, mecab_exe = os.path.split(MECAB_EXE)
+            self.process = subprocess.Popen([mecab_exe],
+                                            cwd=mecab_path,
                                             stdout=subprocess.PIPE,
                                             stdin=subprocess.PIPE,
                                             stderr=subprocess.PIPE,
                                             text=True, encoding='utf-8',
                                             shell=False,
-                                            env=forced_utf8_env)
+                                            env=forced_utf8_env,
+                                            creationflags=subprocess.CREATE_NO_WINDOW)
 
         def _stop_resource(self):
             self.process.stdin.close()

@@ -589,7 +589,7 @@ class SentenceProductionManager:
     @sync_gen_from_async_gen
     async def yield_new_sentences_with_words(self, word_desired_amts: Dict[str, int],
                                              filtering_fun: Callable[[CandidateExampleSentence], bool] = lambda s: True,
-                                             max_parallel_translations: int = 20,
+                                             max_parallel_translations: int = 50,
                                              translation_batch_size: int = 5,
                                              max_retranslation_attempts: int = 3)\
             -> Iterator[Tuple[str, ExampleSentence]]:  # isense gets confused re: decorator
@@ -635,6 +635,9 @@ class SentenceProductionManager:
         # root, e.sentence
         passed_all_checks_type = Tuple[str, ExampleSentence]
 
+        # to avoid duplicates within search
+        seen_sentences = set()
+
         async def generate_and_primary_check():
             idx = 0
             for aspm in self.aspms_for_searching:
@@ -650,6 +653,7 @@ class SentenceProductionManager:
 
                     # evaluate quality, check contains word lexically
                     # +check filtering fun (most likely = check it's not in db)
+                    if sentence.sentence in seen_sentences: continue
                     if not filtering_fun(sentence): continue
                     found_word = roots[found_root]
                     evaluation = self.quality_control.evaluate_quality(sentence, word=found_word)
@@ -760,6 +764,11 @@ class SentenceProductionManager:
 
                 found_root, sentence = await passed_all_checks_queue.get()
                 found_word = roots[found_root]
+
+                # double check in case a duplicate pair was awaiting TL simultaneously
+                if sentence.sentence in seen_sentences: continue
+                seen_sentences.add(sentence.sentence)
+
                 yield found_word, sentence
 
                 # update search progress, break if finished

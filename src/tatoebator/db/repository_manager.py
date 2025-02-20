@@ -107,14 +107,19 @@ class SentenceRepository:
     def _ingest_starter_sentences(self, max_desired_sentences_per_word: int = SENTENCES_PER_CARD, block_size: int = 50):
         is_not_in_db = lambda s: self.sentence_db_interface.check_sentence(s.sentence, commit=False) is None
         block = []
+        sentence_text = set()
         for sentence in self.sentence_production_manager.yield_starter_sentences(filtering_fun=is_not_in_db):
 
             # check there is at least one lexical word which doesn't already exist a lot within the db
             least_present_lexical_word = min(self.sentence_db_interface.count_keywords(sentence.lexical_words).values())
             if least_present_lexical_word >= max_desired_sentences_per_word: continue
 
+            if sentence.sentence in sentence_text:
+                continue
+            sentence_text.add(sentence.sentence)
             block.append(sentence)
             if len(block) == block_size:
                 self.sentence_db_interface.insert_sentences_batched(block, verify_not_repeated=False)
                 block = []
+                sentence_text = set()
         self.sentence_db_interface.insert_sentences_batched(block, verify_not_repeated=False)
