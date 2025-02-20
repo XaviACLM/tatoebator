@@ -1,4 +1,4 @@
-from typing import List, Tuple, Dict, Set, Optional, Callable, Any
+from typing import List, Dict, Set, Optional, Callable
 
 from ..sentences import ExampleSentence
 from ..sentences import SentenceProductionManager
@@ -19,31 +19,35 @@ class SentenceRepository:
             self._ingest_starter_sentences()
 
     def produce_sentences_for_word(self, word: str, desired_amt: int,
-                                   produce_new=True, ensure_audio=False,
+                                   produce_new=True, ensure_audio=False, with_furigana=False,
                                    progress_callback: Optional[Callable[..., None]] = None)\
             -> List[ExampleSentence]:
         """
-        gets amt_desired sentences from the database. if there are not enough sentences and produce_new is true, produces some new sentences
-        returns a bool (indicating whether it managed to get the desired amount - it might not, even if produce_new=True)
-                and the sentences.
+        gets amt_desired sentences from the database. if there are not enough sentences and produce_new is true,
+        produces some new sentences. this might still not hit the quota.
+        returns the sentences that have been found, up to the specified amount.
         """
         sentences = self.sentence_db_interface.get_sentences_by_word(word, desired_amt=desired_amt)
         if ensure_audio: self._ensure_audio(sentences)
+        if with_furigana: self._add_furigana(sentences)
         if len(sentences) == desired_amt or not produce_new:
             return sentences
         produced_sentences = self._produce_new_sentences_for_word(word,
                                                                   desired_amt - len(sentences),
                                                                   ensure_audio=ensure_audio,
                                                                   progress_callback=progress_callback)
+        if ensure_audio: self._ensure_audio(produced_sentences)
+        if with_furigana: self._add_furigana(produced_sentences)
         return sentences + produced_sentences
 
     def produce_sentences_for_words(self, word_desired_amts: Dict[str, int],
-                                    produce_new=True, ensure_audio=False,
+                                    produce_new=True, ensure_audio=False, with_furigana=False,
                                     progress_callback: Optional[Callable[..., None]] = None)\
             -> Dict[str, List[ExampleSentence]]:
         words = list(word_desired_amts.keys())
         sentences = self.sentence_db_interface.get_sentences_by_word_batched(word_desired_amts)
         if ensure_audio: self._ensure_audio(sum(sentences.values(),[]))
+        if with_furigana: self._add_furigana(sum(sentences.values(),[]))
 
         missing_sentences_by_word = {word: word_desired_amts[word]-len(sentences[word]) for word in words}
         produced_all_desired = max(missing_sentences_by_word.values()) <= 0
@@ -53,6 +57,8 @@ class SentenceRepository:
         new_sentences = self._produce_new_sentences_for_words(missing_sentences_by_word,
                                                               ensure_audio=ensure_audio,
                                                               progress_callback=progress_callback)
+        if ensure_audio: self._ensure_audio(sum(new_sentences.values(),[]))
+        if with_furigana: self._add_furigana(sum(new_sentences.values(),[]))
         aggregated_sentences = {word: sentences[word]+new_sentences[word] for word in words}
 
         return aggregated_sentences
@@ -138,3 +144,7 @@ class SentenceRepository:
                 block = []
                 sentence_text = set()
         self.sentence_db_interface.insert_sentences_batched(block, verify_not_repeated=False)
+
+    def _add_furigana(self, sentences):
+        for sentence in sentences:
+            raise NotImplementedError()

@@ -12,6 +12,7 @@ class Morpheme:
     part_of_speech: Set[str]
     dictionary_form: str
     is_oov: bool
+    reading: str
 
 
 class Tokenizer:
@@ -21,6 +22,10 @@ class Tokenizer:
 
 forced_utf8_env = os.environ.copy()
 forced_utf8_env["PYTHONUTF8"] = "1"
+
+
+# TODO remove
+def running_as_anki_addon(): return True
 
 
 if running_as_anki_addon():
@@ -33,11 +38,11 @@ if running_as_anki_addon():
         line = line[:-1]
         # skipped (iirc): dictionari-er form (really using the plan form), readings, a list of dictionary ids
         # truncated to 7 elems b/c at times there's an (OOV) tag on the end (same info as dic_tag)
-        surface, features, _, dictionary_form, _, dic_tag, _ = line.split("\t")[:7]
+        surface, features, _, dictionary_form, reading, dic_tag, _ = line.split("\t")[:7]
         part_of_speech = set(features.split(","))
         if "*" in part_of_speech: part_of_speech.remove("*")
         is_oov = dic_tag == '-1'
-        return Morpheme(surface, part_of_speech, dictionary_form, is_oov)
+        return Morpheme(surface, part_of_speech, dictionary_form, is_oov, reading)
 
 
     # works in normal env but randomly intersperses empty input lines / blocking calls on anki. god knows why
@@ -60,7 +65,7 @@ if running_as_anki_addon():
             text = text.replace("\n", " ")
             self.process.stdin.write(text + "\n")
             self.process.stdin.flush()
-            return iter(self.process.stdout.readline, "EOS\n")
+            return  iter(self.process.stdout.readline, "EOS\n")
 
 
     class SudachiTokenizer(Tokenizer):
@@ -69,7 +74,8 @@ if running_as_anki_addon():
 
         def __call__(self, text):
             output = self.sudachi_resource.process_request_managed(text)
-            return list(map(process_sudachi_cli_output_line, output))
+            # filter out spaces for consistency with mecab
+            return list(filter(lambda morpheme: morpheme.surface != " ", map(process_sudachi_cli_output_line, output)))
 
 
     """
@@ -122,7 +128,8 @@ if running_as_anki_addon():
         if "*" in part_of_speech: part_of_speech.remove("*")
         dictionary_form = features[6]
         is_oov = len(features) < 9
-        return Morpheme(surface, part_of_speech, dictionary_form, is_oov)
+        reading = features[8]
+        return Morpheme(surface, part_of_speech, dictionary_form, is_oov, reading)
 
 
     class MeCabResource(TimedResourceManager):
