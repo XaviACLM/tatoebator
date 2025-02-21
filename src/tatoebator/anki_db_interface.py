@@ -11,7 +11,7 @@ from .constants import PATH_TO_USER_FILES
 from .persistence import Persistable
 
 
-@dataclass
+@dataclass(frozen=True)
 class FieldPointer:
     deck_id: int
     notetype_id: int
@@ -24,9 +24,7 @@ class AnkiObjectIdRegistry(Persistable):
 
     def __init__(self,
                  tatoebator_deck_id: Optional[int],
-                 tatoebator_deck_name: Optional[str],
                  tatoebator_notetype_id: Optional[int],
-                 tatoebator_notetype_name: Optional[str],
                  other_vocab_fields: List[FieldPointer]):
         self.tatoebator_deck_id = tatoebator_deck_id
         self.tatoebator_notetype_id = tatoebator_notetype_id

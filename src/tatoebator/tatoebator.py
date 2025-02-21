@@ -36,6 +36,9 @@ class Tatoebator:
 
     def open_registry_editor(self):
         self.registry_editor = AnkiRegistryEditorWidget(self.anki_db_interface)
+        close = lambda: self.registry_editor.close()
+        self.registry_editor.backing_up_from.connect(close)
+        self.registry_editor.continuing_from.connect(close)
         self.registry_editor.show()
 
     def _update_known_counts(self):

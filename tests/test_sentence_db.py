@@ -10,15 +10,9 @@ from tatoebator.db import SentenceRepository
 # TODO word audio
 
 
-# TODO figure out the general flow of the app. user stories or whatever. when do we actually need to use the sentence db?
-#  main bits of gui
-#  x the miner
-#  x post-miner sentence adder
+# TODO main bits of gui
 #  standalone sentence adder
 #  the cards themselves (when do the notes get created? must be in the table gui, no?
-#  and some config or whatever
-#   particularly as relates to marking relevant fields in other notetypes in other decks
-#   which will affect some kind of AnkiDbManager
 
 # TODO make it so it doesnt crash instantly if robots requests fail. Offline mode in general
 
@@ -28,26 +22,16 @@ from tatoebator.db import SentenceRepository
 # either way cc doesn't actually prohibit anything specific other than changing the license or misattribution, so fine
 
 
-#maybe eventually? https://eow.alc.co.jp/search?q=%e3%81%99%e3%82%8b -> translations, usage, but ehh
-
-
-
-#TODO create notetype, deck
 #TODO note creation
 #TODO card html - esp care w the logic on the sentences - separate known, discard remainder if have enough, etc
 # and the random sorting, minute-based
 
 #TODO port decks (incl. rtk to migaku... somehow?)
 
-# TODO put all files other than temp_files in tatoebator/user_files (not in src/tatoebator/user_files!!)
 # TODO help menus
 
 # TODO option to add machine translated sentences (tag them in db + gui)
 
-# include other corpora:
-# https://www.phontron.com/japanese-translation-data.php
-# https://www.kaggle.com/discussions/general/39500
-# https://www.kaggle.com/code/vennaa/notebook-accessing-the-data/notebook
 
 
 sentence_repository = SentenceRepository()

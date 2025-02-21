@@ -3,7 +3,8 @@ from typing import Optional, Tuple, Dict, List, Iterable
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QComboBox, QSpacerItem, QSizePolicy, QFrame
 
-from ..anki_db_interface import AnkiDbInterface
+from .util import ask_yes_no_question
+from ..anki_db_interface import AnkiDbInterface, FieldPointer
 
 
 class CascadingDropdownWidget(QWidget):
@@ -81,18 +82,28 @@ class FieldSelectorWidget(QFrame):
 
         self._init_ui()
 
+    def get_selected_fields(self) -> List[FieldPointer]:
+        name_data = [dropdown.get_selected_values() for dropdown in self._dropdowns]
+        return [FieldPointer(self.decks_by_name[deck_name],
+                             self.notetypes_by_names[deck_name][notetype_name],
+                             self.fields_by_names[deck_name][notetype_name][field_name])
+                for deck_name, notetype_name, field_name in name_data
+                if deck_name is not None]
+
     def _init_ui(self):
         layout = QVBoxLayout()
 
-        self.dropdown_container = QVBoxLayout()
+        self._dropdown_container = QVBoxLayout()
 
-        self.dropdowns = []
+        self._dropdowns = []
         for starting_choice in self._starting_choices():
             dropdown = CascadingDropdownWidget(self.fields_by_names, starting_choice)
-            self.dropdowns.append(dropdown)
-            self.dropdown_container.addWidget(dropdown)
-        self.dropdown_container.setContentsMargins(10,10,10,10)
-        layout.addLayout(self.dropdown_container)
+            self._dropdowns.append(dropdown)
+            self._dropdown_container.addWidget(dropdown)
+        spacer_bottom = QSpacerItem(20, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self._dropdown_container.addSpacerItem(spacer_bottom)
+        self._dropdown_container.setContentsMargins(10, 10, 10, 10)
+        layout.addLayout(self._dropdown_container)
 
         self.button_bar = QHBoxLayout()
         spacer_left = QSpacerItem(20, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
@@ -111,12 +122,12 @@ class FieldSelectorWidget(QFrame):
 
     def _add_selector(self):
         dropdown = CascadingDropdownWidget(self.fields_by_names)
-        self.dropdowns.append(dropdown)
-        self.dropdown_container.addWidget(dropdown)
+        self._dropdowns.append(dropdown)
+        self._dropdown_container.addWidget(dropdown)
 
     def _remove_selector(self):
-        dropdown = self.dropdowns.pop(-1)
-        self.dropdown_container.removeWidget(dropdown)
+        dropdown = self._dropdowns.pop(-1)
+        self._dropdown_container.removeWidget(dropdown)
 
     def _starting_choices(self) -> List[Tuple[str, str, str]]:
         # this could be in util but let's keep it local to avoid using it any more than necessary - obv hacky and bad
@@ -137,17 +148,18 @@ class AnkiRegistryEditorWidget(QWidget):
     def __init__(self, anki_db_interface: AnkiDbInterface):
         super().__init__()
         self.anki_db_interface = anki_db_interface
+        self.registry = anki_db_interface.registry
 
         self._init_ui()
 
     def _init_ui(self):
         layout = QVBoxLayout()
 
-        self.field_selector = FieldSelectorWidget(self.anki_db_interface)
-        layout.addWidget(self.field_selector)
-        self.field_selector.setObjectName("field_selector")
-        self.field_selector.setStyleSheet('QFrame#field_selector {background-color: lightgray; border-radius: 10px;}')
-        self.field_selector.setContentsMargins(10,10,10,10)
+        self._field_selector = FieldSelectorWidget(self.anki_db_interface)
+        layout.addWidget(self._field_selector)
+        self._field_selector.setObjectName("field_selector")
+        self._field_selector.setStyleSheet('QFrame#field_selector {background-color: lightgray; border-radius: 10px;}')
+        self._field_selector.setContentsMargins(10, 10, 10, 10)
 
         # buttons
         self._buttons_bar = QHBoxLayout()
@@ -168,10 +180,17 @@ class AnkiRegistryEditorWidget(QWidget):
         self.setLayout(layout)
         self.setGeometry(100, 100, 700, 500)
 
+    def _data_has_changed(self):
+        print(self.registry.other_vocab_fields)
+        print(self._field_selector.get_selected_fields())
+        return set(self.registry.other_vocab_fields) != set(self._field_selector.get_selected_fields())
+
     def _check_before_cancel(self):
-        raise NotImplementedError
+        if self._data_has_changed() and not ask_yes_no_question("Cancel changes to config?"):
+            return
         self.backing_up_from.emit()
 
     def _save_and_continue(self):
-        raise NotImplementedError
+        self.registry.other_vocab_fields = self._field_selector.get_selected_fields()
+        self.registry.save()
         self.continuing_from.emit()
