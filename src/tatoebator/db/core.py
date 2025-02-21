@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, Column, Integer, SmallInteger, String, Tex
     case
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker, joinedload
 
-from ..constants import DATABASE_URL
+from ..constants import PATH_TO_DATABASE
 from ..sentences import ExampleSentence
 
 Base = declarative_base()
@@ -60,7 +60,8 @@ class Keyword(Base):
 
 class SentenceDbInterface:
     def __init__(self):
-        self._engine = create_engine(DATABASE_URL)
+        self._database_url = f'sqlite:///{PATH_TO_DATABASE}'
+        self._engine = create_engine(self._database_url)
         Base.metadata.create_all(self._engine)
         atexit.register(self._engine.dispose)
 
