@@ -91,9 +91,9 @@ class MineNewWordsWidget(QWidget):
         # Add the right column layout to the main layout
         main_layout.addLayout(right_column)
 
-        main_layout.setStretch(0, 1)  # left stretches a bit
-        main_layout.setStretch(1, 0)  # mid nothing
-        main_layout.setStretch(2, 2)  # right double
+        main_layout.setStretch(0, stretch=1)  # left stretches a bit
+        main_layout.setStretch(1, stretch=0)  # mid nothing
+        main_layout.setStretch(2, stretch=2)  # right double
 
         # Set the layout to the QWidget
         self.setLayout(main_layout)

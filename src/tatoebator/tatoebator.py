@@ -35,7 +35,7 @@ class Tatoebator:
         self.table_widget.show()
 
     def open_registry_editor(self):
-        self.registry_editor = AnkiRegistryEditorWidget(self.anki_db_interface.registry)
+        self.registry_editor = AnkiRegistryEditorWidget(self.anki_db_interface)
         self.registry_editor.show()
 
     def _update_known_counts(self):

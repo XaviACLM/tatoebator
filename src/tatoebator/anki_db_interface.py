@@ -2,7 +2,7 @@ import os
 from dataclasses import dataclass
 import time
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, Dict, Tuple
 
 from aqt import mw
 from aqt.utils import showInfo
@@ -15,7 +15,7 @@ from .persistence import Persistable
 class FieldPointer:
     deck_id: int
     notetype_id: int
-    field_num: int
+    field_ord: int
 
 
 class AnkiObjectIdRegistry(Persistable):
@@ -29,9 +29,7 @@ class AnkiObjectIdRegistry(Persistable):
                  tatoebator_notetype_name: Optional[str],
                  other_vocab_fields: List[FieldPointer]):
         self.tatoebator_deck_id = tatoebator_deck_id
-        self.tatoebator_deck_name = tatoebator_deck_name
         self.tatoebator_notetype_id = tatoebator_notetype_id
-        self.tatoebator_notetype_name = tatoebator_notetype_name
         self.other_vocab_fields = other_vocab_fields
 
     @classmethod
@@ -64,7 +62,7 @@ class AnkiDbInterface:
         self.other_vocabulary_decks = [(1699173573926, 1437620882055, 1),  # deck_id, notetype_id, field_num
                                        (1704665226577, 1629856136563, 0)]
         self._ensure_tatoebator_deck()
-        self._ensure_tatoebator_nonetype()
+        self._ensure_tatoebator_notetype()
 
     def _ensure_tatoebator_deck(self):
         id_ = self.registry.tatoebator_deck_id
@@ -76,15 +74,14 @@ class AnkiDbInterface:
         deck.name = self.default_tatoebator_deck_name
         id_ = self.col.decks.add_deck(deck).id
         self.registry.tatoebator_deck_id = id_
-        self.registry.tatoebator_deck_name = deck.name
         self.registry.save()
 
-    def _ensure_tatoebator_nonetype(self):
+    def _ensure_tatoebator_notetype(self):
         id_ = self.registry.tatoebator_notetype_id
         if id_ is None or self.col.models.get(id_) is None:
-            self._create_tatoebator_nonetype()
+            self._create_tatoebator_notetype()
 
-    def _create_tatoebator_nonetype(self):
+    def _create_tatoebator_notetype(self):
         col = self.col
 
         mm = col.models
@@ -137,24 +134,15 @@ class AnkiDbInterface:
         id_ = mm.add(m).id
 
         self.registry.tatoebator_notetype_id = id_
-        self.registry.tatoebator_notetype_name = self.default_tatoebator_notetype_name
         self.registry.save()
 
-
-    # not a real function, just keeping code that will be useful when we make a menu for this
-    def find_relevant_ids(self):
+    def _get_deck_ids_by_name(self) -> Dict[str, int]:
         col = self.col
+        return {name: id_ for id_, name in self.col.db.all("SELECT id,name FROM decks")}
 
-        # get all deck names
-        deck_name_ids = col.db.all("SELECT id,name FROM decks")
-
-        # id corresponding to a deck name
-        (deck_id,), = col.db.all("SELECT id FROM decks WHERE name = 'Japanese\x1fCore2.3k Version 3'")
-        showInfo(f"{deck_id}")
-
+    def _get_notetypes_and_fields_in_deck(self, deck_id: int) -> Tuple[Dict[str, int], Dict[str,Dict[str, int]]]:
         # notetype ids - notetype names - field names - field ords in a certain deck
-
-        data = col.db.all(f"SELECT f.ntid, f.ord, f.name, nt.name AS notetype_name\
+        data = self.col.db.all(f"SELECT f.ntid, nt.name, f.ord, f.name AS notetype_name\
                     FROM fields f\
                     JOIN notetypes nt ON f.ntid = nt.id\
                     WHERE nt.id IN (\
@@ -166,7 +154,24 @@ class AnkiDbInterface:
                             WHERE did = {deck_id}\
                         )\
                     );")
-        showInfo(f"{data}")
+
+        notetype_ids_by_name = {name: id_ for id_, name, _, _ in data}  # some repeats - should be fine
+        field_ords_by_name = {name: dict() for name in notetype_ids_by_name}
+        for _, notetype_name, field_ord, field_name in data:
+            field_ords_by_name[notetype_name][field_name] = field_ord
+
+        return notetype_ids_by_name, field_ords_by_name
+
+    def get_all_field_data(self) -> Tuple[Dict[str, int], Dict[str, Dict[str, int]], Dict[str, Dict[str, Dict[str, int]]]]:
+        deck_ids_by_name = self._get_deck_ids_by_name()
+        notetype_ids_by_names = {deck_name: dict() for deck_name in deck_ids_by_name}
+        field_ords_by_names = {deck_name: dict() for deck_name in deck_ids_by_name}
+        for deck_name, deck_id in deck_ids_by_name.items():
+            notetype_ids_by_name, field_ords_by_name = self._get_notetypes_and_fields_in_deck(deck_id)
+            notetype_ids_by_names[deck_name] = notetype_ids_by_name
+            field_ords_by_names[deck_name] = field_ords_by_name
+        return deck_ids_by_name, notetype_ids_by_names, field_ords_by_names
+
 
     # eventually this kind of thing will probably be segregated
     # when we need to do things like get specific cards to suspend them or change the random sentence fields
