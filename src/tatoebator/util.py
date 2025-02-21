@@ -51,7 +51,7 @@ try:
         CloseClipboard.restype = wt.BOOL
 
         @classmethod
-        def get_clipboard_text(cls):
+        def get_clipboard_text(cls) -> str:
             text = ""
             if cls.OpenClipboard(None):
                 h_clip_mem = cls.GetClipboardData(cls.CF_UNICODETEXT)
@@ -69,7 +69,7 @@ except ModuleNotFoundError:
 
 
 class CircularBuffer:
-    def __init__(self, size, initial_value):
+    def __init__(self, size: int, initial_value):
         self.buffer = [initial_value] * size
         self.index = 0
         self.size = size
@@ -82,7 +82,7 @@ class CircularBuffer:
         self.index = (self.index + 1) % self.size
 
 
-def sync_gen_from_async_gen(async_gen: Callable[[Any], AsyncIterator[Any]]):
+def sync_gen_from_async_gen(async_gen: Callable[..., AsyncIterator[Any]]):
     def sync_gen(*args, **kwargs):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)

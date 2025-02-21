@@ -5,6 +5,7 @@ from aqt import gui_hooks
 from .anki_db_interface import AnkiDbInterface
 from .db import SentenceRepository
 from .gui import MineNewWordsWidget, NewWordsTableWidget
+from .gui.anki_registry_editor import AnkiRegistryEditorWidget
 from .gui.word_miner_menu import MinerFieldDataCache
 from .language_processing import japanese_chars_ratio, DefinitionFetcher
 from .util import get_clipboard_text
@@ -13,11 +14,12 @@ from .util import get_clipboard_text
 class Tatoebator:
     def __init__(self):
         self.sentence_repository = SentenceRepository()
-        self.anki_db_interface = AnkiDbInterface()
         self.definition_fetcher = DefinitionFetcher()
+        self.anki_db_interface: Optional[AnkiDbInterface] = None
 
-        gui_hooks.main_window_did_init.append(self.update_known_counts)
-        gui_hooks.reviewer_will_end.append(self.update_known_counts)
+        gui_hooks.main_window_did_init.append(self._init_anki_inteface)
+        gui_hooks.main_window_did_init.append(self._update_known_counts)
+        gui_hooks.reviewer_will_end.append(self._update_known_counts)
 
     def mining_to_deck_flow(self):
         clipboard_text = get_clipboard_text()
@@ -32,8 +34,15 @@ class Tatoebator:
         self.table_widget = NewWordsTableWidget(words, self.sentence_repository, self.definition_fetcher)
         self.table_widget.show()
 
-    def update_known_counts(self):
+    def open_registry_editor(self):
+        self.registry_editor = AnkiRegistryEditorWidget(self.anki_db_interface.registry)
+        self.registry_editor.show()
+
+    def _update_known_counts(self):
         self.sentence_repository.update_known(self.anki_db_interface.get_known_words())
+
+    def _init_anki_inteface(self):
+        self.anki_db_interface = AnkiDbInterface()
 
 
 class MiningProcessConductor:

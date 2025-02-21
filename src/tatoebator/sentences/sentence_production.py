@@ -16,7 +16,7 @@ from titlecase import titlecase
 from .candidate_example_sentences import ExampleSentenceQualityEvaluator, QualityEvaluationResult
 from .example_sentences import CandidateExampleSentence, ExampleSentence
 from ..config import SEVENZIP_EXE
-from ..constants import CACHE_DIR, TEMP_FILES_DIR, PATH_TO_SOURCES_FILE, USER_AGENT, EXTERNAL_DATASETS_DIR
+from ..constants import PATH_TO_CACHED_DOWNLOADS, TEMP_FILES_DIR, PATH_TO_SOURCES_FILE, USER_AGENT, PATH_TO_MANUAL_DOWNLOADS
 from ..language_processing import approximate_jp_root_form, Translator
 from ..robots import RobotsAwareSession
 from ..util import sync_gen_from_async_gen
@@ -168,9 +168,9 @@ class TatoebaASPM(ArbitrarySentenceProductionMethod):
     translations_reliable = True
     amt_sentences = 275845
 
-    _pairs_filepath = os.path.join(CACHE_DIR, 'tatoeba_pairs_data.tsv')
-    _en_filepath = os.path.join(CACHE_DIR, 'tatoeba_en')
-    _jp_filepath = os.path.join(CACHE_DIR, 'tatoeba_jp')
+    _pairs_filepath = os.path.join(PATH_TO_CACHED_DOWNLOADS, 'tatoeba_pairs_data.tsv')
+    _en_filepath = os.path.join(PATH_TO_CACHED_DOWNLOADS, 'tatoeba_en')
+    _jp_filepath = os.path.join(PATH_TO_CACHED_DOWNLOADS, 'tatoeba_jp')
 
     def __init__(self):
         super().__init__()
@@ -267,7 +267,7 @@ class TatoebaASPM(ArbitrarySentenceProductionMethod):
             response.raise_for_status()
             with open(zip_filepath, 'wb') as file:
                 file.write(response.content)
-        subprocess.run(f"\"{SEVENZIP_EXE}\" e \"{zip_filepath}\" -o\"{CACHE_DIR}\"")
+        subprocess.run(f"\"{SEVENZIP_EXE}\" e \"{zip_filepath}\" -o\"{PATH_TO_CACHED_DOWNLOADS}\"")
         os.remove(zip_filepath)
 
     def _cull_lan_data(self, language: str):
@@ -356,7 +356,7 @@ class SentenceSearchNeocitiesASPM(ArbitrarySentenceProductionMethod):
     translations_reliable = False
     amt_sentences = 45434
 
-    _filepath = os.path.join(CACHE_DIR, 'ssneocities_data.json')
+    _filepath = os.path.join(PATH_TO_CACHED_DOWNLOADS, 'ssneocities_data.json')
 
     def __init__(self):
         super().__init__()
@@ -404,7 +404,7 @@ class ManyThingsTatoebaASPM(ArbitrarySentenceProductionMethod):
 
     def __init__(self):
         super().__init__()
-        self._filepath = os.path.join(CACHE_DIR, 'manythings_tatoeba.txt')
+        self._filepath = os.path.join(PATH_TO_CACHED_DOWNLOADS, 'manythings_tatoeba.txt')
         if not os.path.exists(self._filepath):
             self._download_data_to_cache()
 
@@ -444,7 +444,7 @@ class JParaCrawlASPM(ArbitrarySentenceProductionMethod):
         super().__init__()
         # 10GB, so manual download required
         # find the compressed files at https://www.kecl.ntt.co.jp/icl/lirg/jparacrawl/
-        self._filepath = os.path.join(EXTERNAL_DATASETS_DIR, 'en-ja.bicleaner05.txt')
+        self._filepath = os.path.join(PATH_TO_MANUAL_DOWNLOADS, 'en-ja.bicleaner05.txt')
 
     def yield_sentences(self, start_at: int = 0) -> Iterator[CandidateExampleSentence]:
         line_matcher = re.compile(r"([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\n")
@@ -480,7 +480,7 @@ class JapaneseEnglishSubtitleCorpusASPM(ArbitrarySentenceProductionMethod):
         super().__init__()
         # manual download required
         # find the compressed files at https://www.kecl.ntt.co.jp/icl/lirg/jparacrawl/
-        self.filepath = os.path.join(EXTERNAL_DATASETS_DIR, 'parallel_subtitles')
+        self.filepath = os.path.join(PATH_TO_MANUAL_DOWNLOADS, 'parallel_subtitles')
 
     def yield_sentences(self, start_at: int = 0) -> Iterator[CandidateExampleSentence]:
         line_matcher = re.compile(r"([^\t]+)\t([^\t]+)\n")

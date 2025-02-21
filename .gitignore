@@ -1,12 +1,12 @@
-sentences.db
+user_files/sentences.db
 tests/discarded_sentences.log
 backup/
 fake_media_dir/*
 lib/*
 old tests/
-src/tatoebator/temp_files/*
-src/tatoebator/cached_files/*
-src/tatoebator/external_datasets/*
+temp_files/*
+user_files/cached_downloads/*
+user_files/manual_downloads/*
 src/tatoebator/tts2.py
 src/tatoebator/__pycache__/
 __pycache__/

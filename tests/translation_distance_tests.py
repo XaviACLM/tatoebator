@@ -25,7 +25,7 @@ from tatoebator.sentences.sentence_production import ManyThingsTatoebaASPM, Tato
 
 # defining distances
 
-path = r"C:\Users\xavia\AppData\Roaming\Anki2\addons21\tatoebator\src\tatoebator\external_datasets\dembeddings.json"
+path = r"/user_files/external_datasets\dembeddings.json"
 with open(path,"r") as f:
     distances = json.load(f)["nearest"]
 def distance(k1, k2):

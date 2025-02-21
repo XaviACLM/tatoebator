@@ -5,7 +5,9 @@ from tatoebator.db import SentenceRepository
 
 # TODO interface (or manager?) logic that uses known_words and trusted fields to decide what to query
 
-# TODO type annotations, docs, privating, eliminating "__main__" blocks...
+# TODO type annotations, docs
+
+# TODO word audio
 
 
 # TODO figure out the general flow of the app. user stories or whatever. when do we actually need to use the sentence db?

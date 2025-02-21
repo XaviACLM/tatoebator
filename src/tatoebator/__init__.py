@@ -36,7 +36,7 @@ if running_as_anki_addon():
         mw.tatoebator.word_table_test(["煙", "母親", "ある", "彼", "恩人", "する","fakeword"])
 
     def testfun3() -> None:
-        mw.tatoebator.update_known_counts()
+        mw.tatoebator.open_registry_editor()
 
     for idx, testfun in enumerate([testfun1, testfun2, testfun3]):
         action = QAction(f"test{idx + 1}", mw)
