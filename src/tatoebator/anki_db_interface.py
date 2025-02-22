@@ -192,7 +192,7 @@ class AnkiDbInterface:
             FROM notes n
             JOIN cards c ON n.id = c.nid
             WHERE n.mid = {field_pointer.notetype_id} AND c.did = {field_pointer.deck_id} 
-                  AND field_at_index(n.flds, {field_pointer.field_ord}) IN ({",".join((f'"s"' for s in search_strings))})
+                  AND field_at_index(n.flds, {field_pointer.field_ord}) IN ({",".join((f'"{s}"' for s in search_strings))})
         """
 
         data = col.db.all(query)
