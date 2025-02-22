@@ -8,6 +8,7 @@ from aqt import mw
 from aqt.utils import showInfo
 
 from .constants import PATH_TO_USER_FILES
+from .language_extensions import TransientSingleton
 from .persistence import Persistable
 
 
@@ -18,7 +19,7 @@ class FieldPointer:
     field_ord: int
 
 
-class AnkiObjectIdRegistry(Persistable):
+class AnkiObjectIdRegistry(Persistable, metaclass=TransientSingleton):
 
     default_filepath = os.path.join(PATH_TO_USER_FILES, "anki_object_id_registry.ejson")
 
@@ -31,14 +32,15 @@ class AnkiObjectIdRegistry(Persistable):
         self.other_vocab_fields = other_vocab_fields
 
     @classmethod
-    def my_default(cls):
-        # TODO
-        #  this will have to be read from somewhere later, with a fancy menu built from the functions in find_relevant_ids
-        #  for now it's just hardcoded.
-        return cls(None, None, None, None,
-                   [FieldPointer(1699173573926, 1437620882055, 1),
-                    FieldPointer(1704665226577, 1629856136563, 0)])
-        # return cls(1740128400011, "Tatoebator Mined Vocab", 1740128400012, "Tatoebator Notetype",
+    def empty(cls):
+        return cls(None, None, [])
+
+    @classmethod
+    def load_or_create(cls):
+        if os.path.exists(cls.default_filepath):
+            return cls.load()
+        else:
+            return cls.empty()
 
 
 class WordInLibraryType(Enum):
@@ -56,11 +58,11 @@ class AnkiDbInterface:
 
     def __init__(self):
         self.col = mw.col
-        self.registry = AnkiObjectIdRegistry.load()
-        self.other_vocabulary_decks = [(1699173573926, 1437620882055, 1),  # deck_id, notetype_id, field_num
-                                       (1704665226577, 1629856136563, 0)]
+        self.registry = AnkiObjectIdRegistry.load_or_create()
         self._ensure_tatoebator_deck()
         self._ensure_tatoebator_notetype()
+
+        #self.col.genCards
 
     def _ensure_tatoebator_deck(self):
         id_ = self.registry.tatoebator_deck_id
@@ -212,6 +214,36 @@ class AnkiDbInterface:
                 WordInLibraryType.IN_LIBRARY_KNOWN: known_words,
                 WordInLibraryType.IN_LIBRARY_NEW: pending_words, }
 
+
+    # eventually this kind of thing will probably be segregated
+    # when we need to do things like get specific cards to suspend them or change the random sentence fields
+    # but we won't know the requirements until then so let's keep it as is
+    def _search_cards_in_deck_2(self, deck_id, notetype_id, field_num, search_strings):
+        col = self.col
+
+        placeholders = ",".join("?" * len(search_strings))
+
+        query = f"""
+            SELECT 
+                field_at_index(n.flds, ?) AS string, 
+                c.ivl AS ivl
+            FROM notes n
+            JOIN cards c ON n.id = c.nid
+            WHERE n.mid = ? AND c.did = ? 
+                  AND field_at_index(n.flds, ?) IN ({placeholders})
+        """
+
+        data = col.db.all(query, field_num, notetype_id, deck_id, field_num, *search_strings)
+
+        # Separate known and pending words
+        known_words = {row[0] for row in data if row[1] > 0}
+        pending_words = {row[0] for row in data if row[1] <= 0}
+        unknown_words = set(search_strings) - known_words - pending_words
+
+        return {WordInLibraryType.NOT_IN_LIBRARY: unknown_words,
+                WordInLibraryType.IN_LIBRARY_KNOWN: known_words,
+                WordInLibraryType.IN_LIBRARY_NEW: pending_words, }
+
     def _get_known_words_in_deck(self, deck_id, notetype_id, field_num):
         col = self.col
 
@@ -229,7 +261,7 @@ class AnkiDbInterface:
 
     def group_text_by_library(self, words):
         classified = {kind: set() for kind in WordInLibraryType}
-        for deck_id, notetype_id, field_num in self.tracker.registry.other_vocab_fields:
+        for deck_id, notetype_id, field_num in self.registry.other_vocab_fields:
             classified_deck = self._search_cards_in_deck(deck_id, notetype_id, field_num, words)
             for kind in WordInLibraryType:
                 classified[kind] = classified[kind].union(classified_deck[kind])
@@ -240,8 +272,10 @@ class AnkiDbInterface:
 
     def get_known_words(self):
         known_words = set()
-        for deck_id, notetype_id, field_num in self.other_vocabulary_decks:
-            known_words.update(self._get_known_words_in_deck(deck_id, notetype_id, field_num))
+        for field_pointer in self.registry.other_vocab_fields:
+            known_words.update(self._get_known_words_in_deck(field_pointer.deck_id,
+                                                             field_pointer.notetype_id,
+                                                             field_pointer.field_ord))
         return known_words
 
 

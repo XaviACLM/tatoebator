@@ -39,6 +39,7 @@ class Tatoebator:
         close = lambda: self.registry_editor.close()
         self.registry_editor.backing_up_from.connect(close)
         self.registry_editor.continuing_from.connect(close)
+        self.registry_editor.continuing_from.connect(self._update_known_counts)
         self.registry_editor.show()
 
     def _update_known_counts(self):
@@ -46,6 +47,7 @@ class Tatoebator:
 
     def _init_anki_inteface(self):
         self.anki_db_interface = AnkiDbInterface()
+
 
 
 class MiningProcessConductor:

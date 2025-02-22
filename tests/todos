@@ -1,0 +1,31 @@
+
+TODO add new sentences menu (with semi automatic translations)
+
+TODO interface (or manager?) logic that uses known_words and trusted fields to decide what to query
+
+TODO type annotations, docs
+
+TODO word audio
+
+
+TODO main bits of gui
+ standalone sentence adder
+ the cards themselves (when do the notes get created? must be in the table gui, no?
+
+TODO make it so it doesnt crash instantly if robots requests fail. Offline mode in general
+
+
+CC-BY 2.0 : we can do anything as long as we credit properly, indicate changes, and propagate the license
+A note on propagating the license - from what I understand this doesnt' mean the whole project has to be CC-BY 2.0
+either way cc doesn't actually prohibit anything specific other than changing the license or misattribution, so fine
+
+
+TODO note creation
+TODO card html - esp care w the logic on the sentences - separate known, discard remainder if have enough, etc
+ and the random sorting, minute-based
+
+TODO port decks (incl. rtk to migaku... somehow?)
+
+TODO help menus
+
+TODO option to add machine translated sentences (tag them in db + gui)

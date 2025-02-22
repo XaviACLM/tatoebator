@@ -2,6 +2,18 @@ from tatoebator.language_processing.lexical_analysis import group_text_by_part_o
 from tatoebator.language_processing import DefaultTokenizer
 
 tokenizer = DefaultTokenizer()
+
+# testing how tokenizer handles empty lines
+texts=["自由になるのは大変だろう",
+       "自由になるのは大変だろう\n",
+       "\n自由になるのは大変だろう",
+       "\n自由になるのは大変だろう\n",
+       ]
+for text in texts:
+    for morpheme in tokenizer(text):
+        print(morpheme)
+    print("")
+
 text = """散々な思い出は悲しみを穿つほど
 やるせない恨みはアイツのために
 置いてきたのさ
@@ -16,24 +28,14 @@ text = """散々な思い出は悲しみを穿つほど
 そりゃあ愛への罰だ
 もう眠くはないな ないなないな
 もう寂しくないさ ないさ"""
-text = """火のない所に煙は立たないということは、誰も否定することはできません。
-エレベーターから煙の臭いがします。
-あの山は昔煙を吐いていた。"""
-texts=["自由になるのは大変だろう",
-       "自由になるのは大変だろう\n",
-       "\n自由になるのは大変だろう",
-       "\n自由になるのは大変だろう\n",
-       ]
-for text in texts:
-    for morpheme in tokenizer(text):
-        print(morpheme)
-    print("")
-print(jjsj)
+
+# testing grouping
 for type, words in group_text_by_part_of_speech(text).items():
     print(type)
     print(words)
     print("")
 
+# testing whether tokenizer correctly recognizes lexical charge in grammaticalized words (doesn't seem to)
 grammatical_word_sentences = [
     ("する","勉強するのが好きです。","彼はいつも変なことをする。"),
     ("ある","ここに名前を書いてある。","机の上に本がある。"),

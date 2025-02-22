@@ -63,7 +63,7 @@ class TanoshiiDictionary(Dictionary):
     _base_url = f"https://www.tanoshiijapanese.com"
 
     def get_definitions(self, word) -> Definitions:
-        url = f"{self.base_url}/dictionary/index.cfm?j={word}&e=&search=Search+>"
+        url = f"{self._base_url}/dictionary/index.cfm?j={word}&e=&search=Search+>"
         return self._get_definitions_from_url(word, url)
 
     def _get_definitions_from_url(self, word, url):
@@ -87,7 +87,7 @@ class TanoshiiDictionary(Dictionary):
 
             found_url = elem.find('div', class_='entrylinks').contents[0]['href']
 
-            new_url = f"{self.base_url}{found_url[2:]}"
+            new_url = f"{self._base_url}{found_url[2:]}"
 
             return self._get_definitions_from_url(word, new_url)
 
@@ -130,7 +130,7 @@ class JishoDictionary(EnglishDictionary):
     _base_url = "https://jisho.org/"
 
     def _get_en_definition(self, word) -> List[str]:
-        url = f"{self.base_url}/api/v1/search/words?keyword={word}"
+        url = f"{self._base_url}/api/v1/search/words?keyword={word}"
 
         response = self._session.get(url)
 
@@ -156,7 +156,7 @@ class WeblioDictionary(Dictionary):
     _base_url = f"https://ejje.weblio.jp"
 
     def get_definitions(self, word: str) -> Definitions:
-        url = f"https://ejje.weblio.jp/english-thesaurus/content/{word}"
+        url = f"{self._base_url}/english-thesaurus/content/{word}"
         response = self._session.get(url)
 
         if response.status_code != 200:

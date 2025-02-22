@@ -1,37 +1,4 @@
-
 from tatoebator.db import SentenceRepository
-
-# TODO add new sentences menu (with semi automatic translations)
-
-# TODO interface (or manager?) logic that uses known_words and trusted fields to decide what to query
-
-# TODO type annotations, docs
-
-# TODO word audio
-
-
-# TODO main bits of gui
-#  standalone sentence adder
-#  the cards themselves (when do the notes get created? must be in the table gui, no?
-
-# TODO make it so it doesnt crash instantly if robots requests fail. Offline mode in general
-
-
-# CC-BY 2.0 : we can do anything as long as we credit properly, indicate changes, and propagate the license
-# A note on propagating the license - from what I understand this doesnt' mean the whole project has to be CC-BY 2.0
-# either way cc doesn't actually prohibit anything specific other than changing the license or misattribution, so fine
-
-
-#TODO note creation
-#TODO card html - esp care w the logic on the sentences - separate known, discard remainder if have enough, etc
-# and the random sorting, minute-based
-
-#TODO port decks (incl. rtk to migaku... somehow?)
-
-# TODO help menus
-
-# TODO option to add machine translated sentences (tag them in db + gui)
-
 
 
 sentence_repository = SentenceRepository()
@@ -41,17 +8,9 @@ for word, sentences in sentence_repository.produce_sentences_for_words({"鳥":20
     print(word)
     sentences.sort(key = lambda s:s.sentence)
     for sentence in sentences:
-        print(f"\t{sentence.furigana} - {sentence.translation}")
-print(jjsj)
-
-
-for word, sentences in sentence_repository.produce_sentences_for_words({"鳥":200,"空":200}).items():
-    print(word)
-    sentences.sort(key = lambda s:s.sentence)
-    for sentence in sentences:
         print(f"\t{sentence.sentence} - {sentence.translation}")
-print(jjsj)
-
+        print(f"\t{sentence.furigana}")
+        print("")
 
 
 def word_test(word="煙"):
@@ -67,6 +26,7 @@ def word_test(word="煙"):
         print(f"{s.n_known_words}/{s.n_lexical_words} ({s.n_unknown_words} unknown)")
         print(s.credit)
         print("")
+
 
 def common_words_test():
     words = ["こんにちは","ありがとう","はい","いいえ","お願いします","すみません","ごめんなさい","おはよう","こんばんは","さようなら",
@@ -84,45 +44,5 @@ def common_words_test():
         print(word, counts[word], counts_50[word], counts_80[word])
 
 
-    #for word in words:
-    #    _, sentences = sentence_repository.get_sentences(word, 100, produce_new=False)
-    #    print(word, len(sentences))
-
-# sentence_db_manager._produce_new_sentences_arbitrarily(1000000)
-
-# word_test()
+word_test()
 common_words_test()
-
-
-"""
-# testing known words update stuff
-import pandas as pd
-keywords_to_update=['火','煙']
-from sqlalchemy import update
-from tatoebator.db.core import Keyword
-sentence_db_manager.sentence_db_interface.session.execute(
-    update(Keyword).where(Keyword.keyword.in_(keywords_to_update)).values(known=True)
-)
-sentence_db_manager.sentence_db_interface.session.commit()
-
-sentence_table = pd.read_sql_table(table_name='sentences',con=sentence_db_manager.sentence_db_interface.engine)
-pairs_table = pd.read_sql_table(table_name='sentence_keywords',con=sentence_db_manager.sentence_db_interface.engine)
-keyword_table = pd.read_sql_table(table_name='keywords',con=sentence_db_manager.sentence_db_interface.engine)
-print(sentence_table.to_string())
-print(pairs_table.to_string())
-print(keyword_table.to_string())
-
-sentence_db_manager.sentence_db_interface.update_known_unknown_counts()
-
-sentence_table = pd.read_sql_table(table_name='sentences',con=sentence_db_manager.sentence_db_interface.engine)
-print(sentence_table.to_string())
-"""
-
-"""
-coso = sentence_repository.sentence_db_interface.get_sentences_by_word_batched({"煙":2,"森":5})
-for word in coso:
-    print(word)
-    for sentence in coso[word]:
-        print(sentence.sentence)
-print(jjsj)
-"""

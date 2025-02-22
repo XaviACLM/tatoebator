@@ -5,12 +5,13 @@ from tatoebator.language_processing.translator import Translator
 from tatoebator.util import sync_gen_from_async_gen
 from tatoebator.sentences.sentence_production import JParaCrawlASPM
 
+# investigating the speed boost of using async w googletrans
 text = []
 c = 0
-for sentence in JParaCrawlASPM().yield_sentences(start_at=2010):
+for sentence in JParaCrawlASPM().yield_sentences(start_at=1000):
     text.append(sentence.sentence)
     c+=1
-    if c==10:
+    if c==100:
         break
 
 translator = Translator()
@@ -45,16 +46,6 @@ for translation in translation_yielder(text):
     print(translation)
 now = time.time()
 print(now-then)
-print(jjsj)
-
-now = time.time()
-for line in text:
-    then = now
-    print(line)
-    print(Translator.jp_to_eng(line))
-    now = time.time()
-    print(now-then)
-    print("")
 
 #1.9 vs 18 at 10 TLs async vs sync
 #2.9 vs maybe 300 at 100 TLs
@@ -69,7 +60,7 @@ for line in text:
 # context will affect translations but that's an acceptable tradeoff if we can style on the rate limit
 # the issue is this significantly complicates the TL interface
 
-# moreover the TL object should have an estimation of the number of requests left before it hits the rate limit
+# TODO moreover the TL object should have an estimation of the number of requests left before it hits the rate limit
 # this should come up in the gui (when you press a button that might run up against it)
 # so the TL object will have to exis all the way at Tatoebator and be passed down all the way to QL. jeesh
 # probably make more sense to do dependency insertion here:

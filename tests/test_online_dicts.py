@@ -2,17 +2,17 @@ from tatoebator.language_processing import DefinitionFetcher
 
 definition_fetcher = DefinitionFetcher()
 
-print(definition_fetcher.get_definitions("はい"))
+# just checking it works
+definitions = definition_fetcher.get_definitions("お休みなさい")
+print(definitions.en)
+print(definitions.jp)
 
-print(jjsj)
-
+# investigating differences btw different online dicts
 from tatoebator.language_processing.online_dictionaries import TanoshiiDictionary, JishoDictionary, WeblioDictionary
 
 tanoshii_dict = TanoshiiDictionary()
 jisho_dict = JishoDictionary()
 weblio_dict = WeblioDictionary()
-
-#print(tanoshii_dict.get_definitions("雷撃"))
 
 words = ["はい","いいえ","お願いします","すみません","ごめんなさい","おはよう","こんばんは","さようなら",
              "お休みなさい","元気","名前","友達","家族","学校","先生","学生","本","ペン","紙","水","食べ物","飲み物","お茶","コーヒー",
