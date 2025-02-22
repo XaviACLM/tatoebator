@@ -29,3 +29,6 @@ TODO port decks (incl. rtk to migaku... somehow?)
 TODO help menus
 
 TODO option to add machine translated sentences (tag them in db + gui)
+
+TODO there are some timeout issues - with the robots, I think? or maybe the translator? it's unclear but sometimes if
+ you leave anki alone for a few minutes it throws an exception out of the blue

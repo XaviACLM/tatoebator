@@ -172,72 +172,24 @@ class AnkiDbInterface:
             field_ords_by_names[deck_name] = field_ords_by_name
         return deck_ids_by_name, notetype_ids_by_names, field_ords_by_names
 
-
-    # eventually this kind of thing will probably be segregated
-    # when we need to do things like get specific cards to suspend them or change the random sentence fields
-    # but we won't know the requirements until then so let's keep it as is
-    def _search_cards_in_deck(self, deck_id, notetype_id, field_num, search_strings):
+    def _search_cards_in_deck(self, field_pointer: FieldPointer, search_strings):
         col = self.col
-
-        col.db.all("DROP TABLE IF EXISTS search_strings")
-        col.db.all("DROP TABLE IF EXISTS string_ntid")
-        col.db.all("DROP TABLE IF EXISTS results")
-
-        # and now for the muxing business
-
-        col.db.all("CREATE TEMPORARY TABLE search_strings (search_string TEXT)")
-        for search_string in search_strings:
-            col.db.all(f"INSERT INTO search_strings (search_string) VALUES ('{search_string}')")
-
-        col.db.all(f"CREATE TEMPORARY TABLE string_ntid AS\
-                    SELECT ss.search_string AS string, n.id AS nid\
-                    FROM search_strings ss\
-                    JOIN notes n ON field_at_index(n.flds, {field_num}) = ss.search_string\
-                    WHERE n.mid = {notetype_id};")
-        col.db.all("DROP TABLE search_strings")
-
-        data = col.db.all(f"CREATE TEMPORARY TABLE results AS\
-                    SELECT sn.string AS string, c.ivl AS ivl\
-                    FROM string_ntid sn JOIN cards c ON sn.nid = c.nid\
-                    WHERE c.did = {deck_id}")
-        col.db.all("DROP TABLE string_ntid")
-
-        data_known = col.db.all("SELECT string FROM results WHERE ivl > 0")
-        data_pending = col.db.all("SELECT string FROM results WHERE ivl <= 0")
-        col.db.all("DROP TABLE results")
-
-        known_words = set([row[0] for row in data_known])
-        pending_words = set([row[0] for row in data_pending])
-        unknown_words = set(search_strings) - known_words - pending_words
-
-        return {WordInLibraryType.NOT_IN_LIBRARY: unknown_words,
-                WordInLibraryType.IN_LIBRARY_KNOWN: known_words,
-                WordInLibraryType.IN_LIBRARY_NEW: pending_words, }
-
-
-    # eventually this kind of thing will probably be segregated
-    # when we need to do things like get specific cards to suspend them or change the random sentence fields
-    # but we won't know the requirements until then so let's keep it as is
-    def _search_cards_in_deck_2(self, deck_id, notetype_id, field_num, search_strings):
-        col = self.col
-
-        placeholders = ",".join("?" * len(search_strings))
 
         query = f"""
             SELECT 
-                field_at_index(n.flds, ?) AS string, 
+                field_at_index(n.flds, {field_pointer.field_ord}) AS string, 
                 c.ivl AS ivl
             FROM notes n
             JOIN cards c ON n.id = c.nid
-            WHERE n.mid = ? AND c.did = ? 
-                  AND field_at_index(n.flds, ?) IN ({placeholders})
+            WHERE n.mid = {field_pointer.notetype_id} AND c.did = {field_pointer.deck_id} 
+                  AND field_at_index(n.flds, {field_pointer.field_ord}) IN ({",".join((f'"s"' for s in search_strings))})
         """
 
-        data = col.db.all(query, field_num, notetype_id, deck_id, field_num, *search_strings)
+        data = col.db.all(query)
 
         # Separate known and pending words
         known_words = {row[0] for row in data if row[1] > 0}
-        pending_words = {row[0] for row in data if row[1] <= 0}
+        pending_words = {row[0] for row in data if row[1] <= 0} - known_words  # in case there's more than one cardtype
         unknown_words = set(search_strings) - known_words - pending_words
 
         return {WordInLibraryType.NOT_IN_LIBRARY: unknown_words,

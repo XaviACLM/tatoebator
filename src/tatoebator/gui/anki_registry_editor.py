@@ -100,8 +100,8 @@ class FieldSelectorWidget(QFrame):
             dropdown = CascadingDropdownWidget(self.fields_by_names, starting_choice)
             self._dropdowns.append(dropdown)
             self._dropdown_container.addWidget(dropdown)
-        spacer_bottom = QSpacerItem(20, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-        self._dropdown_container.addSpacerItem(spacer_bottom)
+        self._spacer_bottom = QSpacerItem(20, 20, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
+        self._dropdown_container.addSpacerItem(self._spacer_bottom)
         self._dropdown_container.setContentsMargins(10, 10, 10, 10)
         layout.addLayout(self._dropdown_container)
 
@@ -123,7 +123,9 @@ class FieldSelectorWidget(QFrame):
     def _add_selector(self):
         dropdown = CascadingDropdownWidget(self.fields_by_names)
         self._dropdowns.append(dropdown)
+        self._dropdown_container.removeWidget(self._spacer_bottom)
         self._dropdown_container.addWidget(dropdown)
+        self._dropdown_container.addWidget(self._spacer_bottom)
 
     def _remove_selector(self):
         dropdown = self._dropdowns.pop(-1)

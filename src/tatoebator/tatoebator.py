@@ -30,10 +30,6 @@ class Tatoebator:
                                                        self.definition_fetcher)
         self.mining_conductor.start(starting_text)
 
-    def word_table_test(self, words: List[str]):
-        self.table_widget = NewWordsTableWidget(words, self.sentence_repository, self.definition_fetcher)
-        self.table_widget.show()
-
     def open_registry_editor(self):
         self.registry_editor = AnkiRegistryEditorWidget(self.anki_db_interface)
         close = lambda: self.registry_editor.close()
@@ -48,6 +44,19 @@ class Tatoebator:
     def _init_anki_inteface(self):
         self.anki_db_interface = AnkiDbInterface()
 
+    def word_table_test(self, words: List[str]):
+        self.table_widget = NewWordsTableWidget(words, self.sentence_repository, self.definition_fetcher)
+        self.table_widget.show()
+
+    def anki_db_test(self):
+        fp = self.anki_db_interface.registry.other_vocab_fields[0]
+
+        from aqt.utils import showInfo
+
+        showInfo(str(self.anki_db_interface._search_cards_in_deck(fp,
+                                                                  ["時計", "電話", "テレビ", "音楽", "映画", "写真",
+                                                                   "手紙", "仕事", "休み", "旅行", "お金", "時間",
+                                                                   "今日", "明日", "昨日", "今", "後で"])))
 
 
 class MiningProcessConductor:
@@ -89,4 +98,3 @@ class MiningProcessConductor:
         for word, definition in new_words_data.items():
             message.append(f"{word}  -  {definition.en} / {definition.jp}")
         showInfo("\n\n".join(message))
-

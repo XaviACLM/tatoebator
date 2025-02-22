@@ -33,7 +33,7 @@ if running_as_anki_addon():
         mw.tatoebator.mining_to_deck_flow()
 
     def testfun2() -> None:
-        mw.tatoebator.word_table_test(["煙", "母親", "ある", "彼", "恩人", "する","fakeword"])
+        mw.tatoebator.anki_db_test()
 
     def testfun3() -> None:
         mw.tatoebator.open_registry_editor()
