@@ -1,9 +1,13 @@
+# TODO wait, this turns tuples into lists
+#  we'll probably just have to write our on crappy serializer at some point
+#  add support for a little bit of recursion
+
 import json
+import os
 from dataclasses import dataclass, is_dataclass, asdict as dataclass_asdict
 from inspect import signature, currentframe
 from json import JSONDecodeError
-from typing import List, Any, Optional, Tuple, Dict, Union
-
+from typing import List, Any, Optional, Tuple, Dict, Union, Protocol
 
 _BASIC_TYPES = (str, int, float, bool) #+NoneType (not in 3.9...?)
 _COLLECTION_TYPES = (set, dict, list, tuple)
@@ -41,9 +45,6 @@ class _EnhancedJSONDecoder(json.JSONDecoder):
         return obj
 
 
-# a bit awkward to not handle dataclasses at all
-# but putting some thought into it it seems like handling them properly would be a lot more awkward
-# it's probably okay to let pickle worry about it.
 def _verify_jsonifiable(obj: Any, record: Optional[List[str]]) -> bool:
     if isinstance(obj, _BASIC_TYPES) or obj is None:
         return True
@@ -62,7 +63,7 @@ def _verify_jsonifiable(obj: Any, record: Optional[List[str]]) -> bool:
         return False
 
 
-class Persistable:
+class Persistable(Protocol):
 
     default_filepath = None
     """
@@ -127,3 +128,18 @@ class Persistable:
             except JSONDecodeError:
                 raise Exception(f"Attempted to read {cls.__name__} object from {filepath} but data was corrupted")
             return cls._from_jsonified(json_data)
+
+
+class PossiblyEmptyPersistable(Persistable, Protocol):
+
+    @classmethod
+    def empty(cls):
+        ...
+
+    @classmethod
+    def load_or_create(cls):
+        if os.path.exists(cls.default_filepath):
+            return cls.load()
+        else:
+            return cls.empty()
+

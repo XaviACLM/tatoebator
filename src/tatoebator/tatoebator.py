@@ -49,7 +49,7 @@ class Tatoebator:
         self.table_widget.show()
 
     def anki_db_test(self):
-        fp = self.anki_db_interface.registry.other_vocab_fields[0]
+        fp = self.anki_db_interface.other_vocab_fields[0]
 
         from aqt.utils import showInfo
 

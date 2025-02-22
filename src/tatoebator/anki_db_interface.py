@@ -1,15 +1,14 @@
 import os
 from dataclasses import dataclass
-import time
 from enum import Enum
 from typing import List, Optional, Dict, Tuple
 
+import anki.collection
 from aqt import mw
-from aqt.utils import showInfo
 
 from .constants import PATH_TO_USER_FILES
 from .language_extensions import TransientSingleton
-from .persistence import Persistable
+from .persistence import PossiblyEmptyPersistable
 
 
 @dataclass(frozen=True)
@@ -19,71 +18,63 @@ class FieldPointer:
     field_ord: int
 
 
-class AnkiObjectIdRegistry(Persistable, metaclass=TransientSingleton):
+class VocabFieldRegistry(List, PossiblyEmptyPersistable, TransientSingleton):
+    default_filepath = os.path.join(PATH_TO_USER_FILES, "vocab_field_registry.ejson")
 
-    default_filepath = os.path.join(PATH_TO_USER_FILES, "anki_object_id_registry.ejson")
-
-    def __init__(self,
-                 tatoebator_deck_id: Optional[int],
-                 tatoebator_notetype_id: Optional[int],
-                 other_vocab_fields: List[FieldPointer]):
-        self.tatoebator_deck_id = tatoebator_deck_id
-        self.tatoebator_notetype_id = tatoebator_notetype_id
-        self.other_vocab_fields = other_vocab_fields
+    def __init__(self, field_pointers: List[FieldPointer]):
+        super().__init__(field_pointers)  # list.__init__
+        self.field_pointers = self  # oh no
 
     @classmethod
     def empty(cls):
-        return cls(None, None, [])
-
-    @classmethod
-    def load_or_create(cls):
-        if os.path.exists(cls.default_filepath):
-            return cls.load()
-        else:
-            return cls.empty()
+        return cls([])
 
 
-class WordInLibraryType(Enum):
-    NOT_IN_LIBRARY = 1
-    IN_LIBRARY_KNOWN = 2
-    IN_LIBRARY_NEW = 3
-
-
-class AnkiDbInterface:
+class TatoebatorAnkiObjectRegistrar(PossiblyEmptyPersistable):
+    default_filepath = os.path.join(PATH_TO_USER_FILES, "anki_id_registrar.ejson")
 
     default_tatoebator_deck_name = "Tatoebator Mined Vocab"
     default_tatoebator_notetype_name = "Tatoebator Notetype"
 
     recognition_cardtype_name = "Recognition"
+    recognition_vocab_field_ord = 1  # TODO or is it 0?
 
-    def __init__(self):
-        self.col = mw.col
-        self.registry = AnkiObjectIdRegistry.load_or_create()
-        self._ensure_tatoebator_deck()
-        self._ensure_tatoebator_notetype()
+    def __init__(self,
+                 deck_id: Optional[int],
+                 notetype_id: Optional[int]):
+        self.deck_id = deck_id
+        self.notetype_id = notetype_id
 
-        #self.col.genCards
+    @classmethod
+    def empty(cls):
+        return cls(None, None)
 
-    def _ensure_tatoebator_deck(self):
-        id_ = self.registry.tatoebator_deck_id
-        if id_ is None or id_ != self.col.decks.get(id_)['id']:
-            self._create_tatoebator_deck()
+    @property
+    def field_pointer(self):
+        return FieldPointer(self.deck_id, self.notetype_id, self.recognition_vocab_field_ord)
 
-    def _create_tatoebator_deck(self):
-        deck = self.col.decks.new_deck()
+    def ensure_objects_exist(self, col: anki.collection.Collection):
+        self._ensure_deck(col)
+        self._ensure_notetype(col)
+        self.save()
+
+    def _ensure_deck(self, col: anki.collection.Collection):
+        id_ = self.deck_id
+        if id_ is None or id_ != col.decks.get(id_)['id']:
+            self._create_tatoebator_deck(col)
+
+    def _create_tatoebator_deck(self, col: anki.collection.Collection):
+        deck = col.decks.new_deck()
         deck.name = self.default_tatoebator_deck_name
-        id_ = self.col.decks.add_deck(deck).id
-        self.registry.tatoebator_deck_id = id_
-        self.registry.save()
+        id_ = col.decks.add_deck(deck).id
+        self.deck_id = id_
 
-    def _ensure_tatoebator_notetype(self):
-        id_ = self.registry.tatoebator_notetype_id
-        if id_ is None or self.col.models.get(id_) is None:
-            self._create_tatoebator_notetype()
+    def _ensure_notetype(self, col: anki.collection.Collection):
+        id_ = self.notetype_id
+        if id_ is None or col.models.get(id_) is None:
+            self._create_tatoebator_notetype(col)
 
-    def _create_tatoebator_notetype(self):
-        col = self.col
-
+    def _create_tatoebator_notetype(self, col: anki.collection.Collection):
         mm = col.models
         m = mm.new(self.default_tatoebator_notetype_name)
 
@@ -112,11 +103,12 @@ class AnkiDbInterface:
         t["qfmt"] = "{{word_audio}} {{word_furigana}}"
 
         t["afmt"] = """\
-{{word_audio}} {{word_furigana}}\n\n<hr>\n
+{{word_audio}} {{word_furigana}}
+<hr>
 <p id='definition_eng_elem'>{{definition_eng}}\n</p>
 <p id='definition_jpn_elem'>{{definition_jpn}}\n</p>
-\n\n{{sentence_data}}
-\n\n{{other_data}}
+{{sentence_data}}
+{{other_data}}
 
 <script>
     function hideIfEmpty(elem_id) {
@@ -133,14 +125,31 @@ class AnkiDbInterface:
         mm.addTemplate(m, t)
         id_ = mm.add(m).id
 
-        self.registry.tatoebator_notetype_id = id_
-        self.registry.save()
+        self.notetype_id = id_
+
+
+class WordInLibraryType(Enum):
+    NOT_IN_LIBRARY = 1
+    IN_LIBRARY_KNOWN = 2
+    IN_LIBRARY_NEW = 3
+
+
+class AnkiDbInterface:
+
+    def __init__(self):
+        self.col = mw.col
+        self.other_vocab_fields = VocabFieldRegistry.load_or_create()
+        self.tatoebator_objects = TatoebatorAnkiObjectRegistrar.load_or_create()
+
+        self.tatoebator_objects.ensure_objects_exist(self.col)
+
+        # self.col.genCards
 
     def _get_deck_ids_by_name(self) -> Dict[str, int]:
         col = self.col
         return {name: id_ for id_, name in self.col.db.all("SELECT id,name FROM decks")}
 
-    def _get_notetypes_and_fields_in_deck(self, deck_id: int) -> Tuple[Dict[str, int], Dict[str,Dict[str, int]]]:
+    def _get_notetypes_and_fields_in_deck(self, deck_id: int) -> Tuple[Dict[str, int], Dict[str, Dict[str, int]]]:
         # notetype ids - notetype names - field names - field ords in a certain deck
         data = self.col.db.all(f"SELECT f.ntid, nt.name, f.ord, f.name AS notetype_name\
                     FROM fields f\
@@ -162,7 +171,8 @@ class AnkiDbInterface:
 
         return notetype_ids_by_name, field_ords_by_name
 
-    def get_all_field_data(self) -> Tuple[Dict[str, int], Dict[str, Dict[str, int]], Dict[str, Dict[str, Dict[str, int]]]]:
+    def get_all_field_data(self) -> Tuple[
+        Dict[str, int], Dict[str, Dict[str, int]], Dict[str, Dict[str, Dict[str, int]]]]:
         deck_ids_by_name = self._get_deck_ids_by_name()
         notetype_ids_by_names = {deck_name: dict() for deck_name in deck_ids_by_name}
         field_ords_by_names = {deck_name: dict() for deck_name in deck_ids_by_name}
@@ -196,14 +206,14 @@ class AnkiDbInterface:
                 WordInLibraryType.IN_LIBRARY_KNOWN: known_words,
                 WordInLibraryType.IN_LIBRARY_NEW: pending_words, }
 
-    def _get_known_words_in_deck(self, deck_id, notetype_id, field_num):
+    def _get_known_words_in_deck(self, field_pointer: FieldPointer):
         col = self.col
 
         col.db.all(f"CREATE TEMPORARY TABLE results AS\
-                    SELECT field_at_index(n.flds, {field_num}) AS string, c.ivl AS ivl\
+                    SELECT field_at_index(n.flds, {field_pointer.field_ord}) AS string, c.ivl AS ivl\
                     FROM notes n\
                     JOIN cards c ON n.id = c.nid\
-                    WHERE n.mid = {notetype_id} AND c.did = {deck_id}")
+                    WHERE n.mid = {field_pointer.notetype_id} AND c.did = {field_pointer.deck_id}")
 
         data_known = col.db.all("SELECT string FROM results WHERE ivl > 0")
         col.db.all("DROP TABLE results")
@@ -213,8 +223,8 @@ class AnkiDbInterface:
 
     def group_text_by_library(self, words):
         classified = {kind: set() for kind in WordInLibraryType}
-        for deck_id, notetype_id, field_num in self.registry.other_vocab_fields:
-            classified_deck = self._search_cards_in_deck(deck_id, notetype_id, field_num, words)
+        for field_pointer in self.other_vocab_fields:
+            classified_deck = self._search_cards_in_deck(field_pointer, words)
             for kind in WordInLibraryType:
                 classified[kind] = classified[kind].union(classified_deck[kind])
         classified[WordInLibraryType.NOT_IN_LIBRARY] -= classified[WordInLibraryType.IN_LIBRARY_NEW]
@@ -224,10 +234,6 @@ class AnkiDbInterface:
 
     def get_known_words(self):
         known_words = set()
-        for field_pointer in self.registry.other_vocab_fields:
-            known_words.update(self._get_known_words_in_deck(field_pointer.deck_id,
-                                                             field_pointer.notetype_id,
-                                                             field_pointer.field_ord))
+        for field_pointer in self.other_vocab_fields:
+            known_words.update(self._get_known_words_in_deck(field_pointer))
         return known_words
-
-

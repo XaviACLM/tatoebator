@@ -88,7 +88,7 @@ class FieldSelectorWidget(QFrame):
                              self.notetypes_by_names[deck_name][notetype_name],
                              self.fields_by_names[deck_name][notetype_name][field_name])
                 for deck_name, notetype_name, field_name in name_data
-                if deck_name is not None]
+                if (deck_name and notetype_name and field_name) is not None]
 
     def _init_ui(self):
         layout = QVBoxLayout()
@@ -100,10 +100,12 @@ class FieldSelectorWidget(QFrame):
             dropdown = CascadingDropdownWidget(self.fields_by_names, starting_choice)
             self._dropdowns.append(dropdown)
             self._dropdown_container.addWidget(dropdown)
-        self._spacer_bottom = QSpacerItem(20, 20, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
-        self._dropdown_container.addSpacerItem(self._spacer_bottom)
         self._dropdown_container.setContentsMargins(10, 10, 10, 10)
-        layout.addLayout(self._dropdown_container)
+        self._dropdown_container_container = QVBoxLayout()
+        self._dropdown_container_container.addLayout(self._dropdown_container)
+        self._spacer_bottom = QSpacerItem(20, 20, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
+        self._dropdown_container_container.addSpacerItem(self._spacer_bottom)
+        layout.addLayout(self._dropdown_container_container)
 
         self.button_bar = QHBoxLayout()
         spacer_left = QSpacerItem(20, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
@@ -123,9 +125,7 @@ class FieldSelectorWidget(QFrame):
     def _add_selector(self):
         dropdown = CascadingDropdownWidget(self.fields_by_names)
         self._dropdowns.append(dropdown)
-        self._dropdown_container.removeWidget(self._spacer_bottom)
         self._dropdown_container.addWidget(dropdown)
-        self._dropdown_container.addWidget(self._spacer_bottom)
 
     def _remove_selector(self):
         dropdown = self._dropdowns.pop(-1)
@@ -135,7 +135,7 @@ class FieldSelectorWidget(QFrame):
         # this could be in util but let's keep it local to avoid using it any more than necessary - obv hacky and bad
         get_key_from_value = lambda value, dictionary: next(filter(lambda k: dictionary[k]==value, dictionary), None)
         res = []
-        for field_pointer in self.anki_db_interface.registry.other_vocab_fields:
+        for field_pointer in self.anki_db_interface.other_vocab_fields:
             deck_name = get_key_from_value(field_pointer.deck_id, self.decks_by_name)
             notetype_name = get_key_from_value(field_pointer.notetype_id, self.notetypes_by_names[deck_name])
             field_name = get_key_from_value(field_pointer.field_ord, self.fields_by_names[deck_name][notetype_name])
@@ -150,7 +150,6 @@ class AnkiRegistryEditorWidget(QWidget):
     def __init__(self, anki_db_interface: AnkiDbInterface):
         super().__init__()
         self.anki_db_interface = anki_db_interface
-        self.registry = anki_db_interface.registry
 
         self._init_ui()
 
@@ -183,9 +182,7 @@ class AnkiRegistryEditorWidget(QWidget):
         self.setGeometry(100, 100, 700, 500)
 
     def _data_has_changed(self):
-        print(self.registry.other_vocab_fields)
-        print(self._field_selector.get_selected_fields())
-        return set(self.registry.other_vocab_fields) != set(self._field_selector.get_selected_fields())
+        return set(self.anki_db_interface.other_vocab_fields) != set(self._field_selector.get_selected_fields())
 
     def _check_before_cancel(self):
         if self._data_has_changed() and not ask_yes_no_question("Cancel changes to config?"):
@@ -193,6 +190,7 @@ class AnkiRegistryEditorWidget(QWidget):
         self.backing_up_from.emit()
 
     def _save_and_continue(self):
-        self.registry.other_vocab_fields = self._field_selector.get_selected_fields()
-        self.registry.save()
+        self.anki_db_interface.other_vocab_fields.clear()
+        self.anki_db_interface.other_vocab_fields.extend(self._field_selector.get_selected_fields())
+        self.anki_db_interface.other_vocab_fields.save()
         self.continuing_from.emit()

@@ -1,31 +1,17 @@
 import weakref
 
 
-class TransientSingleton(type):
+class TransientSingleton:
     _instances = {}
 
-    def __call__(cls, *args, **kwargs):
-        # Check if an instance already exists
+    def __new__(cls, *args, **kwargs):
         if cls in cls._instances:
-            raise Exception(
-                f"There was an attempt to create more than one simultaneous instance of {cls.__name__}."
-            )
+            raise RuntimeError(f"Only one instance of {cls.__name__} is allowed.")
 
-        # Create and register a new instance
-        instance = super().__call__(*args, **kwargs)
-        cls._instances[cls] = weakref.ref(
-            instance, lambda ref: cls._instances.pop(cls, None)
-        )
+        instance = super().__new__(cls)
+        cls._instances[cls] = instance
 
-        # Dynamically inject the `deregister` method into the instance
-        def deregister_as_singleton():
-            type(instance).deregister()
-
-        instance.deregister_as_singleton = deregister_as_singleton
+        # Register cleanup function to remove instance when it gets deleted
+        weakref.finalize(instance, cls._instances.pop, cls)
 
         return instance
-
-    def deregister(cls):
-        """Manually deregister the instance."""
-        if cls in cls._instances:
-            cls._instances.pop(cls, None)

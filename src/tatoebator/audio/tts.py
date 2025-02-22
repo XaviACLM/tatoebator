@@ -13,7 +13,7 @@ from ..language_extensions import TransientSingleton
 from ..timed_resource_manager import TimedResourceManager
 
 
-class VoicevoxInterface(TimedResourceManager, metaclass=TransientSingleton):
+class VoicevoxInterface(TimedResourceManager, TransientSingleton):
     def _start_resource(self):
         self._process = subprocess.Popen([VOICEVOX_EXE_PATH])
 
@@ -31,7 +31,7 @@ class VoicevoxInterface(TimedResourceManager, metaclass=TransientSingleton):
             return await audio_query.synthesis(speaker=speaker_id)
 
 
-class WOkadaInterface(TimedResourceManager, metaclass=TransientSingleton):
+class WOkadaInterface(TimedResourceManager, TransientSingleton):
     _startup_time = 15
     _port = 19000
     _base_url = f"http://localhost:{_port}"
@@ -124,7 +124,7 @@ class TTSManager:
         return file_name[:-4]  # file id
 
 
-class WOkadaManager(TTSManager, metaclass=TransientSingleton):
+class WOkadaManager(TTSManager, TransientSingleton):
     def __init__(self, timeout=30):
         super().__init__()
         self._interface = WOkadaInterface(timeout=timeout)
@@ -156,7 +156,7 @@ class WOkadaManager(TTSManager, metaclass=TransientSingleton):
 VOICEVOX_VOICES = [0, 13, 14, 30, 81]
 
 
-class VoicevoxManager(TTSManager, metaclass=TransientSingleton):
+class VoicevoxManager(TTSManager, TransientSingleton):
     def __init__(self, timeout=30):
         super().__init__()
         self._interface = VoicevoxInterface(timeout=timeout)
@@ -206,7 +206,7 @@ VOICEPEAK_VOICES = [  # default speaking params for some extra character (very m
 """
 
 
-class VoicepeakManager(TTSManager, metaclass=TransientSingleton):
+class VoicepeakManager(TTSManager, TransientSingleton):
     _max_retries = 5
 
     @property
