@@ -53,12 +53,19 @@ try:
         @classmethod
         def get_clipboard_text(cls) -> str:
             text = ""
-            if cls.OpenClipboard(None):
-                h_clip_mem = cls.GetClipboardData(cls.CF_UNICODETEXT)
-                text = ctypes.wstring_at(cls.GlobalLock(h_clip_mem))
-                cls.GlobalUnlock(h_clip_mem)
-                cls.CloseClipboard()
-            return text
+            try:
+                if cls.OpenClipboard(None):
+                    h_clip_mem = cls.GetClipboardData(cls.CF_UNICODETEXT)
+                    text = ctypes.wstring_at(cls.GlobalLock(h_clip_mem))
+                    cls.GlobalUnlock(h_clip_mem)
+                    cls.CloseClipboard()
+                return text
+            except OSError:
+                # clipboard just stops working randomly?
+                # man i don't know. whatever.
+                print("OSError trying to read clipboard")
+                return ""
+
 
 
     get_clipboard_text = _ClipboardGetter.get_clipboard_text

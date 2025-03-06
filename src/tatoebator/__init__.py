@@ -28,15 +28,27 @@ if running_as_anki_addon():
 
     mw.tatoebator = Tatoebator()
 
+    action = QAction("T: Mine words", mw)
+    qconnect(action.triggered, mw.tatoebator.mining_to_deck_flow)
+    mw.form.menuTools.addAction(action)
+
+    action = QAction("T: Edit searchable fields", mw)
+    qconnect(action.triggered, mw.tatoebator.open_registry_editor)
+    mw.form.menuTools.addAction(action)
+
+    action = QAction("T: Ensure data health", mw)
+    qconnect(action.triggered, mw.tatoebator.ensure_data_health)
+    mw.form.menuTools.addAction(action)
+
 
     def testfun1() -> None:
-        mw.tatoebator.mining_to_deck_flow()
-
-    def testfun2() -> None:
         mw.tatoebator.anki_db_test()
 
+    def testfun2() -> None:
+        mw.tatoebator.note_creation_test()
+
     def testfun3() -> None:
-        mw.tatoebator.open_registry_editor()
+        print("uuuh")
 
     for idx, testfun in enumerate([testfun1, testfun2, testfun3]):
         action = QAction(f"test{idx + 1}", mw)

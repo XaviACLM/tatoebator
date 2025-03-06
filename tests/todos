@@ -13,6 +13,7 @@ TODO main bits of gui
  the cards themselves (when do the notes get created? must be in the table gui, no?
 
 TODO make it so it doesnt crash instantly if robots requests fail. Offline mode in general
+ -> this should be easily fixable by making the robots sessions lazy
 
 
 CC-BY 2.0 : we can do anything as long as we credit properly, indicate changes, and propagate the license
@@ -26,9 +27,24 @@ TODO card html - esp care w the logic on the sentences - separate known, discard
 
 TODO port decks (incl. rtk to migaku... somehow?)
 
-TODO help menus
+TODO help menus <- default_colors class
 
 TODO option to add machine translated sentences (tag them in db + gui)
 
 TODO there are some timeout issues - with the robots, I think? or maybe the translator? it's unclear but sometimes if
  you leave anki alone for a few minutes it throws an exception out of the blue
+
+TODO better (offline) dicts, https://learnjapanese.moe/monolingual/ - support images, maybe?
+ ugh we're going to need a nice system to handle (i.e. give instructions for) all the user downloads huh
+ ugh ugh ugh
+
+TODO config options for showing definitions on either language (i.e. monolingual mode toggle)
+
+TODO probably is a good idea to make it obvious when a new card is shown iykyk
+
+TODO segregate user_files content by active user - the config files, anyway, but not sentence.db or the big downloads
+
+TODO set up hooks st if a deck is deleted the corresponding words in our db stop being marked as known
+ there lurks there a more complicated question ab how much redundance there should be between the two dbs
+ n_known_words and such are good for querying but is Keyword.known actually useful? if so, should we also store
+ whether it's known in the ttbtr deck or one of the other ones? maybe we should store the note/card id, too, then? 

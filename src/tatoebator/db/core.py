@@ -340,3 +340,14 @@ class SentenceDbInterface:
         self._session.query(Keyword).filter(Keyword.keyword.in_(known_words)).update({"known": True},
                                                                                      synchronize_session=False)
         self._session.commit()
+
+    def get_sentence_texts_by_audio_fileid(self):
+        if self._session is None:
+            self._open_session()
+
+        sentences_by_audio_id = {audio_fileid: sentence_text for sentence_text, audio_fileid
+                                 in self._session.query(Sentence.japanese, Sentence.audio_file_id)\
+                                     .filter(Sentence.audio_file_id.isnot(None)).all()}
+
+        return sentences_by_audio_id
+

@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import (
 
 from .process_dialog import ProgressDialog
 from .util import ask_yes_no_question
+from ..constants import SENTENCES_PER_CARD
 from ..db import SentenceRepository
 from ..language_processing import grammaticalized_words, DefinitionFetcher, Definitions
 
@@ -62,7 +63,7 @@ class NewWordsTableWidget(QWidget):
     continuing_from = pyqtSignal()
 
     sentences_per_word_quota = 5
-    sentences_per_word_ideally = 20
+    sentences_per_word_ideally = SENTENCES_PER_CARD
 
     # SELECTOR_ROW = 0
     # NAME_ROW = 1
@@ -103,8 +104,9 @@ class NewWordsTableWidget(QWidget):
         self._uncheck_grammaticalized(amt_grammaticalized)
 
     def get_new_word_data(self) -> Dict[str, Definitions]:
-        return {self.table.item(i, 1).text(): Definitions(self.table.item(i, 5).text().split("\n- "),
-                                                          self.table.item(i, 6).text().split("\n- "))
+        definitions_as_list = lambda text: list(filter(lambda x: x, text.split("\n- ")))
+        return {self.table.item(i, 1).text(): Definitions(definitions_as_list(self.table.item(i, 5).text()),
+                                                          definitions_as_list(self.table.item(i, 6).text()))
                 for i in range(self._n_rows) if self._is_idx_selected(i)}
 
     def _init_ui(self):

@@ -119,7 +119,7 @@ else:
 '''
 
 if running_as_anki_addon():
-    from ..timed_resource_manager import TimedResourceManager
+    from ..subprocesses import TimedResourceManager
     from ..config import MECAB_EXE
 
 

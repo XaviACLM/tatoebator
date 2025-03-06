@@ -3,6 +3,8 @@ from typing import List, Optional
 from aqt import gui_hooks
 
 from .anki_db_interface import AnkiDbInterface
+from .audio import MediaManager
+from .constants import SENTENCES_PER_CARD
 from .db import SentenceRepository
 from .gui import MineNewWordsWidget, NewWordsTableWidget
 from .gui.anki_registry_editor import AnkiRegistryEditorWidget
@@ -13,7 +15,8 @@ from .util import get_clipboard_text
 
 class Tatoebator:
     def __init__(self):
-        self.sentence_repository = SentenceRepository()
+        self.media_manager = MediaManager()
+        self.sentence_repository = SentenceRepository(self.media_manager)
         self.definition_fetcher = DefinitionFetcher()
         self.anki_db_interface: Optional[AnkiDbInterface] = None
 
@@ -42,7 +45,7 @@ class Tatoebator:
         self.sentence_repository.update_known(self.anki_db_interface.get_known_words())
 
     def _init_anki_inteface(self):
-        self.anki_db_interface = AnkiDbInterface()
+        self.anki_db_interface = AnkiDbInterface(self.media_manager)
 
     def word_table_test(self, words: List[str]):
         self.table_widget = NewWordsTableWidget(words, self.sentence_repository, self.definition_fetcher)
@@ -57,6 +60,14 @@ class Tatoebator:
                                                                   ["時計", "電話", "テレビ", "音楽", "映画", "写真",
                                                                    "手紙", "仕事", "休み", "旅行", "お金", "時間",
                                                                    "今日", "明日", "昨日", "今", "後で"])))
+
+    def note_creation_test(self):
+        self.anki_db_interface.card_creator.create_note("balls", None, None)
+
+    def ensure_data_health(self):
+        self.sentence_repository.update_known(self.anki_db_interface.get_known_words())
+        self.sentence_repository.cleanup_orphaned_audio_files()
+        self.sentence_repository.regenerate_missing_audio_files()
 
 
 class MiningProcessConductor:
@@ -98,3 +109,13 @@ class MiningProcessConductor:
         for word, definition in new_words_data.items():
             message.append(f"{word}  -  {definition.en} / {definition.jp}")
         showInfo("\n\n".join(message))
+
+        sentences_per_word_ideally = SENTENCES_PER_CARD
+        request = {word: sentences_per_word_ideally for word in new_words_data}
+        sentences = self.sentence_repository.produce_sentences_for_words(request,
+                                                                         produce_new=False,
+                                                                         ensure_audio=True,
+                                                                         with_furigana=True)
+
+        for word, definitions in new_words_data.items():
+            self.anki_db_interface.card_creator.create_note(word, definitions, sentences[word])

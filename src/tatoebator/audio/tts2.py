@@ -10,7 +10,7 @@ from voicevox import Client as VoicevoxClient
 
 from ..config import VOICEVOX_EXE_PATH, W_OKADA_TTS_DIR, W_OKADA_TTS_EXE
 from ..language_extensions import TransientSingleton
-from ..timed_resource_manager import TimedResourceManager
+from ..subprocesses import TimedResourceManager
 
 CRACKED_VOICEPEAK_DIR = os.path.join("C:", os.sep, "Program Files", "cracked_voicepeak")
 # an edit we made ourselves to be able to pass args through yumekey to voicepeak
