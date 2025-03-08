@@ -251,6 +251,7 @@ class CrackedVoicepeakManager(TTSManager, TransientSingleton):
             if os.path.exists(output_path):
                 break
         else:
+            print(sentence)
             raise Exception("Voicepeak/yumekey failed five times in a row - something's not right")
 
 

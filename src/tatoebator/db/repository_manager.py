@@ -7,6 +7,7 @@ from ..db.core import SentenceDbInterface
 from ..language_processing import add_furigana_html
 from ..sentences import ExampleSentence
 from ..sentences import SentenceProductionManager
+from ..sentences.example_sentences import ExternalFileRef
 
 
 class SentenceRepository:
@@ -48,22 +49,25 @@ class SentenceRepository:
             -> Dict[str, List[ExampleSentence]]:
         words = list(word_desired_amts.keys())
         sentences = self.sentence_db_interface.get_sentences_by_word_batched(word_desired_amts)
-        if ensure_audio: self._ensure_sentences_have_audio(sum(sentences.values(), []))
-        if with_furigana: self._add_furigana(sum(sentences.values(),[]))
 
         missing_sentences_by_word = {word: word_desired_amts[word]-len(sentences[word]) for word in words}
         produced_all_desired = max(missing_sentences_by_word.values()) <= 0
-        if not produce_new or produced_all_desired:
-            return sentences
+        if not produced_all_desired and produce_new:
+            new_sentences = self._produce_new_sentences_for_words(missing_sentences_by_word,
+                                                                  ensure_audio=ensure_audio,
+                                                                  progress_callback=progress_callback)
+            sentences = {word: sentences[word]+new_sentences[word] for word in words}
 
-        new_sentences = self._produce_new_sentences_for_words(missing_sentences_by_word,
-                                                              ensure_audio=ensure_audio,
-                                                              progress_callback=progress_callback)
-        if ensure_audio: self._ensure_sentences_have_audio(sum(new_sentences.values(), []))
-        if with_furigana: self._add_furigana(sum(new_sentences.values(),[]))
-        aggregated_sentences = {word: sentences[word]+new_sentences[word] for word in words}
+        for sentence in sum(sentences.values(), []):
+            media_file_ref = self.media_manager.get_ref_for_sentence(sentence.sentence)
+            if self.media_manager.check_ref_exists(media_file_ref):
+                sentence.audio_file_ref = media_file_ref
+            elif ensure_audio:
+                sentence.audio_file_ref = self.media_manager.create_audio_file(sentence.sentence)
 
-        return aggregated_sentences
+        if with_furigana: self._add_furigana(sum(sentences.values(),[]))
+
+        return sentences
 
     def count_lexical_word_ocurrences(self, lexical_words: List[str],
                                       min_comprehensibility: Optional[float] = None) -> Dict[str, int]:
@@ -72,45 +76,9 @@ class SentenceRepository:
                 .count_keywords_by_sentence_comprehensibility(lexical_words, min_comprehensibility)
         return self.sentence_db_interface.count_keywords(lexical_words)
 
-    def cleanup_orphaned_audio_files(self):
-        referenced_audio_ids = self.sentence_db_interface.get_all_audio_ids()
-        existing_audio_ids = self.media_manager.get_all_audio_ids()
-
-        orphaned_file_ids = existing_audio_ids - referenced_audio_ids
-        for orphaned_id in orphaned_file_ids:
-            self.media_manager.remove_by_id(orphaned_id)
-
-    def regenerate_missing_audio_files(self):
-        # TODO yeah this doesn't make that much sense. will conflict with anki orphaned file cleanup
-        #  need to devise a way to do this but only w sentences that actually appear in decks
-        #  and moreover cleanup_orphaned_audio_files is likewise bad b/c it will delete word audios
-        #  perhaps that one should just never be called. let anki cleanup handle it
-        #  but what of this one?
-        #  ---
-        #  we will need info from anki_db_interface too
-        #  guessing a midway object held by Tatoebator that worries about media cleanliness
-        #  moreover i think we will take audido out of the db altogether
-        #  media_manager is held by the repository and responsible for populating the audio of ExampleSentence objects
-        #  internally knows whether they exist, can be passed by arg to relevant functions whether it will create more
-        sentences_by_audio_id = self.sentence_db_interface.get_sentence_texts_by_audio_fileid()
-        referenced_audio_ids = set(sentences_by_audio_id.keys())
-        existing_audio_ids = self.media_manager.get_all_audio_ids()
-        orphaned_ids = referenced_audio_ids - existing_audio_ids
-        for audio_id in orphaned_ids:
-            self.media_manager.create_audio_file(sentences_by_audio_id[audio_id], 0.8, audio_id)
-
     def update_known(self, known_words: Set[str]):
         self.sentence_db_interface.update_known_field(known_words)
         self.sentence_db_interface.update_known_unknown_counts()
-
-    def _ensure_sentences_have_audio(self, sentences: List[ExampleSentence]):
-        updated_sentences = []
-        for sentence in sentences:
-            if sentence.audio_fileid is None:
-                updated_sentences.append(sentence)
-                self._add_audio_file_to_sentence(sentence)
-        if updated_sentences:
-            self.sentence_db_interface.update_audio_file_ids(updated_sentences)
 
     def _produce_new_sentences_for_word(self, word: str, desired_amt: int, ensure_audio=False,
                                         progress_callback: Optional[Callable[..., None]] = None)\
@@ -137,8 +105,11 @@ class SentenceRepository:
                                                 filtering_fun=is_not_in_db,
                                                 progress_callback=progress_callback):
 
-            if ensure_audio and sentence.audio_fileid is None:
-                self._add_audio_file_to_sentence(sentence)
+            if sentence.audio_file_ref is not None:
+                sentence.audio_file_ref = self.media_manager.intake_external_audio_file(sentence.sentence,
+                                                                                        sentence.audio_file_ref)
+            elif ensure_audio:
+                sentence.audio_file_ref = self.media_manager.create_audio_file(sentence.sentence)
 
             sentences[word].append(sentence)
 
@@ -147,6 +118,7 @@ class SentenceRepository:
         return sentences
 
     def _ingest_starter_sentences(self, max_desired_sentences_per_word: int = SENTENCES_PER_CARD, block_size: int = 50):
+        print("SentenceRepository ingesting base corpora...")
         is_not_in_db = lambda s: self.sentence_db_interface.check_sentence(s.sentence, commit=False) is None
         block = []
         sentence_text = set()
@@ -160,6 +132,11 @@ class SentenceRepository:
                 continue
             sentence_text.add(sentence.sentence)
             block.append(sentence)
+
+            if sentence.audio_file_ref is not None:
+                sentence.audio_file_ref = self.media_manager.intake_external_audio_file(sentence.sentence,
+                                                                                        sentence.audio_file_ref)
+
             if len(block) == block_size:
                 self.sentence_db_interface.insert_sentences_batched(block, verify_not_repeated=False)
                 block = []
@@ -169,6 +146,3 @@ class SentenceRepository:
     def _add_furigana(self, sentences):
         for sentence in sentences:
             sentence.furigana = add_furigana_html(sentence.sentence, ignore_unknown_words=True)
-
-    def _add_audio_file_to_sentence(self, sentence: ExampleSentence, speed=0.8, desired_id=None):
-        sentence.audio_fileid = self.media_manager.create_audio_file(sentence.sentence, speed, desired_id)

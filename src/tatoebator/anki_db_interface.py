@@ -34,6 +34,12 @@ class VocabFieldRegistry(PossiblyEmptyPersistable, TransientSingleton):
     def __getitem__(self, key):
         return self.field_pointers[key]
 
+    def clear(self):
+        return self.field_pointers.clear()
+
+    def extend(self, *args, **kwargs):
+        return self.field_pointers.extend(*args, **kwargs)
+
     def __iter__(self):
         return iter(self.field_pointers)
 
@@ -230,17 +236,17 @@ class TatoebatorCardCreator:
     def create_note(self, word: str, definitions: Definitions, sentences: List[ExampleSentence]):
         note = self.col.new_note(self.tatoebator_objects.notetype_id)
 
-        word_audio_fileid = self.media_manager.create_audio_file(word, 0.8, None)
+        word_audio_file_ref = self.media_manager.create_audio_file(word, 0.8, None)
 
         note['word'] = word
-        note['word_audio'] = f'[sound:{self.media_manager.filename_from_id(word_audio_fileid)}]'
+        note['word_audio'] = f'[sound:{word_audio_file_ref}]'
         note['word_furigana'] = add_furigana_html(word, ignore_unknown_words=True)
         note['definition_eng'] = "\n- ".join(definitions.en)
         note['definition_jpn'] = "\n- ".join(definitions.jp)
         note['sentence_data'] = INTER_FIELD_SEPARATOR.join((INTER_FIELD_SEPARATOR.join([sentence.sentence,
                                                                                         sentence.furigana,
                                                                                         sentence.translation,
-                                                                                        f"[sound:{self.media_manager.filename_from_id(sentence.audio_fileid)}]",
+                                                                                        f"[sound:{sentence.audio_file_ref}]",
                                                                                         sentence.credit])
                                                             for sentence in sentences))
         note['other_data'] = ''

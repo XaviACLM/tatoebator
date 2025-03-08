@@ -118,6 +118,8 @@ else:
             return list(map(from_sudachipy_morpheme, self.tokenizer.tokenize(text, self.mode)))
 '''
 
+running_as_anki_addon = lambda: True
+
 if running_as_anki_addon():
     from ..subprocesses import TimedResourceManager
     from ..config import MECAB_EXE

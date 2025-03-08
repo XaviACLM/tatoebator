@@ -1,7 +1,8 @@
+from tatoebator.audio import MediaManager
 from tatoebator.db import SentenceRepository
 
 
-sentence_repository = SentenceRepository()
+sentence_repository = SentenceRepository(MediaManager())
 
 
 for word, sentences in sentence_repository.produce_sentences_for_words({"鳥":200,"空":200}, produce_new=False, ensure_audio=False, with_furigana=True).items():
@@ -20,7 +21,7 @@ def word_test(word="煙"):
         print(s.sentence)
         print(s.translation)
         print(s.lexical_words)
-        print(s.audio_fileid)
+        print(s.audio_file_ref)
         print(s.source_tag)
         print(s.trusted)
         print(f"{s.n_known_words}/{s.n_lexical_words} ({s.n_unknown_words} unknown)")

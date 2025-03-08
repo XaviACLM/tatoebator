@@ -70,7 +70,9 @@ class TanoshiiDictionary(Dictionary):
         response = self._session.get(url)
 
         if response.status_code != 200:
-            raise Exception(f"Something went wrong with the tanoshiijp request - status code {response.status_code}")
+            # raise Exception(f"Something went wrong with the tanoshiijp request - status code {response.status_code}")
+            print(f"Something went wrong with the tanoshiijp request - status code {response.status_code}")
+            return Definitions.empty()
 
         soup = BeautifulSoup(response.content, 'html.parser')
         content_elem = soup.find('div', id='cncontentbody')
@@ -160,7 +162,9 @@ class WeblioDictionary(Dictionary):
         response = self._session.get(url)
 
         if response.status_code != 200:
-            raise Exception(f"Something went wrong with the tanoshiijp request - status code {response.status_code}")
+            # raise Exception(f"Something went wrong with the weblio request - status code {response.status_code}")
+            print(f"Something went wrong with the weblio request - status code {response.status_code}")
+            return Definitions.empty()
 
         soup = BeautifulSoup(response.content, 'html.parser')
         table_elem = soup.find('tbody')

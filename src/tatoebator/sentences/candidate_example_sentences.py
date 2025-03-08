@@ -31,14 +31,14 @@ class CandidateExampleSentence:
                  sentence: str,
                  translation: Optional[str] = None,
                  lexical_words: Optional[List[str]] = None,
-                 audio_fileid: Optional[str] = None,
+                 audio_file_ref: Optional[str] = None,
                  credit: Optional[str] = None
                  ):
         self.sentence = sentence
 
         self._lexical_words = lexical_words
         self.translation = translation
-        self.audio_fileid = audio_fileid
+        self.audio_file_ref = audio_file_ref
         self.credit = credit
 
     # the performance loss computing this on init would be minimal
@@ -95,6 +95,8 @@ class ExampleSentenceQualityEvaluator:
         "No weird format tags": lambda s: re.search(_format_tags_matcher, s.sentence) is None,
         "No linebreaks or tabs": lambda s: re.search(_newline_or_tab_matcher, s.sentence) is None,
         "No unknown characters": lambda s: re.fullmatch(_known_characters_text_matcher, s.sentence) is not None,
+        # not even that important but this messes with passing sentence as a cl arg
+        "No unpaired double quotes": lambda s: s.sentence.count('"') % 2 == 0,
     }
 
     _post_translation_filters = {

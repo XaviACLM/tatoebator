@@ -22,4 +22,3 @@ PATH_TO_SOURCES_FILE = os.path.join(PATH_TO_USER_FILES, "annotated_data_sources.
 PATH_TO_DATABASE = os.path.join(PATH_TO_USER_FILES, "sentences.db")
 PATH_TO_CACHED_DOWNLOADS = os.path.join(PATH_TO_USER_FILES, "cached_downloads")
 PATH_TO_MANUAL_DOWNLOADS = os.path.join(PATH_TO_USER_FILES, "manual_downloads")
-PATH_TO_AUDIO_GENERATION_QUEUE = os.path.join(PATH_TO_USER_FILES, "audio_generation_queue.json")

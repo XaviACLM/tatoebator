@@ -11,10 +11,10 @@ else:
 
 def convert_bitrate(input_file, output_file, target_bitrate, overwrite=False):
     subprocess.run(
-        ' '.join(['ffmpeg',
+        ['ffmpeg', '-hide_banner', '-loglevel', 'error',
          '-y' if overwrite else ''
                                 '-i', input_file,
          '-b:a', target_bitrate,
-         output_file]),
+         output_file],
         shell=False, startupinfo=_startupinfo,
         stdout=subprocess.DEVNULL)

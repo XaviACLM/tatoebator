@@ -21,9 +21,11 @@ A note on propagating the license - from what I understand this doesnt' mean the
 either way cc doesn't actually prohibit anything specific other than changing the license or misattribution, so fine
 
 
-TODO note creation
+TODO cleanup note creation, allow for separate decks
 TODO card html - esp care w the logic on the sentences - separate known, discard remainder if have enough, etc
  and the random sorting, minute-based
+
+TODO separate the HTML/CSS defaults into other files
 
 TODO port decks (incl. rtk to migaku... somehow?)
 
@@ -47,4 +49,10 @@ TODO segregate user_files content by active user - the config files, anyway, but
 TODO set up hooks st if a deck is deleted the corresponding words in our db stop being marked as known
  there lurks there a more complicated question ab how much redundance there should be between the two dbs
  n_known_words and such are good for querying but is Keyword.known actually useful? if so, should we also store
- whether it's known in the ttbtr deck or one of the other ones? maybe we should store the note/card id, too, then? 
+ whether it's known in the ttbtr deck or one of the other ones? maybe we should store the note/card id, too, then?
+
+TODO commit the next time all this works
+
+TODO Definitions handle listing/unlisting
+
+TODO better db init: if no exist create w/o covering index, then insert, then create covering index

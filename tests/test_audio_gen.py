@@ -15,6 +15,11 @@ lines = """散々な思い出は悲しみを穿つほど
 そりゃあ愛への罰だ
 もう眠くはないな ないなないな
 もう寂しくないさ ないさ""".split("\n")
+
+lines = ['"リリーはイブニングドレスと オペラクロークを纏い目覚めた.']
+
+lines = ['散々な思い出は悲しみを穿つほど']
+
 manager = DefaultTTSManager()
 for voice in range(manager.amt_voices):
     for i, line in enumerate(lines[:2]):

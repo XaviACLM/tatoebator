@@ -16,7 +16,6 @@ class Sentence(Base):
     id = Column(Integer, primary_key=True)
     english = Column(Text, nullable=False)
     japanese = Column(Text, nullable=False, unique=True)  # Ensure uniqueness for Japanese sentence
-    audio_file_id = Column(String(32), nullable=True)
     source_tag = Column(SmallInteger, nullable=False)
     trusted = Column(Boolean, nullable=False)
     credit = Column(Text, nullable=True)
@@ -66,7 +65,7 @@ class SentenceDbInterface:
         atexit.register(self._engine.dispose)
 
         self._session_constructor = sessionmaker(bind=self._engine)
-        self._session = None  # do we really need to worry about this? keeping a single session should be fine...
+        self._session = None  # no real need to worry about this but cleaner this way
 
     def _open_session(self):
         self._session = self._session_constructor()
@@ -153,7 +152,6 @@ class SentenceDbInterface:
         return Sentence(
             english=sentence.translation,
             japanese=sentence.sentence,
-            audio_file_id=sentence.audio_fileid,
             source_tag=sentence.source_tag,
             trusted=sentence.trusted,
             credit=sentence.credit,
@@ -170,7 +168,7 @@ class SentenceDbInterface:
         return ExampleSentence(row.japanese,
                                translation=row.english,
                                lexical_words=[sk.keyword.keyword for sk in row.keywords],
-                               audio_fileid=row.audio_file_id,
+                               audio_file_ref=None,
                                source_tag=row.source_tag,
                                trusted=row.trusted,
                                credit=row.credit,
@@ -238,22 +236,6 @@ class SentenceDbInterface:
 
         return word_to_sentences
 
-    def update_audio_file_ids(self, sentences: List[ExampleSentence]):
-        """
-        Updates the database with new audio_file_id values for sentences.
-        :param sentences: List of ExampleSentence objects with updated audio_fileid.
-        """
-        if self._session is None:
-            self._open_session()
-
-        updates = {sentence.sentence: sentence.audio_fileid for sentence in sentences}
-        self._session.query(Sentence).filter(Sentence.japanese.in_(updates.keys())).update(
-            {"audio_file_id": case(updates, value=Sentence.japanese)},
-            synchronize_session=False
-        )
-
-        self._session.commit()
-
     def count_keywords(self, keywords):
         if self._session is None: self._open_session()
         result = (
@@ -279,17 +261,6 @@ class SentenceDbInterface:
         )
         counts = {row[0]: row[1] for row in result}
         return {keyword: counts.get(keyword, 0) for keyword in keywords}
-
-    def get_all_audio_ids(self) -> Set[str]:
-        if self._session is None:
-            self._open_session()
-
-        referenced_audio_ids = set(
-            row[0] for row in
-            self._session.query(Sentence.audio_file_id).filter(Sentence.audio_file_id.isnot(None)).all()
-        )
-
-        return referenced_audio_ids
 
     def update_known_unknown_counts(self):
         self._update_known_counts()
@@ -340,14 +311,3 @@ class SentenceDbInterface:
         self._session.query(Keyword).filter(Keyword.keyword.in_(known_words)).update({"known": True},
                                                                                      synchronize_session=False)
         self._session.commit()
-
-    def get_sentence_texts_by_audio_fileid(self):
-        if self._session is None:
-            self._open_session()
-
-        sentences_by_audio_id = {audio_fileid: sentence_text for sentence_text, audio_fileid
-                                 in self._session.query(Sentence.japanese, Sentence.audio_file_id)\
-                                     .filter(Sentence.audio_file_id.isnot(None)).all()}
-
-        return sentences_by_audio_id
-

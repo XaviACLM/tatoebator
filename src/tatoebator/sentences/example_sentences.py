@@ -3,18 +3,22 @@ from typing import Optional
 from .candidate_example_sentences import CandidateExampleSentence
 
 
+class ExternalFileRef(str):
+    pass
+
+
 class ExampleSentence(CandidateExampleSentence):
     def __init__(self,
                  sentence: str,
                  translation: str,
                  lexical_words: [str],
-                 audio_fileid: Optional[str],
+                 audio_file_ref: Optional[str],
                  source_tag: int,
                  trusted: bool,
                  furigana: Optional[str] = None,
                  credit: Optional[str] = None,
                  n_known_words: Optional[int] = None):
-        super().__init__(sentence, translation, lexical_words, audio_fileid, credit)
+        super().__init__(sentence, translation, lexical_words, audio_file_ref, credit)
         self.source_tag = source_tag
         self.furigana = furigana
         self.trusted = trusted
@@ -26,7 +30,8 @@ class ExampleSentence(CandidateExampleSentence):
                        trusted: bool,
                        furigana: Optional[str] = None,
                        n_known_words: Optional[int] = None):
-        return cls(s.sentence, s.translation, s.lexical_words, s.audio_fileid,
+        return cls(s.sentence, s.translation, s.lexical_words,
+                   None if s.audio_file_ref is None else ExternalFileRef(s.audio_file_ref),
                    source_tag, trusted, furigana, s.credit, n_known_words)
 
     @property
