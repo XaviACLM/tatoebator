@@ -113,7 +113,6 @@ class TatoebatorAnkiObjectRegistrar(PossiblyEmptyPersistable):
   color: black;
   background-color: #f9f9ff;
 }
-
 .sentence {
   position: relative;
   padding: 1em 0;
@@ -121,7 +120,6 @@ class TatoebatorAnkiObjectRegistrar(PossiblyEmptyPersistable):
   border-radius: 0.6em;
   background-color: #fff;
 }
-
 .sentence .sentence-jpn {
   font-size: 100%;
   font-weight: normal;
@@ -145,66 +143,182 @@ class TatoebatorAnkiObjectRegistrar(PossiblyEmptyPersistable):
 .sentence:hover .sentence-eng {
   visibility: visible;
 }
+
+.night-mode .card {
+  background-color: #191930;
+  background-color: #222;
+}
+.night-mode .sentence {
+  background-color: #2c2c2c;
+}
+.night-mode .sentence .sentence-jpn {
+  color: #eee;
+}
+.night-mode .sentence .sentence-eng {
+  color: #eee;
+}
+.night-mode .sentence .sentence-source {
+  color: #666;
+}
 """
 
 
-        t["qfmt"] = "{{word_audio}} {{word_furigana}}"
-
-        t["afmt"] = """\
+        t["qfmt"] = """\
 {{word_audio}} {{word_furigana}}
 <hr>
-<p id='definition_eng_elem'>{{definition_eng}}
+<div id='definition-eng-elem'>{{definition_eng}}
 <hr>
-</p>
-<p id='definition_jpn_elem'>{{definition_jpn}}
+</div>
+<div id='definition-jpn-elem'>{{definition_jpn}}
 <hr>
-</p>
-<!-- {{sentence_data}} -->
-{{other_data}}
+</div>
 
 <!-- just here to deliver the data in proper format. gets deleted by js immediately -->
 <div id="sentence-data-container">{{sentence_data}}</div>
 
 <div id="sentences-container">
     <div class="sentence">
-        <div class="sentence-jpn"></div>
+        <div class="sentence-audio" style="display: inline-block;"></div>
+        <div class="sentence-jpn" style="display: inline-block;"></div>
         <div class="sentence-eng"></div>
         <div class="sentence-source"></div>
     </div>
 </div>
 
-<div id="debug-div">balls</div>
+<!-- here to pass info from the front script block to the back script. always with display set to none -->
+<div id="message-passing-div" style="display: none"></div>
+
+<!-- used during debug and to notify user if there is trouble in the javascript -->
+<div id="debug-div">debug elem visible (this means something went wrong in the card js)</div>
 
 <script>
 function main(){
-    //gather and organize sentence data
+    //abort if script has already run
     const sentence_data_elem = document.getElementById("sentence-data-container");
     if (sentence_data_elem==null) {
         return;
     }
+
+    //string->int hashing (complements of bryc on a StackOverflow post)
+    const cyrb53 = (str, seed = 0) => {
+      let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+      for(let i = 0, ch; i < str.length; i++) {
+        ch = str.charCodeAt(i);
+        h1 = Math.imul(h1 ^ ch, 2654435761);
+        h2 = Math.imul(h2 ^ ch, 1597334677);
+      }
+      h1  = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
+      h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+      h2  = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
+      h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  
+      return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+    };
+
+    //randomness setup
+    var oneDayInMs = 1000 * 60 * 60 * 24;
+    var currentTimeInMs = new Date().getTime();
+    var timeInDays = Math.floor(currentTimeInMs / oneDayInMs);
+    var numberForToday = timeInDays % 9999;
+    var seed = numberForToday+cyrb53("{{word}}");
+    function random() {
+      seed = ((1103515245*seed+12345)%2147483648);
+      return seed/2147483648;
+    }
+
+    //gather and organize sentence data
     const sentence_data_str = sentence_data_elem.innerHTML;
     sentence_data_elem.remove();
     const sentence_data = sentence_data_str.split("##SEP##");
     const n_sentences = Math.floor(sentence_data.length/5);
 
+    //generate indices for back/front sentences
+    //TODO these numbers have to be set by config (much like parts of the html)
+    const amt_sentences_back = Math.min(n_sentences, 5);
+    const amt_sentences_front = Math.min(n_sentences, 2);
+    let selected_indices = [];
+    while (selected_indices.length<amt_sentences_back) {
+        idx = Math.floor(random()*n_sentences);
+        if (!selected_indices.includes(idx)) {
+            selected_indices.push(idx);
+        }
+    }
+
     //locate/generate html for example sentences
     const sentence_container_elem = document.getElementById("sentences-container");
     const base_sentence_elem = document.querySelector(".sentence");
     let sentence_elems = [base_sentence_elem];
-    for (i=1; i<n_sentences; i++) {
+    for (i=1; i<amt_sentences_back; i++) {
         sentence_elems.push(base_sentence_elem.cloneNode(true));
         sentence_container_elem.appendChild(sentence_elems[i]);
     }
 
-    for(i=0;i<n_sentences;i++){
-        sentence_elems[i].querySelector(".sentence-jpn").innerHTML = sentence_data[5*i+3]+sentence_data[5*i+1];
-        sentence_elems[i].querySelector(".sentence-eng").innerHTML = sentence_data[5*i+2];
-        sentence_elems[i].querySelector(".sentence-source").innerHTML = sentence_data[5*i+4];
+    //populate sentence elems
+		let j;
+    for(i=0;i<amt_sentences_back;i++){
+        j = selected_indices[i];
+        sentence_elems[i].querySelector(".sentence-audio").innerHTML = sentence_data[5*j+3];
+        sentence_elems[i].querySelector(".sentence-jpn").innerHTML = sentence_data[5*j+1];
+        sentence_elems[i].querySelector(".sentence-eng").innerHTML = sentence_data[5*j+2];
+        sentence_elems[i].querySelector(".sentence-source").innerHTML = sentence_data[5*j+4];
     }
 
 
+		// hiding stuff that shouldn't be on the front of the card. will be unhid by the back
+    for (i=amt_sentences_front; i<amt_sentences_back; i++) sentence_elems[i].style.display = 'none';
+    for (i=0; i<amt_sentences_back; i++) sentence_elems[i].querySelector(".sentence-eng").style.display = 'none';
+    document.getElementById("definition-eng-elem").style.display = 'none';
+    document.getElementById("definition-jpn-elem").style.display = 'none';
+
+    // autoplay visible sentences
+    let full_autoplay_command = 'play:q:0';
+    for (i=0; i<amt_sentences_back; i++) {
+        full_autoplay_command += ','+(selected_indices[i]+1);
+    }
+    front_autoplay_command = full_autoplay_command.slice(0,8+2*amt_sentences_front);
+    //TODO uncomment this once we succesfully pushed changes
+    // pycmd(front_autoplay_command);
+    // in the meantime...
+    pycmd('play:q:0');
+
+    // leave the full autoplay command where the backside script block can find it
+    message_passing_elem = document.getElementById("message-passing-div");
+    message_passing_elem.textContent = full_autoplay_command;
+
+    //debug stuff
     const debug_elem = document.getElementById("debug-div");
-    debug_elem.textContent = sentence_data[0] + " // " + n_sentences;
+    debug_elem.textContent = "";
+}
+main();
+</script>        
+"""
+
+        t["afmt"] = """\
+{{FrontSide}}
+<script>
+function main(){
+    //locate html for example sentences
+    const sentence_container_elem = document.getElementById("sentences-container");
+    const sentence_elems = document.querySelectorAll(".sentence");
+    const amt_sentences_back = sentence_elems.length;
+
+		// unhiding stuff for the back of the card
+    for (i=0; i<amt_sentences_back; i++) sentence_elems[i].style.display = 'block';
+    for (i=0; i<amt_sentences_back; i++) sentence_elems[i].querySelector(".sentence-eng").style.display = 'block';
+    document.getElementById("definition-eng-elem").style.display = 'block';
+    document.getElementById("definition-jpn-elem").style.display = 'block';
+
+    // get the full autoplay command from front
+    message_passing_elem = document.getElementById("message-passing-div");
+    full_autoplay_command = message_passing_elem.textContent;
+    //TODO uncomment this once we succesfully pushed changes
+    // pycmd(full_autoplay_command);
+    // in the meantime...
+    pycmd('play:q:0');
+
+
+    const debug_elem = document.getElementById("debug-div");
+    debug_elem.textContent = "";
 }
 main();
 </script>

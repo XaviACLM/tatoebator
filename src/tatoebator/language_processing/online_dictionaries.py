@@ -41,7 +41,6 @@ class Definitions:
 
 
 class Dictionary:
-
     _base_url = None
 
     @cached_property
@@ -72,7 +71,6 @@ class EnglishDictionary(Dictionary):
 
 
 class TanoshiiDictionary(Dictionary):
-
     _base_url = f"https://www.tanoshiijapanese.com"
 
     def get_definitions(self, word) -> Definitions:
@@ -135,13 +133,12 @@ class TanoshiiDictionary(Dictionary):
             text_en = list(filter(lambda x: x, text_en))
             text_jp = list(filter(lambda x: x, text_jp))
 
-            return Definitions(text_en,text_jp)
+            return Definitions(text_en, text_jp)
         else:
             raise Exception("Tanoshiijp webpage had unexpected format")
 
 
 class JishoDictionary(EnglishDictionary):
-
     _base_url = "https://jisho.org/"
 
     def _get_en_definition(self, word) -> List[str]:
@@ -167,7 +164,6 @@ class JishoDictionary(EnglishDictionary):
 
 
 class WeblioDictionary(Dictionary):
-
     _base_url = f"https://ejje.weblio.jp"
 
     def get_definitions(self, word: str) -> Definitions:
@@ -192,7 +188,6 @@ class WeblioDictionary(Dictionary):
 
 
 class DefinitionFetcher:
-
     _dictionaries: List[Dictionary] = [WeblioDictionary(), TanoshiiDictionary(), JishoDictionary()]
 
     def __init__(self):
@@ -200,7 +195,7 @@ class DefinitionFetcher:
 
     def get_definitions(self, word: str) -> Definitions:
         for definitions in self._yield_aggregated_definitions(word):
-            pass# if definitions.complete: return definitions
+            pass  # if definitions.complete: return definitions
         definitions.en = self._remove_similar(definitions.en)
         definitions.jp = self._remove_similar(definitions.jp)
         return definitions
@@ -221,16 +216,17 @@ class DefinitionFetcher:
 
     def _remove_similar(self, texts: List[str], threshold: float = 0.8):
         for i in range(len(texts)):
-            for j in range(len(texts)-1,i,-1):
+            for j in range(len(texts) - 1, i, -1):
                 if self._similarity(texts[i], texts[j]) > threshold:
                     texts.pop(j)
         return texts
 
     def _similarity(self, text1, text2):
         bw1, bw2 = self._bag_words(text1), self._bag_words(text2)
-        if bw1 and bw2: return len(bw1 & bw2) / min(len(bw1), len(bw2))
-        else: return 0
+        if bw1 and bw2:
+            return len(bw1 & bw2) / min(len(bw1), len(bw2))
+        else:
+            return 0
 
     def _bag_words(self, text):
         return set(re.findall(r"(\w+)", text.lower()))
-

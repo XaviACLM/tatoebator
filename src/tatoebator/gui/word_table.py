@@ -209,13 +209,15 @@ class NewWordsTableWidget(QWidget):
     def _handle_table_change(self, item: QTableWidgetItem):
         if item.column() == 0:
             self._handle_checkbox_change(item.row(), item.checkState() == Qt.CheckState.Checked)
-        #from aqt.utils import showInfo
-        #showInfo(f"updated item at col/row {item.column()}/{item.row()}")
+        # from aqt.utils import showInfo
+        # showInfo(f"updated item at col/row {item.column()}/{item.row()}")
 
     def _handle_checkbox_change(self, idx: int, checked: bool):
         self._update_sentence_button_highlighting()
-        if checked: self._de_greyout_row(idx)
-        else: self._greyout_row(idx)
+        if checked:
+            self._de_greyout_row(idx)
+        else:
+            self._greyout_row(idx)
 
     def _greyout_row(self, row: int):
         for col in range(1, self.table.columnCount()):
@@ -276,7 +278,7 @@ class NewWordsTableWidget(QWidget):
         with ProgressDialog("Producing sentences...", 100) as progress:
 
             def progress_callback(aspm_name, search_ratio):
-                progress.update_progress(f"Scanning {aspm_name}...", int(search_ratio*100))
+                progress.update_progress(f"Scanning {aspm_name}...", int(search_ratio * 100))
 
             self.sentence_repository.produce_sentences_for_words({word: self.sentences_per_word_ideally
                                                                   for word in words_to_process},
@@ -286,7 +288,7 @@ class NewWordsTableWidget(QWidget):
             self._update_sentence_counts()
 
     def _generate_translations(self):
-        words_to_process = [(idx,word) for idx, word in enumerate(self._words)
+        words_to_process = [(idx, word) for idx, word in enumerate(self._words)
                             if self._is_idx_selected(idx)]
         if not words_to_process: return
         with ProgressDialog("Fetching translations...", len(words_to_process)) as progress:
@@ -297,7 +299,7 @@ class NewWordsTableWidget(QWidget):
                 self.table.item(i, 5).setText(self._get_translation(word))
 
     def _generate_definitions(self):
-        words_to_process = [(idx,word) for idx,word in enumerate(self._words)
+        words_to_process = [(idx, word) for idx, word in enumerate(self._words)
                             if self._is_idx_selected(idx)]
         if not words_to_process: return
         with ProgressDialog("Fetching definitions...", len(words_to_process)) as progress:
@@ -323,7 +325,7 @@ class NewWordsTableWidget(QWidget):
         words_to_remove = []
         idxs_to_remove = []
         remaining_words = []
-        for idx,word in enumerate(self._words):
+        for idx, word in enumerate(self._words):
             if not self._is_idx_selected(idx):
                 idxs_to_remove.append(idx)
                 words_to_remove.append(word)
@@ -343,7 +345,8 @@ class NewWordsTableWidget(QWidget):
         self._n_rows = len(remaining_words)
 
     def _check_before_continuing(self):
-        if min(self._n_sentences_per_word.values()) >= self.sentences_per_word_quota\
-            or ask_yes_no_question(f"Some of the selected words have a low (<{self.sentences_per_word_quota}) amount"\
-                                + " of example sentences available for them. Proceed anyway?"):
+        if min(self._n_sentences_per_word.values()) >= self.sentences_per_word_quota \
+                or ask_yes_no_question(
+            f"Some of the selected words have a low (<{self.sentences_per_word_quota}) amount" \
+            + " of example sentences available for them. Proceed anyway?"):
             self.continuing_from.emit()
