@@ -26,6 +26,19 @@ class Definitions:
     def empty(cls):
         return cls([], [])
 
+    @property
+    def en_as_str(self):
+        return "- ".join(self.en)
+
+    @property
+    def jp_as_str(self):
+        return "- ".join(self.jp)
+
+    @classmethod
+    def from_strings(cls, en_str, jp_str):
+        return cls(list(filter(lambda line: line[2:] if line.startswith("- ") else line, en_str.split("\n"))),
+                   list(filter(lambda line: line[2:] if line.startswith("- ") else line, jp_str.split("\n"))))
+
 
 class Dictionary:
 

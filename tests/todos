@@ -53,6 +53,4 @@ TODO set up hooks st if a deck is deleted the corresponding words in our db stop
 
 TODO commit the next time all this works
 
-TODO Definitions handle listing/unlisting
-
 TODO better db init: if no exist create w/o covering index, then insert, then create covering index

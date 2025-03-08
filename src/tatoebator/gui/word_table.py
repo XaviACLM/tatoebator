@@ -104,9 +104,8 @@ class NewWordsTableWidget(QWidget):
         self._uncheck_grammaticalized(amt_grammaticalized)
 
     def get_new_word_data(self) -> Dict[str, Definitions]:
-        definitions_as_list = lambda text: list(filter(lambda x: x, text.split("\n- ")))
-        return {self.table.item(i, 1).text(): Definitions(definitions_as_list(self.table.item(i, 5).text()),
-                                                          definitions_as_list(self.table.item(i, 6).text()))
+        return {self.table.item(i, 1).text(): Definitions.from_strings(self.table.item(i, 5).text(),
+                                                                       self.table.item(i, 6).text())
                 for i in range(self._n_rows) if self._is_idx_selected(i)}
 
     def _init_ui(self):
@@ -312,13 +311,13 @@ class NewWordsTableWidget(QWidget):
         if word not in self._cached_definitions:
             definitions = self.definition_fetcher.get_definitions(word)
             self._cached_definitions[word] = definitions
-        return "\n".join((f"- {line}" for line in self._cached_definitions[word].en))
+        return self._cached_definitions[word].en_as_str
 
     def _get_definition(self, word):
         if word not in self._cached_definitions:
             definitions = self.definition_fetcher.get_definitions(word)
             self._cached_definitions[word] = definitions
-        return "\n".join((f"- {line}" for line in self._cached_definitions[word].jp))
+        return self._cached_definitions[word].jp_as_str
 
     def _remove_unselected(self):
         words_to_remove = []
