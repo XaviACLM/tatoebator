@@ -4,6 +4,7 @@ from wsgiref.validate import header_re
 from ..audio import MediaManager
 from ..constants import SENTENCES_PER_CARD
 from ..db.core import SentenceDbInterface
+from ..external_download_requester import ExternalDownloadRequester
 from ..language_processing import add_furigana_html
 from ..sentences import ExampleSentence
 from ..sentences import SentenceProductionManager
@@ -11,9 +12,9 @@ from ..sentences.example_sentences import ExternalFileRef
 
 
 class SentenceRepository:
-    def __init__(self, media_manager: MediaManager):
+    def __init__(self, media_manager: MediaManager, external_download_requester: ExternalDownloadRequester):
         self.media_manager = media_manager
-        self.sentence_production_manager = SentenceProductionManager()
+        self.sentence_production_manager = SentenceProductionManager(external_download_requester)
         self.sentence_db_interface = SentenceDbInterface()
         self._ensure_starter_sentences()
 

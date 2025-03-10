@@ -87,19 +87,3 @@ class CircularBuffer:
     def push(self, value):
         self.buffer[self.index] = value
         self.index = (self.index + 1) % self.size
-
-
-def sync_gen_from_async_gen(async_gen: Callable[..., AsyncIterator[Any]]):
-    def sync_gen(*args, **kwargs):
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        # can't do aiter/anext normally bc these keywords are not in Python 3.9 ( the version that anki uses )
-        async_iterator = async_gen(*args, **kwargs).__aiter__()
-        try:
-            while True:
-                yield loop.run_until_complete(async_iterator.__anext__())
-        except StopAsyncIteration:
-            pass
-        finally:
-            loop.close()
-    return sync_gen

@@ -1,14 +1,15 @@
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 from aqt import gui_hooks
+from aqt.utils import showInfo
 
 from .anki_db_interface import AnkiDbInterface
 from .audio import MediaManager
 from .constants import SENTENCES_PER_CARD
 from .db import SentenceRepository
-from .gui import MineNewWordsWidget, NewWordsTableWidget
-from .gui.anki_registry_editor import AnkiRegistryEditorWidget
-from .gui.word_miner_menu import MinerFieldDataCache
+from .external_download_requester import ExternalDownloadRequester, ExternalDownloadGUIProtocol, Downloadable
+from .gui import MineNewWordsWidget, NewWordsTableWidget, AnkiRegistryEditorWidget, ExternalDownloadDialog, \
+    MinerFieldDataCache
 from .language_processing import japanese_chars_ratio, DefinitionFetcher
 from .util import get_clipboard_text
 
@@ -16,7 +17,8 @@ from .util import get_clipboard_text
 class Tatoebator:
     def __init__(self):
         self.media_manager = MediaManager()
-        self.sentence_repository = SentenceRepository(self.media_manager)
+        self.external_download_requester = ExternalDownloadRequester(ExternalDownloadRequestConductor)
+        self.sentence_repository = SentenceRepository(self.media_manager, self.external_download_requester)
         self.definition_fetcher = DefinitionFetcher()
         self.anki_db_interface: Optional[AnkiDbInterface] = None
 
@@ -119,3 +121,26 @@ class MiningProcessConductor:
 
         for word, definitions in new_words_data.items():
             self.anki_db_interface.card_creator.create_note(word, definitions, sentences[word])
+
+
+class ExternalDownloadRequestConductor(ExternalDownloadGUIProtocol):
+    def __init__(self,
+                 requested_download_name: str,
+                 sentence_corpus_downloadables: List[Downloadable],
+                 japanese_dictionary_downloadables: List[Downloadable],
+                 english_dictionary_downloadables: List[Downloadable],
+                 user_has_refused_to_download: Dict[str, bool]):
+        self.requested_download_name = requested_download_name
+        self.external_download_widget = ExternalDownloadDialog(sentence_corpus_downloadables,
+                                                               japanese_dictionary_downloadables,
+                                                               english_dictionary_downloadables,
+                                                               user_has_refused_to_download)
+
+    @classmethod
+    def factory(cls, *args):
+        return cls(*args)
+
+    def execute(self):
+        showInfo(
+            f"Tatoebator (addon) has requested the download of {self.requested_download_name}. Opening download manager...")
+        self.external_download_widget.exec()

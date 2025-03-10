@@ -1,2 +1,4 @@
-from .word_miner_menu import MineNewWordsWidget
+from .word_miner_menu import MineNewWordsWidget, MinerFieldDataCache
 from .word_table import NewWordsTableWidget
+from .external_downloads import ExternalDownloadDialog
+from .anki_registry_editor import AnkiRegistryEditorWidget

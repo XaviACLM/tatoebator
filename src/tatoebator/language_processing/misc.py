@@ -4,7 +4,7 @@ import re
 from functools import cached_property
 
 from .unicode_ranges import UnicodeRange as ur, UnicodeRange
-from ..constants import PATH_TO_MANUAL_DOWNLOADS
+from ..constants import PATH_TO_EXTERNAL_DOWNLOADS
 
 _strictly_japanese_chars_matcher = re.compile(fr"[{ur.hiragana}{ur.katakana}{ur.kanji}ー]")
 
@@ -22,7 +22,7 @@ class _JpSentenceSimilarityEstimator:
     kanji_matcher = re.compile(fr"[{UnicodeRange.kanji}]")
 
     def __init__(self):
-        self.path = os.path.join(PATH_TO_MANUAL_DOWNLOADS, "dembeddings.json")
+        self.path = os.path.join(PATH_TO_EXTERNAL_DOWNLOADS, "dembeddings.json")
 
     @cached_property
     def related_pairs(self):

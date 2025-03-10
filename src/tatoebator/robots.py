@@ -12,6 +12,7 @@ class RobotsAwareSession(requests.Session):
         super().__init__()
         self.base_url = base_url
         self.user_agent = user_agent#"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.3"
+        self.headers['User-Agent'] = user_agent
         self._robots_parser = RobotFileParser()
         self._load_robots_txt()
         self._setup_rate_constraints()
