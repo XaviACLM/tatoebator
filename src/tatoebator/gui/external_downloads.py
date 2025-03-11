@@ -314,10 +314,12 @@ class ExternalDownloadDialog(QDialog):
         self.japanese_dictionary_downloadables = japanese_dictionary_downloadables
         self.english_dictionary_downloadables = english_dictionary_downloadables
 
-        self._init_ui(user_has_refused_to_download)
+        self._user_has_refused_to_download = user_has_refused_to_download
+        self._init_ui()
 
-    def _init_ui(self, user_has_refused_to_download: Dict[str, bool]):
+    def _init_ui(self):
         layout = QVBoxLayout()
+        self._downloadable_widgets = []
 
         self._textbox = QLabel("Sentence corpora downloads\n"
                                "blah blah blah\n"
@@ -325,8 +327,14 @@ class ExternalDownloadDialog(QDialog):
         layout.addWidget(self._textbox)
 
         for downloadable in self.sentence_corpus_downloadables:
-            self._downloadable_widget = DownloadableMenuItemWidget(downloadable,
-                                                                   user_has_refused_to_download[downloadable.name])
-            layout.addWidget(self._downloadable_widget)
+            _downloadable_widget = DownloadableMenuItemWidget(
+                downloadable,self._user_has_refused_to_download[downloadable.name])
+            self._downloadable_widgets.append(_downloadable_widget)
+            layout.addWidget(_downloadable_widget)
 
         self.setLayout(layout)
+
+    def closeEvent(self, event):
+        for downloadable_widget in self._downloadable_widgets:
+            downloadable = downloadable_widget.downloadable
+            self._user_has_refused_to_download[downloadable.name] = downloadable_widget.user_refused_download

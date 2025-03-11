@@ -15,7 +15,7 @@ import re
 from requests import Session
 
 from .config import SEVENZIP_EXE
-from .constants import PATH_TO_EXTERNAL_DOWNLOADS, PATH_TO_TEMP_EXTERNAL_DOWNLOADS, USER_AGENT
+from .constants import PATH_TO_EXTERNAL_DOWNLOADS, PATH_TO_TEMP_EXTERNAL_DOWNLOADS, USER_AGENT, PATH_TO_USER_FILES
 from .robots import RobotsAwareSession
 
 
@@ -435,6 +435,8 @@ class ExternalDownloadRequester:
     _japanese_dictionary_downloadables: List[Downloadable] = []
     _english_dictionary_downloadables: List[Downloadable] = []
 
+    _refused_downloads_path = os.path.join(PATH_TO_USER_FILES, "user_refused_downloads.txt")
+
     def __init__(self, external_download_gui_protocol: Optional[Type[ExternalDownloadGUIProtocol]] = None):
         self._external_download_gui_protocol = external_download_gui_protocol
         sentence_corpus_downloadables = {downloadable.name: downloadable
@@ -449,8 +451,20 @@ class ExternalDownloadRequester:
         self.all_downloadables.update(japanese_dictionary_downloadables)
         self.all_downloadables.update(english_dictionary_downloadables)
 
-        # TODO this should get persisted
-        self.user_has_refused_to_download = {downloadable_name: False for downloadable_name in self.all_downloadables}
+        refused_downloads = self._load_refused_downloads()
+        self.user_has_refused_to_download = {downloadable_name: downloadable_name in refused_downloads
+                                             for downloadable_name in self.all_downloadables}
+
+    def _load_refused_downloads(self):
+        if os.path.exists(self._refused_downloads_path):
+            with open(self._refused_downloads_path, "r") as f:
+                return f.readlines()
+        return []
+
+    def _save_refused_downloads(self):
+        with open(self._refused_downloads_path, "w") as f:
+            f.write("\n".join([downloadable_name for downloadable_name in self.all_downloadables
+                               if self.user_has_refused_to_download[downloadable_name]]))
 
     def get_external_downloadable(self, downloadable_name: str, prompt_user=True) -> Optional[Dict[str, str]]:
         downloadable = self.all_downloadables[downloadable_name]
@@ -477,4 +491,5 @@ class ExternalDownloadRequester:
                                                                          self._english_dictionary_downloadables,
                                                                          self.user_has_refused_to_download)
         self.gui_instance.execute()
+        self._save_refused_downloads()
         del self.gui_instance
