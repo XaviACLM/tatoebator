@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import bz2
 import csv
 import os
 import subprocess
+import tarfile
 import zipfile
 from asyncio import Protocol
 from enum import Enum
@@ -61,11 +63,11 @@ class ManyThingsTatoebaDownloadable(Downloadable, AutomaticallyDownloadable):
 
     @classmethod
     def attempt_automatic_download(cls) -> None:
-        cls.download_zipped_files()
-        cls.unzip_downloads()
+        cls._download_zipped_files()
+        cls._unzip_downloads()
 
     @classmethod
-    def download_zipped_files(cls) -> None:
+    def _download_zipped_files(cls) -> None:
 
         session = RobotsAwareSession('https://www.manythings.org', USER_AGENT)
         url = cls._direct_download_url
@@ -76,9 +78,8 @@ class ManyThingsTatoebaDownloadable(Downloadable, AutomaticallyDownloadable):
             file.write(response.content)
 
     @classmethod
-    def unzip_downloads(cls) -> None:
+    def _unzip_downloads(cls) -> None:
         zip_filepath = cls._partial_download_filepaths['filepath']
-        print(zip_filepath)
         with zipfile.ZipFile(zip_filepath, 'r') as zip_ref:
             with zip_ref.open('jpn.txt') as orig, open(cls.item_filepaths['filepath'], 'wb') as dest:
                 dest.write(orig.read())
@@ -104,7 +105,7 @@ class ManyThingsTatoebaDownloadable(Downloadable, AutomaticallyDownloadable):
             (mdit.FILE_CHECK_WIDGET, list(cls._partial_download_filepaths.values())),
             (mdit.TEXT, "Once the check above passes, hit this button to do some automatic processing on the "
                         "downloaded file"),
-            (mdit.BUTTON, "Process file", cls.unzip_downloads),
+            (mdit.BUTTON, "Process file", cls._unzip_downloads),
             (mdit.TEXT, "If that worked, the following check should also pass. Once that works, you're done."),
             (mdit.FILE_CHECK_WIDGET, list(cls.item_filepaths.values())),
             (mdit.TEXT, "If the Process file button did not work, it should be fine to manually extract the file you "
@@ -117,14 +118,14 @@ class ManyThingsTatoebaDownloadable(Downloadable, AutomaticallyDownloadable):
 class TatoebaDownloadable(Downloadable, AutomaticallyDownloadable):
     name = 'Tatoeba'
     item_filepaths = {'pairs': os.path.join(PATH_TO_EXTERNAL_DOWNLOADS, 'tatoeba_pairs_data.tsv'),
-                      'eng': os.path.join(PATH_TO_EXTERNAL_DOWNLOADS, 'tatoeba_eng_culled'),
-                      'jpn': os.path.join(PATH_TO_EXTERNAL_DOWNLOADS, 'tatoeba_jpn_culled')}
+                      'eng': os.path.join(PATH_TO_EXTERNAL_DOWNLOADS, 'tatoeba_eng_culled.tsv'),
+                      'jpn': os.path.join(PATH_TO_EXTERNAL_DOWNLOADS, 'tatoeba_jpn_culled.tsv')}
 
     _partial_download_filepaths = {'pairs_unculled': os.path.join(PATH_TO_TEMP_EXTERNAL_DOWNLOADS, 'tatoeba_pairs_unculled.tsv'),
-                                   'eng_zipped': os.path.join(PATH_TO_TEMP_EXTERNAL_DOWNLOADS, 'tatoeba_eng.bz2'),
-                                   'jpn_zipped': os.path.join(PATH_TO_TEMP_EXTERNAL_DOWNLOADS, 'tatoeba_jpn.bz2'),
-                                   'eng_unculled': os.path.join(PATH_TO_TEMP_EXTERNAL_DOWNLOADS, 'tatoeba_eng'),
-                                   'jpn_unculled': os.path.join(PATH_TO_TEMP_EXTERNAL_DOWNLOADS, 'tatoeba_jpn')}
+                                   'eng_zipped': os.path.join(PATH_TO_TEMP_EXTERNAL_DOWNLOADS, 'tatoeba_eng.tsv.bz2'),
+                                   'jpn_zipped': os.path.join(PATH_TO_TEMP_EXTERNAL_DOWNLOADS, 'tatoeba_jpn.tsv.bz2'),
+                                   'eng_unculled': os.path.join(PATH_TO_TEMP_EXTERNAL_DOWNLOADS, 'tatoeba_eng.tsv'),
+                                   'jpn_unculled': os.path.join(PATH_TO_TEMP_EXTERNAL_DOWNLOADS, 'tatoeba_jpn.tsv')}
 
     size = '54.1MB'
     processed_size = '31.1MB'
@@ -232,7 +233,10 @@ class TatoebaDownloadable(Downloadable, AutomaticallyDownloadable):
     @classmethod
     def _unzip_lan_data(cls, language: str):
         zip_filepath = cls._partial_download_filepaths[f'{language}_zipped']
-        subprocess.run(f"\"{SEVENZIP_EXE}\" e \"{zip_filepath}\" -o\"{PATH_TO_TEMP_EXTERNAL_DOWNLOADS}\"")
+        dest_filepath = cls._partial_download_filepaths[f'{language}_unculled']
+
+        with bz2.open(zip_filepath, 'rb') as orig, open(dest_filepath, 'wb') as dest:
+            dest.write(orig.read())
         os.remove(zip_filepath)
 
     @classmethod
@@ -282,8 +286,12 @@ class TatoebaDownloadable(Downloadable, AutomaticallyDownloadable):
                         "important), and click on 'Download Sentence Pairs'. The file will be generated on demand, "
                         "which can take up to a minute. Rename this file to "
                         f"{os.path.split(cls._partial_download_filepaths['pairs_unculled'])[1]}."),
-            (mdit.TEXT, "The other two files are from the 'Detailed Sentences' section. Tick 'Only sentences in:' "
-                        "and download the files for Japanese and English. Change their filenames to "
+            (mdit.TEXT, "The other two files are from the 'Detailed Sentences' section. There's a good chance you can "
+                        "download them directly from these URLs:"),
+            (mdit.URL_BUTTON, 'https://downloads.tatoeba.org/exports/per_language/jpn/jpn_sentences_detailed.tsv.bz2'),
+            (mdit.URL_BUTTON, 'https://downloads.tatoeba.org/exports/per_language/eng/eng_sentences_detailed.tsv.bz2'),
+            (mdit.TEXT, "Otherwise, look for the 'Detailed Sentences' section. Tick 'Only sentences in:' "
+                        "and download the files for Japanese and English. Change the downloaded files' filenames to "
                         f"{os.path.split(cls._partial_download_filepaths['jpn_zipped'])[1]} "
                         "and " f"{os.path.split(cls._partial_download_filepaths['eng_zipped'])[1]}, respectively."),
             (mdit.TEXT, "Once you are done, move all these files to " f"{PATH_TO_TEMP_EXTERNAL_DOWNLOADS}. You can use "
@@ -317,27 +325,90 @@ class TatoebaDownloadable(Downloadable, AutomaticallyDownloadable):
         ]
 
 
-class JapaneseEnglishSubtitleCorpusDownloadable(Downloadable):
+class JapaneseEnglishSubtitleCorpusDownloadable(Downloadable, AutomaticallyDownloadable):
     name = 'JapaneseEnglishSubtitleCorpus'
     item_filepaths = {'filepath': os.path.join(PATH_TO_EXTERNAL_DOWNLOADS, 'parallel_subtitles')}
 
     size = '218.7MB'
 
+    _partial_download_filepaths = {'filepath': os.path.join(PATH_TO_TEMP_EXTERNAL_DOWNLOADS, 'raw.tar.gz')}
+    _direct_download_url = 'https://nlp.stanford.edu/projects/jesc/data/raw.tar.gz'
+
+    @classmethod
+    def attempt_automatic_download(cls) -> None:
+        cls._download_zipped_files()
+        cls._unzip_downloads()
+
+    @classmethod
+    def _download_zipped_files(cls) -> None:
+
+        session = RobotsAwareSession('https://nlp.stanford.edu/', USER_AGENT)
+        url = cls._direct_download_url
+        response = session.get(url)
+        if response.status_code != 200:
+            raise Exception("Download GET request to manythings.org failed")
+        with open(cls._partial_download_filepaths['filepath'], 'wb') as file:
+            file.write(response.content)
+
+    @classmethod
+    def _unzip_downloads(cls) -> None:
+        zip_filepath = cls._partial_download_filepaths['filepath']
+        with tarfile.open(zip_filepath, 'r') as tar_ref:
+            with tar_ref.extractfile('raw/raw') as orig, open(cls.item_filepaths['filepath'], 'wb') as dest:
+                dest.write(orig.read())
+        os.remove(zip_filepath)
+
     @classmethod
     def get_manual_download_instructions(cls) -> ManualDownloadInstructions:
         return [
             (mdit.TEXT, "You should be able to download the Japanese-English Subtitle Corpus from the following link:"),
-            (mdit.URL_BUTTON, "https://nlp.stanford.edu/projects/jesc/data/raw.tar.gz"),
+            (mdit.URL_BUTTON, cls._direct_download_url),
             (mdit.TEXT, "Otherwise, look for a download on the homepage of the corpus:"),
             (mdit.URL_BUTTON, "https://nlp.stanford.edu/projects/jesc/"),
             (mdit.TEXT, "You should obtain a file called something like 'raw.tar.gz'. Unzip it - inside, within a "
                         "folder called 'raw', you will find a file called 'raw'. Extract this file, rename it to "
                         f"'{os.path.split(cls.item_filepaths['filepath'])[1]}', and move it to "
-                        f"{os.path.split(cls.item_filepaths['filepath'])[0]} - use the widget below to check that this "
-                        f"was done correctly:"),
+                        f"{os.path.split(cls.item_filepaths['filepath'])[0]}. Your unzipping software might have some "
+                        f"trouble with this file - this is because it is a .tar file, despite the name claiming that "
+                        f"it is gzipped. It might help to rename the file to 'raw.tar'. If that doesn't help either, "
+                        f"you can try to move the file to "
+                        f"'{os.path.split(cls._partial_download_filepaths['filepath'])[0]}' and hit the following "
+                        f"button:"),
+            (mdit.BUTTON, "Attempt automatic untar", cls._unzip_downloads),
+            (mdit.TEXT, f"Whatever method you used, you can use the widget below to check that the file was "
+                        f"uncompressed correctly:"),
             (mdit.FILE_CHECK_WIDGET, cls.item_filepaths.values()),
             (mdit.TEXT, "If that check passes, you're done.")
         ]
+
+
+class JParaCrawlDownloadable(Downloadable):
+    name = 'JParaCrawl'
+    item_filepaths = {'filepath': os.path.join(PATH_TO_EXTERNAL_DOWNLOADS, 'en-ja.bicleaner05.txt')}
+
+    size = '2.8GB'
+    processed_size = '9.1GB'
+
+    @classmethod
+    def get_manual_download_instructions(cls) -> ManualDownloadInstructions:
+        return [
+            (mdit.TEXT, "You will need a download of the JParaCrawl corpus. Usually one can be found directly here:"),
+            (mdit.URL_BUTTON, 'https://www.kecl.ntt.co.jp/icl/lirg/jparacrawl/release/en/3.0/bitext/en-ja.tar.gz'),
+            (mdit.TEXT, "If this fails, you should look for a download in the following page:"),
+            (mdit.URL_BUTTON, 'https://www.kecl.ntt.co.jp/icl/lirg/jparacrawl/'),
+            (mdit.TEXT, "You are looking for the English-Japanese corpus (or training set). Be careful not to "
+                        "mistakenly download the Chinese-Japanese corpus, or any of the pretrained models."),
+            (mdit.TEXT, "You should have obtained a file called something like 'en-ja.tar.gz'. Uncompress it - "
+                        "somewhere within there should be a file called "
+                        f"'{os.path.split(cls.item_filepaths['filepath'])[1]}'. "
+                        "Move this file to "
+                        f"'{os.path.split(cls.item_filepaths['filepath'])[0]}'. "
+                        "Use the widget below to check that the file was moved to the correct directory and has the "
+                        "correct name:"),
+            (mdit.FILE_CHECK_WIDGET, list(cls.item_filepaths.values())),
+            (mdit.TEXT, "If the check above passes, you are done.")
+        ]
+
 
 
 class ExternalDownloadGUIProtocol(Protocol):
@@ -359,7 +430,8 @@ class ExternalDownloadGUIProtocol(Protocol):
 class ExternalDownloadRequester:
     _sentence_corpus_downloadables: List[Downloadable] = [ManyThingsTatoebaDownloadable(),
                                                           TatoebaDownloadable(),
-                                                          JapaneseEnglishSubtitleCorpusDownloadable()]
+                                                          JapaneseEnglishSubtitleCorpusDownloadable(),
+                                                          JParaCrawlDownloadable()]
     _japanese_dictionary_downloadables: List[Downloadable] = []
     _english_dictionary_downloadables: List[Downloadable] = []
 

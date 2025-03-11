@@ -331,14 +331,22 @@ class JParaCrawlASPM(ArbitrarySentenceProductionMethod):
 
     def __init__(self, external_download_requester: ExternalDownloadRequester):
         super().__init__()
-        # 10GB, so manual download required
-        # find the compressed files at https://www.kecl.ntt.co.jp/icl/lirg/jparacrawl/
-        self._filepath = os.path.join(PATH_TO_EXTERNAL_DOWNLOADS, 'en-ja.bicleaner05.txt')
+        self._external_download_requester = external_download_requester
+
+    @property
+    def _filepath(self):
+        filepaths = self._external_download_requester.get_external_downloadable('JParaCrawl')
+        if filepaths is None: return None
+        else: return filepaths['filepath']
 
     def yield_sentences(self, start_at: int = 0) -> Iterator[CandidateExampleSentence]:
+        filepath = self._filepath
+        if filepath is None:
+            print("[Tatoebator] JParaCrawlASPM aborting because download was refused by user")
+            return
         line_matcher = re.compile(r"([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)\n")
         self.last_seen_index = start_at
-        with open(self._filepath, 'r', encoding='utf-8') as file:
+        with open(filepath, 'r', encoding='utf-8') as file:
             for _ in range(start_at): next(file)
             for line in file:
                 source_1, source_2, score, en_text, jp_text = line_matcher.fullmatch(line).groups()
