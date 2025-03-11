@@ -102,9 +102,9 @@ class SentenceRepository:
         is_not_in_db = lambda s: self.sentence_db_interface.check_sentence(s.sentence, commit=False) is None
         sentences = {word: [] for word in word_desired_amts}
         for word, sentence in self.sentence_production_manager \
-                .yield_new_sentences_with_words(word_desired_amts,
-                                                filtering_fun=is_not_in_db,
-                                                progress_callback=progress_callback):
+                .find_new_sentences_with_words(word_desired_amts,
+                                               filtering_fun=is_not_in_db,
+                                               progress_callback=progress_callback):
 
             if sentence.audio_file_ref is not None:
                 sentence.audio_file_ref = self.media_manager.intake_external_audio_file(sentence.sentence,
