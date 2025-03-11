@@ -143,7 +143,6 @@ class TatoebaDownloadable(Downloadable, AutomaticallyDownloadable):
                     cls._unzip_lan_data(language)
                 cls._process_lan_data(language)
 
-
     @classmethod
     def _download_pairs_data(cls, session: Session):
         enter_url = "https://tatoeba.org/en/downloads"
@@ -318,6 +317,29 @@ class TatoebaDownloadable(Downloadable, AutomaticallyDownloadable):
         ]
 
 
+class JapaneseEnglishSubtitleCorpusDownloadable(Downloadable):
+    name = 'JapaneseEnglishSubtitleCorpus'
+    item_filepaths = {'filepath': os.path.join(PATH_TO_EXTERNAL_DOWNLOADS, 'parallel_subtitles')}
+
+    size = '218.7MB'
+
+    @classmethod
+    def get_manual_download_instructions(cls) -> ManualDownloadInstructions:
+        return [
+            (mdit.TEXT, "You should be able to download the Japanese-English Subtitle Corpus from the following link:"),
+            (mdit.URL_BUTTON, "https://nlp.stanford.edu/projects/jesc/data/raw.tar.gz"),
+            (mdit.TEXT, "Otherwise, look for a download on the homepage of the corpus:"),
+            (mdit.URL_BUTTON, "https://nlp.stanford.edu/projects/jesc/"),
+            (mdit.TEXT, "You should obtain a file called something like 'raw.tar.gz'. Unzip it - inside, within a "
+                        "folder called 'raw', you will find a file called 'raw'. Extract this file, rename it to "
+                        f"'{os.path.split(cls.item_filepaths['filepath'])[1]}', and move it to "
+                        f"{os.path.split(cls.item_filepaths['filepath'])[0]} - use the widget below to check that this "
+                        f"was done correctly:"),
+            (mdit.FILE_CHECK_WIDGET, cls.item_filepaths.values()),
+            (mdit.TEXT, "If that check passes, you're done.")
+        ]
+
+
 class ExternalDownloadGUIProtocol(Protocol):
     # this is a bit silly...
     @classmethod
@@ -336,7 +358,8 @@ class ExternalDownloadGUIProtocol(Protocol):
 
 class ExternalDownloadRequester:
     _sentence_corpus_downloadables: List[Downloadable] = [ManyThingsTatoebaDownloadable(),
-                                                          TatoebaDownloadable()]
+                                                          TatoebaDownloadable(),
+                                                          JapaneseEnglishSubtitleCorpusDownloadable()]
     _japanese_dictionary_downloadables: List[Downloadable] = []
     _english_dictionary_downloadables: List[Downloadable] = []
 

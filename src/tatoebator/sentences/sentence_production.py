@@ -157,6 +157,52 @@ class ImmersionKitSPM(SentenceProductionMethod):
             yield CandidateExampleSentence(jp_text, en_text, credit=credit)
 
 
+class SentenceSearchNeocitiesASPM(ArbitrarySentenceProductionMethod):
+    source_name = "sentencesearch.neocities.org"
+    license = "Unknown"
+    translations_reliable = False
+    amt_sentences = 45434
+
+    _filepath = os.path.join(PATH_TO_EXTERNAL_DOWNLOADS, 'ssneocities_data.json')
+
+    def __init__(self, external_download_requester: ExternalDownloadRequester):
+        super().__init__()
+        if not os.path.exists(self._filepath):
+            self._download_data_to_cache()
+
+    def _download_data_to_cache(self):
+        url = 'https://sentencesearch.neocities.org/data/all_v11.json'
+        response = requests.get(url)
+        response.raise_for_status()
+        with open(self._filepath, 'wb') as file:
+            file.write(response.content)
+
+    def yield_sentences(self, start_at: int = 0) -> Iterator[CandidateExampleSentence]:
+        # sometimes a space precedes the newline (?)
+        jap_pattern = re.compile(r'^ {4}"jap":\s"(.*?)", ?$')
+        eng_pattern = re.compile(r'^ {4}"eng":\s"(.*?)"$')
+        with open(self._filepath, 'r', encoding='utf-8') as file:
+
+            line_number = 6 * start_at
+            for _ in range(start_at):
+                if next(file) == "\n": line_number -= 1  # don't count empty lines
+
+            for line in file:
+                # some empty lines?
+                if line == "\n": continue
+                line_number += 1
+                if (line_number - 5) % 6 == 0:
+                    jap_match = jap_pattern.match(line)
+                    jap_text = jap_match.group(1)
+                elif (line_number - 6) % 6 == 0:
+                    eng_match = eng_pattern.match(line)
+                    eng_text = eng_match.group(1)
+                    # some are empty
+                    if jap_text == "": continue
+                    yield CandidateExampleSentence(jap_text, translation=eng_text)
+                    self.last_seen_index = line_number // 6
+
+
 class ManyThingsTatoebaASPM(ArbitrarySentenceProductionMethod):
     source_name = "ManyThings.org Sentence Pairs"
     license = "CC-BY 2.0 Fr"
@@ -169,12 +215,18 @@ class ManyThingsTatoebaASPM(ArbitrarySentenceProductionMethod):
 
     @property
     def _filepath(self):
-        return self._external_download_requester.get_external_downloadable('ManyThingsTatoeba')['filepath']
+        filepaths = self._external_download_requester.get_external_downloadable('ManyThingsTatoeba')
+        if filepaths is None: return None
+        else: return filepaths['filepath']
 
     def yield_sentences(self, start_at: int = 0) -> Iterator[CandidateExampleSentence]:
+        filepath = self._filepath
+        if filepath is None:
+            print("[Tatoebator] ManyThingsTatoebaASPM aborting because download was refused by user")
+            return
         line_matcher = re.compile(r'([^\t]+)\t([^\t]+)\t([^\t]+)')
         license_matcher = re.compile(r'CC-BY 2\.0 \(France\) Attribution: tatoeba\.org #\d+ \((.+)\) & #\d+ \((.+)\)\n')
-        with open(self._filepath, 'r', encoding='utf-8') as file:
+        with open(filepath, 'r', encoding='utf-8') as file:
             for _ in range(start_at): next(file)
             self.last_seen_index = start_at
             for line in file:
@@ -230,57 +282,14 @@ class TatoebaASPM(ArbitrarySentenceProductionMethod):
         return merged_data
 
     def yield_sentences(self, start_at: int = 0) -> Iterator[CandidateExampleSentence]:
+        if self._filepaths is None:
+            print("[Tatoebator] TatoebaASPM aborting because download was refused by user")
+            return
         df = self._create_dataframe(start_at=start_at)
         self.last_seen_index = start_at
         for jp_text, jp_owner, en_text, en_owner in df:
             yield CandidateExampleSentence(jp_text, en_text, credit=f"{jp_owner}, {en_owner} (Tatoeba)")
             self.last_seen_index += 1
-
-
-class SentenceSearchNeocitiesASPM(ArbitrarySentenceProductionMethod):
-    source_name = "sentencesearch.neocities.org"
-    license = "Unknown"
-    translations_reliable = False
-    amt_sentences = 45434
-
-    _filepath = os.path.join(PATH_TO_EXTERNAL_DOWNLOADS, 'ssneocities_data.json')
-
-    def __init__(self, external_download_requester: ExternalDownloadRequester):
-        super().__init__()
-        if not os.path.exists(self._filepath):
-            self._download_data_to_cache()
-
-    def _download_data_to_cache(self):
-        url = 'https://sentencesearch.neocities.org/data/all_v11.json'
-        response = requests.get(url)
-        response.raise_for_status()
-        with open(self._filepath, 'wb') as file:
-            file.write(response.content)
-
-    def yield_sentences(self, start_at: int = 0) -> Iterator[CandidateExampleSentence]:
-        # sometimes a space precedes the newline (?)
-        jap_pattern = re.compile(r'^ {4}"jap":\s"(.*?)", ?$')
-        eng_pattern = re.compile(r'^ {4}"eng":\s"(.*?)"$')
-        with open(self._filepath, 'r', encoding='utf-8') as file:
-
-            line_number = 6 * start_at
-            for _ in range(start_at):
-                if next(file) == "\n": line_number -= 1  # don't count empty lines
-
-            for line in file:
-                # some empty lines?
-                if line == "\n": continue
-                line_number += 1
-                if (line_number - 5) % 6 == 0:
-                    jap_match = jap_pattern.match(line)
-                    jap_text = jap_match.group(1)
-                elif (line_number - 6) % 6 == 0:
-                    eng_match = eng_pattern.match(line)
-                    eng_text = eng_match.group(1)
-                    # some are empty
-                    if jap_text == "": continue
-                    yield CandidateExampleSentence(jap_text, translation=eng_text)
-                    self.last_seen_index = line_number // 6
 
 
 class JapaneseEnglishSubtitleCorpusASPM(ArbitrarySentenceProductionMethod):
@@ -291,14 +300,22 @@ class JapaneseEnglishSubtitleCorpusASPM(ArbitrarySentenceProductionMethod):
 
     def __init__(self, external_download_requester: ExternalDownloadRequester):
         super().__init__()
-        # manual download required
-        # find the compressed files at https://www.kecl.ntt.co.jp/icl/lirg/jparacrawl/
-        self.filepath = os.path.join(PATH_TO_EXTERNAL_DOWNLOADS, 'parallel_subtitles')
+        self._external_download_requester = external_download_requester
+
+    @property
+    def _filepath(self):
+        filepaths = self._external_download_requester.get_external_downloadable('JapaneseEnglishSubtitleCorpus')
+        if filepaths is None: return None
+        else: return filepaths['filepath']
 
     def yield_sentences(self, start_at: int = 0) -> Iterator[CandidateExampleSentence]:
+        filepath = self._filepath
+        if filepath is None:
+            print("[Tatoebator] JapaneseEnglishSubtitleCorpusASPM aborting because download was refused by user")
+            return
         line_matcher = re.compile(r"([^\t]+)\t([^\t]+)\n")
         self.last_seen_index = start_at
-        with open(self.filepath, 'r', encoding='utf-8') as file:
+        with open(filepath, 'r', encoding='utf-8') as file:
             for _ in range(start_at): next(file)
             for i, line in enumerate(file):
                 en_text, jp_text = line_matcher.fullmatch(line).groups()
