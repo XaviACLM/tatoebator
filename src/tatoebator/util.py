@@ -1,8 +1,8 @@
-import asyncio
 import os
 import sys
 from hashlib import sha256
-from typing import Callable, Any, AsyncIterator
+import threading
+from typing import Collection, Callable, Any, Tuple, Dict, Set
 
 
 def deterministic_hash(string: str) -> str:
@@ -27,6 +27,7 @@ try:
     # from Mark Tolonen, https://stackoverflow.com/questions/46132401/read-text-from-clipboard-in-windows-using-ctypes
     import ctypes
     import ctypes.wintypes as wt
+
 
     class _ClipboardGetter:
         CF_UNICODETEXT = 13
@@ -67,7 +68,6 @@ try:
                 return ""
 
 
-
     get_clipboard_text = _ClipboardGetter.get_clipboard_text
 
 except ModuleNotFoundError:
@@ -87,3 +87,21 @@ class CircularBuffer:
     def push(self, value):
         self.buffer[self.index] = value
         self.index = (self.index + 1) % self.size
+
+
+class AutoRemovingThread(threading.Thread):
+    def __init__(self, thread_set: Set,
+                 target: Callable[..., Any],
+                 args: Tuple[Any],
+                 kwargs: Dict[str, any] = None):
+        kwargs = kwargs or {}
+        super().__init__(target=self._run_and_cleanup, args=args, kwargs=kwargs)
+        self.target_func = target
+        self.thread_set = thread_set
+        self.thread_set.add(self)
+
+    def _run_and_cleanup(self, *args, **kwargs):
+        try:
+            self.target_func(*args, **kwargs)
+        finally:
+            self.thread_set.discard(self)
