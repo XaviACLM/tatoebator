@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import os
 import subprocess
 import zipfile
@@ -32,7 +33,7 @@ class Downloadable:
     item_filepaths: Dict[str, str]  # internal tags -> filepaths where the items *should* be found
 
     size = 'Unknown size'
-    unzipped_size = None
+    processed_size = None
 
     def get_manual_download_instructions(self) -> Optional[ManualDownloadInstructions]:
         return None
@@ -53,7 +54,7 @@ class ManyThingsTatoebaDownloadable(Downloadable, AutomaticallyDownloadable):
     item_filepaths = {'filepath': os.path.join(PATH_TO_EXTERNAL_DOWNLOADS, 'manythings_tatoeba.txt')}
 
     size = '4.4MB'
-    unzipped_size = '17.1MB'
+    processed_size = '17.1MB'
 
     _partial_download_filepaths = {'filepath': os.path.join(PATH_TO_TEMP_EXTERNAL_DOWNLOADS, 'jpn-eng.zip')}
     _direct_download_url = 'https://www.manythings.org/anki/jpn-eng.zip'
@@ -86,7 +87,7 @@ class ManyThingsTatoebaDownloadable(Downloadable, AutomaticallyDownloadable):
     @classmethod
     def get_manual_download_instructions(cls) -> ManualDownloadInstructions:
         return [
-            (mdit.TEXT, "You will need to downlod the file of tab-delimited bilingual sentence pairs in "
+            (mdit.TEXT, "You will need to download the file of tab-delimited bilingual sentence pairs in "
                         "Japanese/English from www.manythings.org. It can usually be downloaded directly "
                         "by visiting the following url:"),
             (mdit.URL_BUTTON, cls._direct_download_url),
@@ -108,8 +109,8 @@ class ManyThingsTatoebaDownloadable(Downloadable, AutomaticallyDownloadable):
             (mdit.FILE_CHECK_WIDGET, list(cls.item_filepaths.values())),
             (mdit.TEXT, "If the Process file button did not work, it should be fine to manually extract the file you "
                         "downloaded. You might need to redownload - locate the zip file, and extract from within "
-                        "it the file called 'jpn.txt'. Rename it to" f"{cls.item_filepaths['filepath']}" "and "
-                        "move it to the path specified above.")
+                        "it the file called 'jpn.txt'. Rename it to " 
+                        f"'{os.path.split(cls.item_filepaths['filepath'])[1]}' and move it to the path specified above.")
         ]
 
 
@@ -119,10 +120,14 @@ class TatoebaDownloadable(Downloadable, AutomaticallyDownloadable):
                       'eng': os.path.join(PATH_TO_EXTERNAL_DOWNLOADS, 'tatoeba_eng_culled'),
                       'jpn': os.path.join(PATH_TO_EXTERNAL_DOWNLOADS, 'tatoeba_jpn_culled')}
 
-    _partial_download_filepaths = {'eng_zipped': os.path.join(PATH_TO_TEMP_EXTERNAL_DOWNLOADS, 'tatoeba_eng.bz2'),
+    _partial_download_filepaths = {'pairs_unculled': os.path.join(PATH_TO_TEMP_EXTERNAL_DOWNLOADS, 'tatoeba_pairs_unculled.tsv'),
+                                   'eng_zipped': os.path.join(PATH_TO_TEMP_EXTERNAL_DOWNLOADS, 'tatoeba_eng.bz2'),
                                    'jpn_zipped': os.path.join(PATH_TO_TEMP_EXTERNAL_DOWNLOADS, 'tatoeba_jpn.bz2'),
                                    'eng_unculled': os.path.join(PATH_TO_TEMP_EXTERNAL_DOWNLOADS, 'tatoeba_eng'),
                                    'jpn_unculled': os.path.join(PATH_TO_TEMP_EXTERNAL_DOWNLOADS, 'tatoeba_jpn')}
+
+    size = '54.1MB'
+    processed_size = '31.1MB'
 
     @classmethod
     def attempt_automatic_download(cls) -> None:
@@ -206,6 +211,16 @@ class TatoebaDownloadable(Downloadable, AutomaticallyDownloadable):
             file.write(download_response.content[3:]) # some weird characters at the start (?)
 
     @classmethod
+    def _cull_pairs_data(cls):
+        in_file = cls._partial_download_filepaths['pairs_unculled']
+        out_file = cls.item_filepaths['pairs']
+        with open(in_file, 'r', encoding='utf-8') as f_in, open(out_file, 'w', encoding='utf-8') as f_out:
+            for line in f_in:
+                en_idx, _, jp_idx, _ = line.split('\t')
+                f_out.write(f'{en_idx}\t{jp_idx}\n')
+        os.remove(in_file)
+
+    @classmethod
     def _download_lan_data(cls, language: str, session: Session):
         assert language in ['eng', 'jpn']
         zip_filepath = cls._partial_download_filepaths[f'{language}_zipped']
@@ -257,6 +272,50 @@ class TatoebaDownloadable(Downloadable, AutomaticallyDownloadable):
                     if lan_line is None: break
                     lan_idx = int(first_number_matcher.match(lan_line).group(1))
         os.remove(unculled_lan_filepath)
+
+    @classmethod
+    def get_manual_download_instructions(cls) -> ManualDownloadInstructions:
+        return [
+            (mdit.TEXT, "You will need to download three files from the Tatoeba project downloads section:"),
+            (mdit.URL_BUTTON, 'https://tatoeba.org/en/downloads'),
+            (mdit.TEXT, "The first is from the 'Custom exports' section. Click on 'Sentence pairs', select 'English' "
+                        "for the 'Sentence language' field and 'Japanese' for 'Translation language' (the order is "
+                        "important), and click on 'Download Sentence Pairs'. The file will be generated on demand, "
+                        "which can take up to a minute. Rename this file to "
+                        f"{os.path.split(cls._partial_download_filepaths['pairs_unculled'])[1]}."),
+            (mdit.TEXT, "The other two files are from the 'Detailed Sentences' section. Tick 'Only sentences in:' "
+                        "and download the files for Japanese and English. Change their filenames to "
+                        f"{os.path.split(cls._partial_download_filepaths['jpn_zipped'])[1]} "
+                        "and " f"{os.path.split(cls._partial_download_filepaths['eng_zipped'])[1]}, respectively."),
+            (mdit.TEXT, "Once you are done, move all these files to " f"{PATH_TO_TEMP_EXTERNAL_DOWNLOADS}. You can use "
+                        "the widget below to check that all three files exist in the correct directory with the "
+                        "correct name:"),
+            (mdit.FILE_CHECK_WIDGET, [cls._partial_download_filepaths['pairs_unculled'],
+                                      cls._partial_download_filepaths['jpn_zipped'],
+                                      cls._partial_download_filepaths['eng_zipped']]),
+            (mdit.TEXT, "Some processing now needs to be done on these files. Starting with the pairs file: some "
+                        "unnecessary data has to be removed from it. Use the following button "
+                        "to do this, and the widget to check that it was done correctly:"),
+            (mdit.BUTTON, "Cull pairs file", cls._cull_pairs_data),
+            (mdit.FILE_CHECK_WIDGET, [cls.item_filepaths['pairs']]),
+            (mdit.TEXT, "Now the jpn and eng files: "
+                        "first they need to be unzipped. The buttons below can try to do this automatically:"),
+            (mdit.BUTTON, "Unzip jpn file", lambda: cls._unzip_lan_data("jpn")),
+            (mdit.BUTTON, "Unzip eng file", lambda: cls._unzip_lan_data("eng")),
+            (mdit.TEXT, "Otherwise you can unzip them yourself - to "
+                        f"{os.path.split(cls._partial_download_filepaths['eng_unculled'])[0]}, with filenames "
+                        f"{os.path.split(cls._partial_download_filepaths['jpn_unculled'])[1]} and "
+                        f"{os.path.split(cls._partial_download_filepaths['eng_unculled'])[1]}, respectively. "
+                        "Use the widget below to verify the process worked:"),
+            (mdit.FILE_CHECK_WIDGET, [cls._partial_download_filepaths['jpn_unculled'],
+                                      cls._partial_download_filepaths['eng_unculled']]),
+            (mdit.TEXT, "Finally some unnecessary data has to be removed from the jpn and eng files aswell. The "
+                        "following two buttons will serve to do this - they might need a few seconds:"),
+            (mdit.BUTTON, 'Cull jpn file', lambda: cls._process_lan_data("jpn")),
+            (mdit.BUTTON, 'Cull eng file', lambda: cls._process_lan_data("eng")),
+            (mdit.TEXT, "Use this last widget to check that all the required files exist:"),
+            (mdit.FILE_CHECK_WIDGET, cls.item_filepaths.values())
+        ]
 
 
 class ExternalDownloadGUIProtocol(Protocol):

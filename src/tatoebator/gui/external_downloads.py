@@ -115,6 +115,7 @@ class ManualDownloadInstructionsDialog(QDialog):
     def __init__(self, instructions: ManualDownloadInstructions):
         super().__init__()
         self._init_ui(instructions)
+        self.setWindowTitle("Manual download instructions")
 
     def _init_ui(self, instructions: ManualDownloadInstructions):
         layout = QVBoxLayout()
@@ -219,8 +220,8 @@ class DownloadableMenuItemWidget(QWidget):
 
         self._name_label = QLabel(self.downloadable.name)
         self._labels_spacer = QSpacerItem(20, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-        self._size_label = QLabel(self.downloadable.size + ('' if self.downloadable.unzipped_size is None
-                                                            else f' ({self.downloadable.unzipped_size} unzipped)'))
+        self._size_label = QLabel(self.downloadable.size + ('' if self.downloadable.processed_size is None
+                                                            else f' ({self.downloadable.processed_size} processed)'))
         self._state_label = QLabel("")
         f = self._state_label.font()
         f.setItalic(True)
