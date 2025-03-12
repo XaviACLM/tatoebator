@@ -17,6 +17,7 @@ INTER_FIELD_SEPARATOR = '##SEP##'
 
 TEMP_FILES_DIR = os.path.join(PATH_TO_ADDON, "temp_files")
 LIB_DIR = os.path.join(PATH_TO_ADDON, "lib")
+PATH_TO_OTHER_DATA = os.path.join(PATH_TO_ADDON, "other_data")
 PATH_TO_USER_FILES = os.path.join(PATH_TO_ADDON, "user_files")
 PATH_TO_SOURCES_FILE = os.path.join(PATH_TO_USER_FILES, "annotated_data_sources.txt")
 PATH_TO_DATABASE = os.path.join(PATH_TO_USER_FILES, "sentences.db")

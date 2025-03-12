@@ -1,6 +1,6 @@
 import time
 
-from PyQt6.QtWidgets import QApplication, QWidget, QMainWindow, QVBoxLayout
+from PyQt6.QtWidgets import QApplication, QWidget, QMainWindow, QVBoxLayout, QPushButton
 
 from tatoebator.gui.loading_spinner import XavoSpinner
 
@@ -15,6 +15,9 @@ class TestWindow(QWidget):
         layout = QVBoxLayout()
         self.spinner = XavoSpinner(self, radius=50)
         layout.addWidget(self.spinner)
+        self.button = QPushButton("stop spinner")
+        self.button.clicked.connect(self.spinner.stop_with_animation)
+        layout.addWidget(self.button)
         self.setLayout(layout)
         self.setGeometry(100,100,300,300)
 

@@ -199,9 +199,13 @@ class DownloadDialog(QDialog):
         self.setLayout(self.layout)
         self.setGeometry(300, 300, 400, 400)
 
-    def show_error(self, error: str):
-        self.spinner.stop()
+    def show_error_after_spinner(self, error: str):
+        self.spinner.stop_with_animation(callback=lambda: self.show_error(error))
 
+    def close_after_spinner(self):
+        self.spinner.stop_with_animation(self.accept)
+
+    def show_error(self, error: str):
         self.label.setText(f"Automatic download failed. Sorry about that :(\n\nDiagnostic information:")
         self.label.setVisible(True)
 
@@ -287,10 +291,10 @@ class DownloadableMenuItemWidget(QWidget):
         self.dialog = DownloadDialog()
         self.worker = DownloadWorker(self.downloadable)
 
-        self.worker.success.connect(self.dialog.accept)
+        self.worker.success.connect(self.dialog.close_after_spinner)
         self.worker.success.connect(self._mark_download_as_unnecessary)
 
-        self.worker.failure.connect(self.dialog.show_error)
+        self.worker.failure.connect(self.dialog.show_error_after_spinner)
 
         self.worker.start()
         self.dialog.exec()  # Show the dialog (blocks until it's closed)

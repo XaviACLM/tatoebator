@@ -4,7 +4,7 @@ import re
 from functools import cached_property
 
 from .unicode_ranges import UnicodeRange as ur, UnicodeRange
-from ..constants import PATH_TO_EXTERNAL_DOWNLOADS
+from ..constants import PATH_TO_OTHER_DATA
 
 _strictly_japanese_chars_matcher = re.compile(fr"[{ur.hiragana}{ur.katakana}{ur.kanji}ー]")
 
@@ -14,26 +14,25 @@ def japanese_chars_ratio(text: str) -> float:
 
 
 def approximate_jp_root_form(word: str) -> str:
-        return word[:-1] if word[-1] in "いうくすつぬふむゆるぐずづぶぷ" else word
+    return word[:-1] if word[-1] in "いうくすつぬふむゆるぐずづぶぷ" else word
 
 
 class _JpSentenceSimilarityEstimator:
-
     kanji_matcher = re.compile(fr"[{UnicodeRange.kanji}]")
 
     def __init__(self):
-        self.path = os.path.join(PATH_TO_EXTERNAL_DOWNLOADS, "dembeddings.json")
+        self.path = os.path.join(PATH_TO_OTHER_DATA, "dembeddings.json")
 
     @cached_property
     def related_pairs(self):
         with open(self.path, "r") as f:
             distances = json.load(f)["nearest"]
-        return {kanji:list(close_kanji.keys()) for kanji,close_kanji in distances.items()}
+        return {kanji: list(close_kanji.keys()) for kanji, close_kanji in distances.items()}
 
     def distance(self, k1, k2):
         if k1 == k2: return 0
         neighbors = self.related_pairs.get(k1, None)
-        if neighbors is None: return 0 # ignore unknown kanji (obs. this dist is not symmetric)
+        if neighbors is None: return 0  # ignore unknown kanji (obs. this dist is not symmetric)
         return int(k2 not in neighbors)
 
     def distance_one_to_many(self, k, ks):
