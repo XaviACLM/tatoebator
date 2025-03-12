@@ -12,6 +12,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QTextEdit, QPushButton, QWidget, QHBoxLayout, QSpacerItem, \
     QSizePolicy, QStyle, QFrame, QMessageBox
 
+from .loading_spinner import XavoSpinner
 from ..external_download_requester import Downloadable, AutomaticallyDownloadable, ManualDownloadInstructions, \
     mdit
 
@@ -172,14 +173,16 @@ class DownloadDialog(QDialog):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Download")
+        self.setWindowTitle("Attempting automatic download...")
         self.setModal(True)  # Block other UI interactions
 
         self.layout = QVBoxLayout()
 
-        # TODO spinner
+        self.spinner = XavoSpinner(self, radius=50)
+        self.spinner.start()
 
-        self.label = QLabel("Attempting automatic download...")
+        self.label = QLabel("")
+        self.label.setVisible(False)
         self.layout.addWidget(self.label)
 
         # Scrollable text box for errors
@@ -197,7 +200,10 @@ class DownloadDialog(QDialog):
         self.setGeometry(300, 300, 400, 400)
 
     def show_error(self, error: str):
+        self.spinner.stop()
+
         self.label.setText(f"Automatic download failed. Sorry about that :(\n\nDiagnostic information:")
+        self.label.setVisible(True)
 
         self.error_box.setPlainText(error)
         self.error_box.setVisible(True)
