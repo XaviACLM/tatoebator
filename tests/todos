@@ -5,8 +5,6 @@ TODO interface (or manager?) logic that uses known_words and trusted fields to d
 
 TODO type annotations, docs
 
-TODO word audio
-
 
 TODO main bits of gui
  standalone sentence adder
@@ -39,8 +37,46 @@ TODO there are some timeout issues - with the robots, I think? or maybe the tran
 TODO better (offline) dicts, https://learnjapanese.moe/monolingual/ - support images, maybe?
  ugh we're going to need a nice system to handle (i.e. give instructions for) all the user downloads huh
  ugh ugh ugh
+ ...
+ let's do this first. big increase in quality from using proper dicts
+ will need to handle images too ... well, later. can be done easily in the crappy way, w some more effort we can
+  track what Definitions gives us so we can delete the files if they're not used later
+ so about the other thing...
+ some kind of ExternalDownloadManager ('manager'...) object which can be called upon by client code requesting
+ an (external, downloadable) file by some codename, e.g.
+ ExternalDownloadManager.get_external_file("[Monolingual] 旺文社国語辞典 第十一版 (Recommended)", prompt_user=True)
+ which returns a filepath to the relevant file if it exists, otherwise, None if prompt_user is false, otherwise
+ opens up a window -> Tatoebator requests that you download so-and-so. Click 'ok' to go to the download manager window,
+ somehow explain
+   what the download manager window is
+   that tatoebator is requesting a single download right now, but it will probably want more, so it's a good idea to
+   look at the dl manager window carefully and choose what to download and what to not
+   also explain what the options are
+ the dl manager window should have a toggle (for each download) like "no i dont want to download this"
+ if that's ticked then get_external_file(...) calls will not bring up the window
+ dl manager also explains a bit about each download - groups them into sentence stuff, en def, jp def, etc
+ also how much the download weighs
+ also an 'attempt automatic download' button and a button that just tells you where/how to download it
+ possible that one of these buttons does not exist. manual download *should* always but im thinking of edge cases like the tatoeba pairs
+ also no reason that one item on this list corresponds to a single download-some will come in groups. again tatoeba pairs
+ then get_external_file should actually return a dict of names -> filepaths
+ ...
+ also for client code that calls get_external_file w prompt_user=True
+ if it gets None this means the user refused to download the requested file
+ which means the client code probably can't do what it wants to do and should know to shut (the relevant part of) itself down cleanly
+ ...
+ note that this also covers cases where the download is meant to be formatted into something else immediately
+ like download -> final_object
+ client code first checks if final object exists and if so has no need to request the external download
+ if it doesnt then it requests the external download an internally handles the conversion to final_object
+ in this way ExternalDownloadManager (and so the user) does not even know the existence of final_object, only the download
+ ...
+ the above is slightly wrong, actually, the ExternalDownloadManager should know if the download is needed
+ oh that's quite ugly... very acoblat by necessity.
+ perhaps we could make an habit of of overriding... oh i have an idea. kinda ugly but doable
 
 TODO config options for showing definitions on either language (i.e. monolingual mode toggle)
+ -> the easiest way to accomplish this is to edit card html directly
 
 TODO probably is a good idea to make it obvious when a new card is shown iykyk
 
@@ -50,7 +86,26 @@ TODO set up hooks st if a deck is deleted the corresponding words in our db stop
  there lurks there a more complicated question ab how much redundance there should be between the two dbs
  n_known_words and such are good for querying but is Keyword.known actually useful? if so, should we also store
  whether it's known in the ttbtr deck or one of the other ones? maybe we should store the note/card id, too, then?
-
-TODO commit the next time all this works
+ ...
+ i think the right answer is to avoid enforced redundancy - simply not worth the hassle, seems like a smell even
+ will need to set up the hooks mentioned above, though, which means a way to unmark words as known when removed
+ to avoid updating every single row the flow should be
+ get known words from db -> check against anki collection -> update what is necessary
+ (this on top of the reverse flow that we already have implemented w the proper hooks)
+ ...
+ continuing on the above: no, even less redundancy is probably good
+ after updating keyword.known we always call the update functions for the whole db, anyway
+ so probably for the best to remove keyword.known altogether and just create temp tables for update whenever relevant
 
 TODO better db init: if no exist create w/o covering index, then insert, then create covering index
+
+
+
+
+TODO el rollo
+ https://github.com/ankitects/anki/blob/63c2a09ef6760890c03be4bd83f613c03c512d1f/docs/contributing.md
+ per updatear
+ https://github.com/ankitects/anki/blob/63c2a09ef6760890c03be4bd83f613c03c512d1f/qt/aqt/sound.py#L866
+ play_clicked_audio st it can interpret things like play:q:1,2,5
+ this will take a bit - currently it seems like the automatic checking w pull requests is having trouble
+ when that's fixed we'll figure out how to contribute. will be a quick change

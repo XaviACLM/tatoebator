@@ -1,22 +1,21 @@
 import asyncio
 import time
 
+from tatoebator.external_download_requester import ExternalDownloadRequester
 from tatoebator.language_processing.translator import Translator
-from tatoebator.util import sync_gen_from_async_gen
 from tatoebator.sentences.sentence_production import JParaCrawlASPM
 
 # investigating the speed boost of using async w googletrans
 text = []
 c = 0
-for sentence in JParaCrawlASPM().yield_sentences(start_at=1000):
+for sentence in JParaCrawlASPM(ExternalDownloadRequester()).yield_sentences(start_at=3010):
     text.append(sentence.sentence)
     c+=1
-    if c==100:
+    if c==10:
         break
 
 translator = Translator()
 
-@sync_gen_from_async_gen
 async def translation_yielder(sentences):
     pending_tasks = set()
     queue = asyncio.Queue()
@@ -40,10 +39,17 @@ def translation_yielder_normal(sentences):
     for sentence in sentences:
         yield translator.jp_to_eng(sentence)
 
+async def main():
+    async for sentence in translation_yielder(text):
+        print(sentence)
+
+def main_normal():
+    for sentence in translation_yielder_normal(text):
+        print(sentence)
+
 then = time.time()
-for translation in translation_yielder(text):
-#for translation in translation_yielder_normal(text):
-    print(translation)
+# main_normal()
+asyncio.run(main())
 now = time.time()
 print(now-then)
 

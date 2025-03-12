@@ -410,7 +410,6 @@ class JParaCrawlDownloadable(Downloadable):
         ]
 
 
-
 class ExternalDownloadGUIProtocol(Protocol):
     # this is a bit silly...
     @classmethod

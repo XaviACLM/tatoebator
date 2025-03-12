@@ -6,7 +6,7 @@ lib/*
 old tests/
 temp_files/*
 user_files/cached_downloads/*
-user_files/manual_downloads/*
+user_files/external_downloads/*
 src/tatoebator/tts2.py
 src/tatoebator/__pycache__/
 __pycache__/
