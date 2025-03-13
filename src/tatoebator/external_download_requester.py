@@ -208,7 +208,7 @@ class TatoebaDownloadable(Downloadable, AutomaticallyDownloadable):
         download_response = session.get(download_url)
         download_response.raise_for_status()
         with open(cls.item_filepaths['pairs'], "wb") as file:
-            file.write(download_response.content[3:]) # some weird characters at the start (?)
+            file.write(download_response.content[3:])  # some weird characters at the start (?)
 
     @classmethod
     def _cull_pairs_data(cls):
