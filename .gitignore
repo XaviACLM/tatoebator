@@ -5,6 +5,7 @@ fake_media_dir/*
 lib/*
 old tests/
 other_data/*
+!other_data/polygon_transitions.txt
 temp_files/*
 user_files/cached_downloads/*
 user_files/external_downloads/*
