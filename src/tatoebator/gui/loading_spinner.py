@@ -11,7 +11,7 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QColor, QPainter, QPaintEvent
 from PyQt6.QtWidgets import QWidget
 
-from tatoebator.constants import PATH_TO_OTHER_DATA
+from ..constants import PATH_TO_OTHER_DATA
 
 
 # this code slightly theseus-shipped but very much built off of the spinner by theycallmek et al:
@@ -112,7 +112,6 @@ class XavoSpinner(QWidget):
         n_orig = self.spinning_plan.n_dest
         phase_orig = self.spinning_plan.phase_dest
 
-        # TODO redo transitions - see which nodes you can remove to reduce error wrt uniform
         askew_orig = abs(phase_orig - math.pi / 2) > 1e-5
         i_orig = self._polygons.index((n_orig, askew_orig))
         transitions = self._transitions[i_orig]

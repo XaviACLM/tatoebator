@@ -101,3 +101,17 @@ with zipfile.ZipFile(dicts_zip_filepath, "r") as dicts_zip:
 #   we might get favorable results from this
 #   . . .
 #   moreover be absolutely sure to include the images where possible
+#   . . .
+#   the donna toki doo tsukau nihongo something something makes good on its name: the definition is mostly just a bunch of examples
+#   oh yeah on that subject i forgot to say we should look through the [JA Grammar]-s too. I love the ones with the pictures
+#   a lot of the grammars blur the line between languages, though.
+#   . . .
+#   having slept on it (haven't done anything yet) i can't help but think it's really weird that yomitan doesn't expose an api for this
+#   there are some issues on gh about it. one with updates two weeks ago, in fact
+#   but i guess it's a bit too much to ask? what i'm asking for specifically, i mean, i don't know what those apis plan to expose
+#   but the fact of the matter is that all the info is there and turning it into html shouldn't be that hard, and more to the point,
+#   it's not particularly meaningful to want to do this in yomichan as opposed to python b/c it's not like the communication between them
+#   can be all that clean, either
+#   ...maybe. that's a bit of a flimsy argument. but it is true that it's a slightly odd request to want access to the _rendering_ portion of yomichan
+#   well, yomitan, whatever. speaking of, one thing we _should_ integrate is to look for dicts in yomitan's files
+#   speaking of, where are my yomitan's files?

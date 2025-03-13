@@ -2,7 +2,7 @@ import os
 import sys
 from hashlib import sha256
 import threading
-from typing import Collection, Callable, Any, Tuple, Dict, Set
+from typing import Callable, Any, Tuple, Dict, Set
 
 
 def deterministic_hash(string: str) -> str:

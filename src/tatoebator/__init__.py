@@ -1,3 +1,30 @@
+from .util import running_as_anki_addon
+if running_as_anki_addon():
+    from typing import Any
+
+    from anki.cards import Card
+    from aqt.sound import av_player
+    from aqt import gui_hooks
+
+    def handle_play_command(handled, message, context):
+        if not message.startswith("play_multiple:"):
+            return handled
+        _, q_or_a, idxs = message.split(":")
+        idxs = list(map(int, idxs.split(",")))
+        card = context.rendered_card
+        tags = card.question_av_tags() if q_or_a == "q" else card.answer_av_tags
+        selected_tags = [tags[idx] for idx in idxs]
+        av_player.play_tags(selected_tags)
+        return True, None
+
+    gui_hooks.webview_did_receive_js_message.append(handle_play_command)
+
+
+
+
+
+
+
 import os
 import sys
 
