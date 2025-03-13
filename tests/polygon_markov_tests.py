@@ -7,7 +7,7 @@ import numpy as np
 
 from tatoebator.constants import PATH_TO_OTHER_DATA
 
-max_pol = 7
+max_pol = 6
 polygons = []
 for n_vertices in range(2, max_pol + 1):
     for phase in (0, Fraction(1, 2 * n_vertices)):
