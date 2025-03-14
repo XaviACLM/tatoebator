@@ -477,6 +477,12 @@ class SentenceProductionManager:
                                       max_retranslation_attempts: int = 3,
                                       progress_callback: Optional[Callable[..., None]] = None) \
             -> Dict[str, List[ExampleSentence]]:
+
+        # todo there is a fundamental disconnect here (and above) where this func only cares about getting you sentences
+        #  but at the gui level we care about _comprehensible_ sentences
+        #  actually it would be relatively easy to pass a second callback for that...
+        #  the logic would be a bit complicated, I guess. We'd have to...
+        #  yeah etc etc. you can figure it out. not that hard though and definitely worth it
         """
         searches the searchable aspms for example sentences containing any of the words in word_desired_amts
          puts them through quality control, incl. tl quality. tries to return as many sentences
@@ -495,7 +501,11 @@ class SentenceProductionManager:
         :return: dict (word -> ExampleSentence) where word is in ExampleSentence (lexically, as verified by qc)
         """
 
-        if max(word_desired_amts.values()) <= 0: return
+        found_sentences = {word: [] for word in word_desired_amts}
+
+        word_desired_amts = {word: desired_amt for word, desired_amt in word_desired_amts.items()
+                             if desired_amt > 0}
+        if not word_desired_amts or max(word_desired_amts.values()) <= 0: return found_sentences
 
         words_by_root = {approximate_jp_root_form(word): word for word in word_desired_amts}
 
@@ -521,7 +531,6 @@ class SentenceProductionManager:
         # root, e.sentence
         passed_all_checks_type = Tuple[str, ExampleSentence]
 
-        found_sentences = {word: [] for word in word_desired_amts}
 
         def batch_translation_job(batch: List[awaiting_translation_type]):
             translation_batch = "\n".join([sentence.translation for _, _, _, _, sentence in batch])
@@ -570,11 +579,16 @@ class SentenceProductionManager:
             for idx in range(len(further_processing_queue)):
                 idx -= t
                 root = further_processing_queue[idx][1]
-                if root_desired_remaining[root] <= root_being_processed_amts[root]: continue
+                if root not in root_desired_remaining:
+                    further_processing_queue.pop(idx)
+                    t += 1
+                    continue
+                if root_desired_remaining[root] <= root_being_processed_amts[root]:
+                    continue
                 res = further_processing_queue.pop(idx)
                 awaiting_batched_translation.append(res)
                 root_being_processed_amts[root] += 1
-                t -= 1
+                t += 1
 
         def create_tl_tasks(ignore_batch_size=False):
             while len(batch_translation_tasks) + len(single_translation_tasks) + 1 <= max_parallel_translations:
@@ -604,6 +618,8 @@ class SentenceProductionManager:
                 found_root, example_sentence = passed_all_checks.pop(0)
                 root_desired_remaining[found_root] -= 1
                 root_being_processed_amts[found_root] -= 1
+                if example_sentence.sentence in seen_sentences:
+                    continue
                 seen_sentences.append(example_sentence.sentence)
 
                 found_word = words_by_root[found_root]
@@ -620,9 +636,11 @@ class SentenceProductionManager:
                         if fpq_root == found_root:
                             further_processing_queue.pop(idx)
 
+                    other_roots = set(root_desired_remaining) - {found_root}
                     for idx in range(len(seen_sentences) - 1, -1):
                         if found_root in seen_sentences[idx]:
-                            seen_sentences.pop(idx)
+                            if not any((other_root in seen_sentences[idx] for other_root in other_roots)):
+                                seen_sentences.pop(idx)
 
         search_idx = 0
         for aspm in self._aspms_for_searching:

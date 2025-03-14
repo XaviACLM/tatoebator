@@ -4,7 +4,7 @@ from typing import Set
 from .ffmpeg_interface import convert_bitrate
 from .tts2 import DefaultTTSManager, TTSManager
 from ..config import AUDIO_BITRATE
-from ..constants import TEMP_FILES_DIR, ADDON_NAME, MEDIA_DIR
+from ..constants import TEMP_FILES_DIR, ADDON_NAME, MEDIA_DIR, PATH_TO_USER_FILES
 from ..language_extensions import TransientSingleton
 from ..sentences.example_sentences import ExternalFileRef
 from ..subprocesses import BackgroundProcessor
@@ -16,7 +16,8 @@ class TTSBackgroundProcessor(BackgroundProcessor, TransientSingleton):
     def __init__(self, tts_manager: TTSManager,
                  queue_file_name: str = 'audio_generation_queue.json',
                  temp_file_name: str = 'temp_audio_file.mp3'):
-        queue_filepath = os.path.join(TEMP_FILES_DIR, queue_file_name)
+
+        queue_filepath = os.path.join(PATH_TO_USER_FILES, queue_file_name)
         super().__init__(queue_filepath)
         self.tts_manager = tts_manager
         self._temp_file_name = temp_file_name
@@ -58,7 +59,8 @@ class MediaManager:
         sentence_filename = self._filename_from_id(sentence_id)
         sentence_path = os.path.join(MEDIA_DIR, sentence_filename)
 
-        self.tts_background_processor.enqueue_task((sentence_text, speed, sentence_path))
+        task = (sentence_text, speed, sentence_path)
+        self.tts_background_processor.enqueue_if_not_duplicate(task)
 
         return sentence_filename
 
@@ -67,7 +69,8 @@ class MediaManager:
         sentence_filename = self._filename_from_id(sentence_id)
         sentence_path = os.path.join(MEDIA_DIR, sentence_filename)
 
-        self.bitrate_background_processor.enqueue_task((external_filepath, sentence_path))
+        task = (external_filepath, sentence_path)
+        self.bitrate_background_processor.enqueue_if_not_duplicate(task)
 
         return sentence_filename
 

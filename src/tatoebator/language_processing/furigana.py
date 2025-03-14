@@ -88,9 +88,15 @@ def _split_okurigana(text: str, hiragana: str) -> TextWithFurigana:
     """
     # the choice of matching group syntax here is somewhat arbitrary
     # japanese vocabulary should be regular enough that this will never be ambiguous
-    matcher = re.sub(kanji_matcher, "(.*)", jaconv.kata2hira(text))
+    furigana_matcher = re.sub(kanji_seq_matcher, "(.*)", jaconv.kata2hira(text))
+    # this used to be kanji_matcher, which seems wrong, but that worked too... check in on this, not sure if good
 
-    furigana = re.fullmatch(matcher, hiragana).groups()
+    # handling polyphonic morae
+    furigana_matcher = re.sub("は", "[はわ]", furigana_matcher)
+    furigana_matcher = re.sub("を", "[おを]", furigana_matcher)
+
+    match = re.fullmatch(furigana_matcher, hiragana)
+    furigana = match.groups()
     kanji_split = re.split(kanji_seq_matcher, text)
 
     n_splits = len(kanji_split)

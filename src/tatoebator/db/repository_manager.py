@@ -100,19 +100,17 @@ class SentenceRepository:
         returns created sentences
         """
         is_not_in_db = lambda s: self.sentence_db_interface.check_sentence(s.sentence, commit=False) is None
-        sentences = {word: [] for word in word_desired_amts}
-        for word, sentence in self.sentence_production_manager \
-                .find_new_sentences_with_words(word_desired_amts,
-                                               filtering_fun=is_not_in_db,
-                                               progress_callback=progress_callback):
-
-            if sentence.audio_file_ref is not None:
-                sentence.audio_file_ref = self.media_manager.intake_external_audio_file(sentence.sentence,
-                                                                                        sentence.audio_file_ref)
-            elif ensure_audio:
-                sentence.audio_file_ref = self.media_manager.create_audio_file(sentence.sentence)
-
-            sentences[word].append(sentence)
+        sentences = self.sentence_production_manager\
+            .find_new_sentences_with_words(word_desired_amts,
+                                           filtering_fun=is_not_in_db,
+                                           progress_callback=progress_callback)
+        for sentence_group in sentences.values():
+            for sentence in sentence_group:
+                if sentence.audio_file_ref is not None:
+                    sentence.audio_file_ref = self.media_manager.intake_external_audio_file(sentence.sentence,
+                                                                                            sentence.audio_file_ref)
+                elif ensure_audio:
+                    sentence.audio_file_ref = self.media_manager.create_audio_file(sentence.sentence)
 
         all_sentences = sum(sentences.values(), [])
         self.sentence_db_interface.insert_sentences_batched(all_sentences, verify_not_repeated=False)

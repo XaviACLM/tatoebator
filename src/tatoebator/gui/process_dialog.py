@@ -13,7 +13,7 @@ class ProgressDialog:
 
     def __enter__(self):
         app = QApplication.instance() or QApplication(sys.argv)  # Ensure QApplication exists
-        self._dialog = QProgressDialog(self._title, "Cancel", 0, 0)
+        self._dialog = QProgressDialog(self._title, "Cancel", 0, 100)
         self._dialog.setMaximum(self._n_tasks)
         self._dialog.setWindowModality(Qt.WindowModality.WindowModal)
         self._dialog.setMinimumDuration(0)
@@ -25,7 +25,7 @@ class ProgressDialog:
     def update_progress(self, message: Optional[str] = None, value: Optional[int] = None):
         """Update progress message."""
         if self._dialog:
-            value = value or self._dialog.value() + 1
+            value = value if value is not None else self._dialog.value() + 1
             self._dialog.setValue(value)
             if message: self._dialog.setLabelText(message)
             QApplication.processEvents()  # Keep UI responsive

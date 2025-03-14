@@ -101,6 +101,13 @@ class BackgroundProcessor:
         self._save_pending_tasks()
         self._start_worker()
 
+    def is_task_in_queue(self, task):
+        return task in self._task_queue.queue  # hrmm
+
+    def enqueue_if_not_duplicate(self, task):
+        if not self.is_task_in_queue(task):
+            self.enqueue_task(task)
+
     def _start_worker(self):
         with self._lock:
             if self._worker_thread is None or not self._worker_thread.is_alive():
