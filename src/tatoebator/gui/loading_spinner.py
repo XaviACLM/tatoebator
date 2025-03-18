@@ -5,7 +5,7 @@ import random
 from enum import Enum
 from functools import cached_property
 from time import time as get_time
-from typing import Protocol, Optional, Callable, Any
+from typing import Protocol, Optional, Callable, Any, List, Tuple
 
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QColor, QPainter, QPaintEvent
@@ -60,9 +60,7 @@ class XavoSpinner(QWidget):
         if self.disable_parent_when_spinning:
             self.parentWidget().setEnabled(False)
         self.spinning_plan = NormalSpin(3, 5, math.pi / 2, -math.pi / 2, get_time(), self.phase_time,
-                                        mode=SpinnerMode.START,
-                                        derangement_rad=self.derangement_rad,
-                                        backwards=False)
+                                        mode=SpinnerMode.START, derangement_rad=self.derangement_rad, backwards=False)
 
     def stop(self):
         self._timer.stop()
@@ -123,13 +121,19 @@ class XavoSpinner(QWidget):
 
         if random.randint(1,200)>1 or self._playing_ending_animation:
             backwards = random.randint(1, 20) == 1
-            self.spinning_plan = NormalSpin(n_orig, n_dest, phase_orig, phase_dest, time, self.phase_time,
-                                            mode=mode,
-                                            derangement_rad=self.derangement_rad,
-                                            backwards=backwards)
+            self.spinning_plan = NormalSpin(n_orig, n_dest, phase_orig, phase_dest, time, self.phase_time, mode=mode,
+                                            derangement_rad=self.derangement_rad, backwards=backwards)
+
+
         else:
             #oops!
-            self.spinning_plan = BlobbySpin(n_orig, n_dest, phase_orig, phase_dest, time, self.phase_time*2, 50)
+            # self.spinning_plan = OrganizedSpin(n_orig, n_dest, phase_orig, phase_dest, time, self.phase_time)
+            #self.spinning_plan = BlobbySpin(n_orig, n_dest, phase_orig, phase_dest, time, self.phase_time*2, 50)
+            self.spinning_plan = NormalSpin(n_orig, n_dest, phase_orig, phase_dest, time, self.phase_time * 3,
+                                            mode=mode,
+                                            derangement_rad=self.derangement_rad * 2,
+                                            extra_spins=5,
+                                            backwards=False)
 
     def paintEvent(self, _: QPaintEvent) -> None:
         time = get_time()
@@ -173,24 +177,17 @@ class SpinnerMode(Enum):
 
 
 class SpinningProtocol(Protocol):
-    def get_positions_at(self, time: float):
+    def get_positions_at(self, time: float) -> List[Tuple[float, float, float, float, int]]:
         ...
 
-    def is_finished(self, time: float):
+    def is_finished(self, time: float) -> bool:
         ...
 
 
 class NormalSpin(SpinningProtocol):
-    def __init__(self,
-                 n_orig: int,
-                 n_dest: int,
-                 phase_orig: float,
-                 phase_dest: float,
-                 start_time: float,
-                 total_time: float,
-                 mode: SpinnerMode = SpinnerMode.NORMAL,
-                 derangement_rad=0.1,
-                 backwards=False):
+    def __init__(self, n_orig: int, n_dest: int, phase_orig: float, phase_dest: float, start_time: float,
+                 total_time: float, mode: SpinnerMode = SpinnerMode.NORMAL, derangement_rad=0.1, backwards=False,
+                 extra_spins=0):
         self.n_orig = n_orig
         self.n_dest = n_dest
         self.phase_orig = phase_orig
@@ -199,6 +196,7 @@ class NormalSpin(SpinningProtocol):
         self.total_time = total_time
         self.derangement_rad = derangement_rad
         self.mode = mode
+        self.extra_spins = extra_spins
 
         self.old_positions = itertools.repeat(None)
 
@@ -237,6 +235,7 @@ class NormalSpin(SpinningProtocol):
                        self.derangements,
                        self.backwards):
             alpha_d = (alpha_dest - alpha_orig) % (2 * math.pi)
+            alpha_d += (self.extra_spins)*2*math.pi
             if backwards:
                 alpha_d -= 2 * math.pi
                 derangement_x = derangement_x * 0.3 - 0.3
@@ -249,6 +248,75 @@ class NormalSpin(SpinningProtocol):
                     x, y = x * f, y * f
                 else:
                     x, y = x * (1 - f), y * (1 - f)
+            old_position = next(old_positions)
+            if old_position is None:
+                positions.append((x, y, 0, 0, 1))
+            else:
+                old_x, old_y, _, _, _ = old_position
+                dx, dy = x - old_x, y - old_y
+                heading = math.atan2(dy, dx)
+                heading = math.atan2(x, -y)
+                v = math.sqrt(dx * dx + dy * dy)
+                positions.append((x, y, heading, v, 1))
+
+        self.old_positions = positions
+        return positions
+
+    def is_finished(self, time: float):
+        return time - self.start_time > self.total_time
+
+
+class OrganizedSpin(SpinningProtocol):
+    def __init__(self,
+                 n_orig: int,
+                 n_dest: int,
+                 phase_orig: float,
+                 phase_dest: float,
+                 start_time: float,
+                 total_time: float,
+                 ):
+        self.n_orig = n_orig
+        self.n_dest = n_dest
+        self.phase_orig = phase_orig
+        self.phase_dest = phase_dest
+        self.start_time = start_time
+        self.total_time = total_time
+
+        self.old_positions = itertools.repeat(None)
+
+    def get_positions_at(self, time: float):
+        import traceback
+        try:
+            return self._get_positions_at(time)
+        except:
+            print(traceback.format_exc())
+            raise Exception
+
+    def _get_positions_at(self, time: float):
+        t = (time - self.start_time) / self.total_time
+        if t > 1: raise ValueError('time has to be before start_time+total_time')
+
+        positions = []
+        old_positions = iter(self.old_positions)
+
+        f = t > 0 and 1 / (1 + ((1 / t) - 1) ** 6)
+        f_ = math.sin(t * math.pi) ** 2
+        f_ = f_ ** 2
+
+        for (alpha_orig, (displ_y, alpha_dest)) in itertools.product(
+                [self.phase_orig + i / self.n_orig * 2 * math.pi for i in range(self.n_orig)],
+                [(-((i/self.n_dest)**2),self.phase_dest + i / self.n_dest * 2 * math.pi) for i in range(self.n_dest)]
+        ):
+            alpha_d = (alpha_dest - alpha_orig) % (2 * math.pi)
+            if alpha_d > math.pi:
+                alpha_d -= 2*math.pi
+            #if backwards:
+            #    alpha_d -= 2 * math.pi
+            #    derangement_x = derangement_x * 0.3 - 0.3
+            alpha_now = alpha_orig + f * alpha_d
+            x, y = 1 + f_ * displ_y, 0
+            s, c = math.cos(alpha_now), math.sin(alpha_now)
+            x, y = s * x - c * y, c * x + s * y
             old_position = next(old_positions)
             if old_position is None:
                 positions.append((x, y, 0, 0, 1))

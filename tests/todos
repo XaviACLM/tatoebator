@@ -20,6 +20,13 @@ either way cc doesn't actually prohibit anything specific other than changing th
 
 
 TODO cleanup note creation, allow for separate decks
+
+TODO improve the obj registrar - to, like above, allow separate decks
+
+TODO callbacks st sentence production manager can prefer grabbing comprehensible sentences (in principle:
+      callback returns a score 0-1. spm grabs sentences, at most the desired amount, popping stuff if it finds better
+      options. considers itself to be done if it has found comprehensibility >0.8 for all sentences
+
 TODO card html - esp care w the logic on the sentences - separate known, discard remainder if have enough, etc
  and the random sorting, minute-based
 
@@ -34,46 +41,14 @@ TODO option to add machine translated sentences (tag them in db + gui)
 TODO there are some timeout issues - with the robots, I think? or maybe the translator? it's unclear but sometimes if
  you leave anki alone for a few minutes it throws an exception out of the blue
 
-TODO better (offline) dicts, https://learnjapanese.moe/monolingual/ - support images, maybe?
- ugh we're going to need a nice system to handle (i.e. give instructions for) all the user downloads huh
- ugh ugh ugh
- ...
- let's do this first. big increase in quality from using proper dicts
- will need to handle images too ... well, later. can be done easily in the crappy way, w some more effort we can
-  track what Definitions gives us so we can delete the files if they're not used later
- so about the other thing...
- some kind of ExternalDownloadManager ('manager'...) object which can be called upon by client code requesting
- an (external, downloadable) file by some codename, e.g.
- ExternalDownloadManager.get_external_file("[Monolingual] 旺文社国語辞典 第十一版 (Recommended)", prompt_user=True)
- which returns a filepath to the relevant file if it exists, otherwise, None if prompt_user is false, otherwise
- opens up a window -> Tatoebator requests that you download so-and-so. Click 'ok' to go to the download manager window,
- somehow explain
-   what the download manager window is
-   that tatoebator is requesting a single download right now, but it will probably want more, so it's a good idea to
-   look at the dl manager window carefully and choose what to download and what to not
-   also explain what the options are
- the dl manager window should have a toggle (for each download) like "no i dont want to download this"
- if that's ticked then get_external_file(...) calls will not bring up the window
- dl manager also explains a bit about each download - groups them into sentence stuff, en def, jp def, etc
- also how much the download weighs
- also an 'attempt automatic download' button and a button that just tells you where/how to download it
- possible that one of these buttons does not exist. manual download *should* always but im thinking of edge cases like the tatoeba pairs
- also no reason that one item on this list corresponds to a single download-some will come in groups. again tatoeba pairs
- then get_external_file should actually return a dict of names -> filepaths
- ...
- also for client code that calls get_external_file w prompt_user=True
- if it gets None this means the user refused to download the requested file
- which means the client code probably can't do what it wants to do and should know to shut (the relevant part of) itself down cleanly
- ...
- note that this also covers cases where the download is meant to be formatted into something else immediately
- like download -> final_object
- client code first checks if final object exists and if so has no need to request the external download
- if it doesnt then it requests the external download an internally handles the conversion to final_object
- in this way ExternalDownloadManager (and so the user) does not even know the existence of final_object, only the download
- ...
- the above is slightly wrong, actually, the ExternalDownloadManager should know if the download is needed
- oh that's quite ugly... very acoblat by necessity.
- perhaps we could make an habit of of overriding... oh i have an idea. kinda ugly but doable
+TODO better dicts. either:
+ no dicts at all
+ get definitions and html from yomichan via selenium
+ get definitions from yomichan via selenium and parse what we can
+ get definitions from our own files and parse what we can
+  note of the last two - parsing our own files is no harder than doing things through selenium and does NOT insert a
+  massive dependency in the project - the only reason to go via selenium is to use yomichan dicts instead of redownload
+  (yomichan files are not readily visible)
 
 TODO config options for showing definitions on either language (i.e. monolingual mode toggle)
  -> the easiest way to accomplish this is to edit card html directly
@@ -109,3 +84,8 @@ TODO el rollo
  play_clicked_audio st it can interpret things like play:q:1,2,5
  this will take a bit - currently it seems like the automatic checking w pull requests is having trouble
  when that's fixed we'll figure out how to contribute. will be a quick change
+
+TODO if i put the bakamitai lyrics through the mine words widget - "I love you" (part of the lyrics) doesnt show in any
+ of the boxes - where is it getting lost?
+
+TODO get rid of the annoying logs

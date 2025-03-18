@@ -86,16 +86,24 @@ def _split_okurigana(text: str, hiragana: str) -> TextWithFurigana:
         ("駆け抜け", "かけぬけ") --> "駆(か) け 抜(ぬ) け"
         ("出会う", "であう")    --> "出会(であ) う"
     """
+
     # the choice of matching group syntax here is somewhat arbitrary
     # japanese vocabulary should be regular enough that this will never be ambiguous
     furigana_matcher = re.sub(kanji_seq_matcher, "(.*)", jaconv.kata2hira(text))
     # this used to be kanji_matcher, which seems wrong, but that worked too... check in on this, not sure if good
 
     # handling polyphonic morae
+    # some of these are not really polyphonic but look man i do what the mecab dict tells me
     furigana_matcher = re.sub("は", "[はわ]", furigana_matcher)
     furigana_matcher = re.sub("を", "[おを]", furigana_matcher)
+    furigana_matcher = re.sub("[ーう]", "[ーう]", furigana_matcher)
+    furigana_matcher = re.sub("[づず]", "[づず]", furigana_matcher)
 
     match = re.fullmatch(furigana_matcher, hiragana)
+    if match is None:
+        from aqt.utils import showInfo
+        showInfo(str([text, hiragana,jaconv.kata2hira(text),furigana_matcher]))
+        raise Exception()
     furigana = match.groups()
     kanji_split = re.split(kanji_seq_matcher, text)
 
