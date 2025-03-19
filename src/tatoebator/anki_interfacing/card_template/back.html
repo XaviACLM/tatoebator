@@ -1,0 +1,25 @@
+{{FrontSide}}
+<script>
+function main(){
+    //locate html for example sentences
+    const sentence_container_elem = document.getElementById("sentences-container");
+    const sentence_elems = document.querySelectorAll(".sentence");
+    const amt_sentences_back = sentence_elems.length;
+
+		// unhiding stuff for the back of the card
+    for (i=0; i<amt_sentences_back; i++) sentence_elems[i].style.display = 'block';
+    for (i=0; i<amt_sentences_back; i++) sentence_elems[i].querySelector(".sentence-eng").style.display = 'block';
+    document.getElementById("definition-eng-elem").style.display = 'block';
+    document.getElementById("definition-jpn-elem").style.display = 'block';
+
+    // get the full autoplay command from front
+    message_passing_elem = document.getElementById("message-passing-div");
+    full_autoplay_command = message_passing_elem.textContent;
+    //TODO uncomment this once we succesfully pushed changes
+    pycmd(full_autoplay_command);
+
+    const debug_elem = document.getElementById("debug-div");
+    debug_elem.textContent = "";
+}
+main();
+</script>

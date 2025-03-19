@@ -1,7 +1,7 @@
 from enum import Enum
 
 from .language_processing import WordSpeechType, group_text_by_part_of_speech
-from .anki_db_interface import AnkiDbInterface, WordInLibraryType
+from tatoebator.anki_interfacing.anki_db_interface import AnkiDbInterface, WordInLibraryType
 
 
 class WordLearnableType(Enum):

@@ -3,7 +3,7 @@ from typing import List, Optional, Dict
 from aqt import gui_hooks
 from aqt.utils import showInfo
 
-from .anki_db_interface import AnkiDbInterface
+from tatoebator.anki_interfacing.anki_db_interface import AnkiDbInterface
 from .audio import MediaManager
 from .constants import SENTENCES_PER_CARD
 from .db import SentenceRepository

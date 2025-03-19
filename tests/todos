@@ -28,11 +28,9 @@ todo fork - tatoebator-lite
 
 todo wait for the pr to get accepted
 
-TODO help menus <- default_colors class
+TODO help menus
 
-TODO cleanup note creation, allow for separate decks
-
-TODO improve the obj registrar - to, like above, allow separate decks
+TODO cleanup note creation, w a widget to pick which deck stuff goes to
 
 other todos that are still relevant but not that urgent
 
@@ -43,8 +41,6 @@ TODO callbacks st sentence production manager can prefer grabbing comprehensible
       options. considers itself to be done if it has found comprehensibility >0.8 for all sentences
 
 TODO port decks (incl. rtk to migaku... somehow?)
-
-TODO separate the HTML/CSS defaults into other files
 
 TODO probably is a good idea to make it obvious when a new card is shown iykyk
  -> this should be easy with some gui hook. separate into its own addon. we can do it as a toy example
@@ -64,6 +60,16 @@ TODO set up hooks st if a deck is deleted the corresponding words in our db stop
  continuing on the above: no, even less redundancy is probably good
  after updating keyword.known we always call the update functions for the whole db, anyway
  so probably for the best to remove keyword.known altogether and just create temp tables for update whenever relevant
+ ...
+ but yk what, it's good to have known in the db st the spm can callback to know the comprehensibility of a sentence
+ i think the best approach is to have keyword.known
+ only have SentenceRepository (& its members) be aware of its existence, st SentenceRepository can handle the logic
+ of when it needs to update its knowledge of what words are known (i.e. upon any query that will need this data)
+ but simultaneously doing this checks a have_known_words_been_updated query which is handled by some class with
+ its state hooked onto the relevant hooks (new cards created, card has been reviewed (mb only if its ivl was 0 before))
+ etc
+ ...
+ but i'm pretty sure there's still some issue here with how mecab won't recognize all words we're interested in
 
 TODO better db init: if no exist create w/o covering index, then insert, then create covering index
 
