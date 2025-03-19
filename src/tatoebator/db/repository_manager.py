@@ -2,7 +2,7 @@ from typing import List, Dict, Set, Optional, Callable
 from wsgiref.validate import header_re
 
 from ..audio import MediaManager
-from ..constants import SENTENCES_PER_CARD
+from ..constants import SENTENCES_PER_WORD
 from ..db.core import SentenceDbInterface
 from ..external_download_requester import ExternalDownloadRequester
 from ..language_processing import add_furigana_html
@@ -116,7 +116,7 @@ class SentenceRepository:
         self.sentence_db_interface.insert_sentences_batched(all_sentences, verify_not_repeated=False)
         return sentences
 
-    def _ingest_starter_sentences(self, max_desired_sentences_per_word: int = SENTENCES_PER_CARD, block_size: int = 50):
+    def _ingest_starter_sentences(self, max_desired_sentences_per_word: int = SENTENCES_PER_WORD, block_size: int = 50):
         print("SentenceRepository ingesting base corpora...")
         is_not_in_db = lambda s: self.sentence_db_interface.check_sentence(s.sentence, commit=False) is None
         block = []
@@ -145,3 +145,5 @@ class SentenceRepository:
     def _add_furigana(self, sentences):
         for sentence in sentences:
             sentence.furigana = add_furigana_html(sentence.sentence, ignore_unknown_words=True)
+
+    def _compute_comprehensibility_of_sentence_outside_repository(self, sentence_text: str):

@@ -3,6 +3,7 @@ from typing import Optional
 
 import anki.collection
 
+from tatoebator.config import SENTENCES_PER_CARD_FRONT, SENTENCES_PER_CARD_BACK
 from tatoebator.constants import PATH_TO_USER_FILES
 from tatoebator.persistence import PossiblyEmptyPersistable
 
@@ -43,7 +44,10 @@ class NotetypeRegistrar(PossiblyEmptyPersistable):
         with open('card_template/style.css', 'r') as f:
             m["css"] = f.read()
         with open('card_template/front.css', 'r') as f:
-            m["qfmt"] = f.read()
+            front_html = f.read()
+            front_html.replace("<<REPLACE_TAG:max_amt_sentences_front>>", SENTENCES_PER_CARD_FRONT)
+            front_html.replace("<<REPLACE_TAG:max_amt_sentences_back>>", SENTENCES_PER_CARD_BACK)
+            m["qfmt"] = front_html
         with open('card_template/back.css', 'r') as f:
             m["afmt"] = f.read()
 

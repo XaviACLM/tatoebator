@@ -1,5 +1,6 @@
 import os
 import sys
+import bisect
 from hashlib import sha256
 import threading
 from typing import Callable, Any, Tuple, Dict, Set
@@ -105,3 +106,21 @@ class AutoRemovingThread(threading.Thread):
             self.target_func(*args, **kwargs)
         finally:
             self.thread_set.discard(self)
+
+
+class SortedLimiter:
+    def __init__(self, max_size: int):
+        self.max_size = max_size
+        self._items = []  # Stores (value, item) tuples
+
+    def insert(self, item, value: float):
+        bisect.insort(self._items, (value, item))
+
+        if len(self._items) > self.max_size:
+            self._items.pop(0)
+
+    def get_items(self):
+        return [item for _, item in self._items]
+
+    def lowest_value(self, default_value=None):
+        return self._items[0][0] if self._items else default_value

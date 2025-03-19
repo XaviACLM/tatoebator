@@ -9,9 +9,7 @@ PATH_TO_ANKI = PATH_TO_ADDON.removesuffix(f"\\addons21\\{ADDON_NAME}") # TODO th
 # TODO this will have to work some other way
 ANKI_USER_NAME = "User 1"
 MEDIA_DIR = os.path.join(PATH_TO_ANKI, ANKI_USER_NAME, 'collection.media')
-# MEDIA_DIR = os.path.join(PATH_TO_ADDON, "fake_media_dir")
 
-SENTENCES_PER_CARD = 20
 USER_AGENT = f"{ADDON_NAME} example sentence searcher"
 INTER_FIELD_SEPARATOR = '##SEP##'
 

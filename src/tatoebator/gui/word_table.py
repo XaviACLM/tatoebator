@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
 from .default_gui_elements import SpecialColors
 from .process_dialog import ProgressDialog
 from .util import ask_yes_no_question
-from ..constants import SENTENCES_PER_CARD
+from ..constants import SENTENCES_PER_WORD
 from ..db import SentenceRepository
 from ..language_processing import grammaticalized_words, DefinitionFetcher, Definitions
 
@@ -64,7 +64,7 @@ class NewWordsTableWidget(QWidget):
     continuing_from = pyqtSignal()
 
     sentences_per_word_quota = 5
-    sentences_per_word_ideally = SENTENCES_PER_CARD
+    sentences_per_word_ideally = SENTENCES_PER_WORD
 
     # SELECTOR_ROW = 0
     # NAME_ROW = 1

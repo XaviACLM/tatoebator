@@ -5,7 +5,7 @@ from aqt.utils import showInfo
 
 from tatoebator.anki_interfacing.anki_db_interface import AnkiDbInterface
 from .audio import MediaManager
-from .constants import SENTENCES_PER_CARD
+from .constants import SENTENCES_PER_WORD
 from .db import SentenceRepository
 from .external_download_requester import ExternalDownloadRequester, ExternalDownloadGUIProtocol, Downloadable
 from .gui import MineNewWordsWidget, NewWordsTableWidget, AnkiRegistryEditorWidget, ExternalDownloadDialog, \
@@ -112,7 +112,7 @@ class MiningProcessConductor:
             message.append(f"{word}  -  {definition.en} / {definition.jp}")
         showInfo("\n\n".join(message))
 
-        sentences_per_word_ideally = SENTENCES_PER_CARD
+        sentences_per_word_ideally = SENTENCES_PER_WORD
         request = {word: sentences_per_word_ideally for word in new_words_data}
         sentences = self.sentence_repository.produce_sentences_for_words(request,
                                                                          produce_new=False,

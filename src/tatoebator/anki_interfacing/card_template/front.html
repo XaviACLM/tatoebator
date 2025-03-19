@@ -68,8 +68,8 @@ function main(){
 
     //generate indices for back/front sentences
     //TODO these numbers have to be set by config (much like parts of the html)
-    const amt_sentences_back = Math.min(n_sentences, 5);
-    const amt_sentences_front = Math.min(n_sentences, 2);
+    const amt_sentences_back = Math.min(n_sentences, <<REPLACE_TAG:max_amt_sentences_back>>);
+    const amt_sentences_front = Math.min(n_sentences, <<REPLACE_TAG:max_amt_sentences_front>>);
     let selected_indices = [];
     while (selected_indices.length<amt_sentences_back) {
         idx = Math.floor(random()*n_sentences);

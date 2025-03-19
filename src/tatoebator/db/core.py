@@ -210,8 +210,10 @@ class SentenceDbInterface:
             self._session.query(Keyword.keyword,
                                 SentenceKeyword.sentence_id,
                                 func.row_number()
-                                #.over(partition_by=Keyword.keyword, order_by=SentenceKeyword.sentence_id)
-                                .over(partition_by=Keyword.keyword, order_by=-Sentence.trusted)
+                                # order by comprehensibility, with a bonus for trusted (=passed extra checks) sentences
+                                # which is more significant for shorter sentences
+                                .over(partition_by=Keyword.keyword,
+                                      order_by=(Sentence.n_unknown_words-2*Sentence.trusted)/Sentence.n_keywords)
                                 .label("rn")
                                 )
             .join(SentenceKeyword, SentenceKeyword.keyword_id == Keyword.id)
