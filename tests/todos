@@ -1,61 +1,54 @@
+take into account that no matter how many dictionaries you stuff in there you can never get definitions for a word
+if mecab doesn't recognize it as a word in itself
+don't know for sure but first impressions i don't think it's viable for us to fix this
 
-TODO add new sentences menu (with semi automatic translations)
+you think hard enough about this and you come to realize that maybe significant portions of it were ill-conceived
+as in: might it not make more sense to figure out a way to insert ourselves somewhere in the space between
+anki, ankiconnect and yomitan
+st we can leverage yomitan to pick words and generate definitions and we only care about some logic re: whether word
+is already in deck + what deck to put word in - and, of course, the sentence/audio/furigana generation
 
-TODO interface (or manager?) logic that uses known_words and trusted fields to decide what to query
+ankiconnect doesn't have hooks
+but we could have a menu a lot like the w table where you toggle "intercept yomitan/chan card creation" or sth like that
+put a hook on note creation, passthrough if it doesn't fit the yomitan/chan rq format
+    (but print to console if this is the case - it's weird to have the toggle activated and be creating *other* cards...)
+if it does fit, capture the request (rt True, None) and push it into the wordtable. bam, we have the word we want
++ definition, no need to use mecab or any of that
+speaking of, will need to turn of lexical check, which is suspect
+and there is still the issue of how tl quality in jesc/jparacrawl is rather ass even when qc'd - there was a todo about
+this above, lemme find
 
-TODO type annotations, docs
+TODO option to add machine translated sentences (tag them in db + gui)
 
+still a reasonable amount of stuff to do, but primarily gui/config - let's make a list
 
-TODO main bits of gui
- standalone sentence adder
- the cards themselves (when do the notes get created? must be in the table gui, no?
+todo fork - tatoebator-lite
 
-TODO make it so it doesnt crash instantly if robots requests fail. Offline mode in general
- -> this should be easily fixable by making the robots sessions lazy
+todo wait for the pr to get accepted
 
+TODO help menus <- default_colors class
 
-CC-BY 2.0 : we can do anything as long as we credit properly, indicate changes, and propagate the license
-A note on propagating the license - from what I understand this doesnt' mean the whole project has to be CC-BY 2.0
-either way cc doesn't actually prohibit anything specific other than changing the license or misattribution, so fine
-
+TODO get rid of the annoying logs
 
 TODO cleanup note creation, allow for separate decks
 
 TODO improve the obj registrar - to, like above, allow separate decks
 
+other todos that are still relevant but not that urgent
+
+TODO use the trusted field
+
 TODO callbacks st sentence production manager can prefer grabbing comprehensible sentences (in principle:
       callback returns a score 0-1. spm grabs sentences, at most the desired amount, popping stuff if it finds better
       options. considers itself to be done if it has found comprehensibility >0.8 for all sentences
 
-TODO card html - esp care w the logic on the sentences - separate known, discard remainder if have enough, etc
- and the random sorting, minute-based
+TODO port decks (incl. rtk to migaku... somehow?)
 
 TODO separate the HTML/CSS defaults into other files
 
-TODO port decks (incl. rtk to migaku... somehow?)
-
-TODO help menus <- default_colors class
-
-TODO option to add machine translated sentences (tag them in db + gui)
-
-TODO there are some timeout issues - with the robots, I think? or maybe the translator? it's unclear but sometimes if
- you leave anki alone for a few minutes it throws an exception out of the blue
-
-TODO better dicts. either:
- no dicts at all
- get definitions and html from yomichan via selenium
- get definitions from yomichan via selenium and parse what we can
- get definitions from our own files and parse what we can
-  note of the last two - parsing our own files is no harder than doing things through selenium and does NOT insert a
-  massive dependency in the project - the only reason to go via selenium is to use yomichan dicts instead of redownload
-  (yomichan files are not readily visible)
-
-TODO config options for showing definitions on either language (i.e. monolingual mode toggle)
- -> the easiest way to accomplish this is to edit card html directly
-
 TODO probably is a good idea to make it obvious when a new card is shown iykyk
-
-TODO segregate user_files content by active user - the config files, anyway, but not sentence.db or the big downloads
+ -> this should be easy with some gui hook. separate into its own addon. we can do it as a toy example
+ ... but it's annoying that it won't work on ankidroid
 
 TODO set up hooks st if a deck is deleted the corresponding words in our db stop being marked as known
  there lurks there a more complicated question ab how much redundance there should be between the two dbs
@@ -74,18 +67,35 @@ TODO set up hooks st if a deck is deleted the corresponding words in our db stop
 
 TODO better db init: if no exist create w/o covering index, then insert, then create covering index
 
+TODO segregate user_files content by active user - the config files, anyway, but not sentence.db or the big downloads
 
+TODO type annotations, docs
 
+TODO add new sentences menu (with semi automatic translations)
 
-TODO el rollo
- https://github.com/ankitects/anki/blob/63c2a09ef6760890c03be4bd83f613c03c512d1f/docs/contributing.md
- per updatear
- https://github.com/ankitects/anki/blob/63c2a09ef6760890c03be4bd83f613c03c512d1f/qt/aqt/sound.py#L866
- play_clicked_audio st it can interpret things like play:q:1,2,5
- this will take a bit - currently it seems like the automatic checking w pull requests is having trouble
- when that's fixed we'll figure out how to contribute. will be a quick change
+todos that are not relevant in lite
+
+TODO there are some timeout issues - with the robots, I think? or maybe the translator? it's unclear but sometimes if
+ you leave anki alone for a few minutes it throws an exception out of the blue
 
 TODO if i put the bakamitai lyrics through the mine words widget - "I love you" (part of the lyrics) doesnt show in any
  of the boxes - where is it getting lost?
 
-TODO get rid of the annoying logs
+TODO config options for showing definitions on either language (i.e. monolingual mode toggle)
+ -> the easiest way to accomplish this is to edit card html directly
+
+TODO better dicts. either:
+ no dicts at all
+ get definitions and html from yomichan via selenium
+ get definitions from yomichan via selenium and parse what we can
+ get definitions from our own files and parse what we can
+  note of the last two - parsing our own files is no harder than doing things through selenium and does NOT insert a
+  massive dependency in the project - the only reason to go via selenium is to use yomichan dicts instead of redownload
+  (yomichan files are not readily visible)
+
+TODO main bits of gui
+ standalone sentence adder
+ the cards themselves (when do the notes get created? must be in the table gui, no?
+
+TODO make it so it doesnt crash instantly if robots requests fail. Offline mode in general
+ -> this should be easily fixable by making the robots sessions lazy

@@ -1,13 +1,26 @@
-import json
-import os
-import re
-import zipfile
-from typing import Dict, Optional, Callable, Any
+from tatoebator.yomitan_utils.dev_main import test_timings, test_dictdir
 
-from bs4 import BeautifulSoup
+#test_timings()
+test_dictdir()
 
-from tatoebator.yomitan_utils.anki_template_renderer_content_manager import AnkiTemplateRendererContentManager
-from tatoebator.yomitan_utils.structured_content_generator import StructuredContentGenerator
+"""
+a class that keeps a list of dictionaries (how?)
+
+you can ask it to look for definitions of one (or many) words
+
+will look through dicts
+ maybe in some specific order, some logic as to how many definitions to look for, etc
+ important also that logic about the redirects you can find in jitendex (stored to look through first?)
+
+produces definition objects. these also keep a reference to the dict that they're from
+
+so that a DefinitionHTMLGenerator class (or something like that) can take just the definition object
+
+handle creating the html itself, with the help of StructuredContentGenerator
+and pass to the latter, perhaps use itself, a TatoebatorContentManager
+this is to gather certain files from the dictionary files to anki's media folder, handling renaming also
+
+"""
 
 """
 def destructure(item: Any, attrs: List[str]):
@@ -281,87 +294,6 @@ d = DisplayGenerator()
 d.prepare()
 """
 
-
-
-# todo correctly handle the taigigo dict. honestly best we filter dicts manually at this point
-atrcm = AnkiTemplateRendererContentManager(None, None)
-scg = StructuredContentGenerator(atrcm)
-
-'''
-sample_jitendex_entry = """['ドライビングコンテスト', 'ドライビングコンテスト', '', '', 0, [{'type': 'structured-content', 'content': [{'tag': 'div', 'content': [{'tag': 'span', 'title': 'noun (common) (futsuumeishi)', 'style': {'fontSize': '0.8em', 'fontWeight': 'bold', 'padding': '0.2em 0.3em', 'wordBreak': 'keep-all', 'borderRadius': '0.3em', 'verticalAlign': 'text-bottom', 'backgroundColor': '#565656', 'color': 'white', 'cursor': 'help', 'marginRight': '0.25em'}, 'data': {'code': 'n'}, 'content': 'noun'}, {'tag': 'span', 'style': {'fontSize': '0.8em', 'fontWeight': 'bold', 'padding': '0.2em 0.3em', 'wordBreak': 'keep-all', 'borderRadius': '0.3em', 'verticalAlign': 'text-bottom', 'backgroundColor': 'purple', 'color': 'white', 'marginRight': '0.25em'}, 'data': {'code': 'golf'}, 'content': 'golf'}, {'tag': 'div', 'content': [{'tag': 'ul', 'style': {'listStyleType': 'none', 'paddingLeft': '0'}, 'data': {'content': 'glossary'}, 'content': {'tag': 'li', 'content': 'driving contest'}}, {'tag': 'div', 'style': {'marginLeft': '0.5em'}, 'data': {'content': 'extra-info'}, 'content': {'tag': 'div', 'content': {'tag': 'div', 'style': {'borderStyle': 'none none none solid', 'padding': '0.5rem', 'borderRadius': '0.4rem', 'borderWidth': 'calc(3em / var(--font-size-no-units, 14))', 'marginTop': '0.5rem', 'marginBottom': '0.5rem', 'borderColor': '#1A73E8', 'backgroundColor': 'color-mix(in srgb, #1A73E8 5%, transparent)'}, 'data': {'content': 'xref'}, 'content': [{'tag': 'div', 'style': {'fontSize': '1.3em'}, 'content': [{'tag': 'span', 'lang': 'en', 'style': {'fontSize': '0.8em', 'marginRight': '0.5rem', 'color': '#1A73E8'}, 'content': 'See also'}, {'tag': 'a', 'lang': 'ja', 'href': '?query=%E3%83%89%E3%83%A9%E3%82%B3%E3%83%B3&wildcards=off', 'content': 'ドラコン'}]}, {'tag': 'div', 'style': {'fontSize': '0.8rem'}, 'data': {'content': 'xref-glossary'}, 'content': 'driving contest; longest drive contest'}]}}}]}]}, {'tag': 'div', 'style': {'marginTop': '0.5rem'}, 'data': {'content': 'forms'}, 'content': [{'tag': 'span', 'title': 'spelling and reading variants', 'style': {'fontSize': '0.8em', 'fontWeight': 'bold', 'padding': '0.2em 0.3em', 'wordBreak': 'keep-all', 'borderRadius': '0.3em', 'verticalAlign': 'text-bottom', 'backgroundColor': '#565656', 'color': 'white', 'cursor': 'help', 'marginRight': '0.25em'}, 'content': 'forms'}, {'tag': 'ul', 'style': {'fontSize': '1.3em'}, 'content': [{'tag': 'li', 'content': 'ドライビングコンテスト'}, {'tag': 'li', 'content': 'ドライビング・コンテスト'}]}]}, {'tag': 'div', 'style': {'fontSize': '0.7em', 'textAlign': 'right'}, 'data': {'content': 'attribution'}, 'content': {'tag': 'a', 'href': 'https://www.edrdg.org/jmwsgi/entr.py?svc=jmdict&q=2506050', 'content': 'JMdict'}}]}], 2506050, '']"""
-sample_jitendex_def = """[{'type': 'structured-content', 'content': [{'tag': 'div', 'content': [{'tag': 'span', 'title': 'noun (common) (futsuumeishi)', 'style': {'fontSize': '0.8em', 'fontWeight': 'bold', 'padding': '0.2em 0.3em', 'wordBreak': 'keep-all', 'borderRadius': '0.3em', 'verticalAlign': 'text-bottom', 'backgroundColor': '#565656', 'color': 'white', 'cursor': 'help', 'marginRight': '0.25em'}, 'data': {'code': 'n'}, 'content': 'noun'}, {'tag': 'span', 'title': "nouns which may take the genitive case particle 'no'", 'style': {'fontSize': '0.8em', 'fontWeight': 'bold', 'padding': '0.2em 0.3em', 'wordBreak': 'keep-all', 'borderRadius': '0.3em', 'verticalAlign': 'text-bottom', 'backgroundColor': '#565656', 'color': 'white', 'cursor': 'help', 'marginRight': '0.25em'}, 'data': {'code': 'adj-no'}, 'content': 'no-adj'}, {'tag': 'div', 'content': {'tag': 'ul', 'data': {'content': 'glossary'}, 'content': [{'tag': 'li', 'content': "a woman's natural inclination to care for others"}, {'tag': 'li', 'content': 'big-sisterly disposition'}]}}]}, {'tag': 'div', 'style': {'marginTop': '0.5rem'}, 'data': {'content': 'forms'}, 'content': [{'tag': 'span', 'title': 'spelling and reading variants', 'style': {'fontSize': '0.8em', 'fontWeight': 'bold', 'padding': '0.2em 0.3em', 'wordBreak': 'keep-all', 'borderRadius': '0.3em', 'verticalAlign': 'text-bottom', 'backgroundColor': '#565656', 'color': 'white', 'cursor': 'help', 'marginRight': '0.25em'}, 'content': 'forms'}, {'tag': 'ul', 'style': {'fontSize': '1.3em'}, 'content': [{'tag': 'li', 'content': '姉御肌'}, {'tag': 'li', 'content': '姐御肌'}, {'tag': 'li', 'content': 'アネゴ肌'}]}]}, {'tag': 'div', 'style': {'fontSize': '0.7em', 'textAlign': 'right'}, 'data': {'content': 'attribution'}, 'content': {'tag': 'a', 'href': 'https://www.edrdg.org/jmwsgi/entr.py?svc=jmdict&q=2773680', 'content': 'JMdict'}}]}]"""
-exec(f'sample_jitendex_def = {sample_jitendex_def}')
-sample_jitendex_def = sample_jitendex_def[0]['content']
-sc = scg.create_structured_content(sample_jitendex_def, None)
-print(sc)
-'''
-
-downloads_dir = r"C:\Users\xavia\Downloads"
-dicts_zip_filepath = os.path.join(downloads_dir, "Japanese-20250312T213821Z-001.zip")
-
-cci = 0
-with zipfile.ZipFile(dicts_zip_filepath, "r") as dicts_zip:
-    for dict_zipinfo in dicts_zip.filelist:
-        dict_zipfilename = dict_zipinfo.filename
-
-        with dicts_zip.open(dict_zipfilename, 'r') as dict_zipfile:
-            with zipfile.ZipFile(dict_zipfile, 'r') as dict_zip:
-                files = set(map(lambda x: x.split("/")[0], [x.filename for x in dict_zip.filelist]))
-                if 'index.json' in files:
-                    with dict_zip.open('index.json', 'r') as f:
-                        pass  # print("\t",f.read().decode('utf-8'))
-                cc = 0
-                ci = 0
-                cs = 0
-                for filename in files:
-                    if re.fullmatch("term_bank_\d+\.json", filename) is None: continue
-                    with dict_zip.open(filename, 'r') as f:
-                        data = json.loads(f.read())
-                        for item in data:
-                            term, reading, def_tags, deinflections, popularity_number, definitions, seq_number, term_tags = item
-                            cci += 1
-                            assert isinstance(definitions, list)
-                            for definition in definitions:
-                                # todo handle these somewhere else. str is just definition, list is uh...
-                                #  a chain of deinflection rules that explain a redirecton... something something
-                                #  "Deinflection of the term to an uninflected term.",
-                                #  only jitendex uses these, and only for words that simply redirect elsewhere
-                                #  so we can use them as a cue that we should be looking for another word (the deinflection)
-                                #  but that leaves the issue of seeing which definitions should be thrown out bc they are just redirections
-                                #  or, in general, b/c they're empty without the internal href
-                                if isinstance(definition, str): continue
-                                if isinstance(definition, list):
-                                    print(definition)
-                                    print(definitions)
-                                    print("")
-                                    continue
-                                try:
-                                    pass  # scg.create_structured_content(definition['content'], None)
-                                except:
-                                    import traceback
-
-                                    print(traceback.format_exc())
-                                    print(item)
-                                    print(definitions)
-                                    print(jjsj)
-                            # if not (isinstance(definitions, list) and len(definitions) == 1 and isinstance(definitions[0], str)) and cci%10000==0:
-                            #    print(definitions[0]['content'])
-                            #    print(scg.create_structured_content(definitions[0]['content'], None))
-                            #    input()
-                            if isinstance(definitions, list) and len(definitions) == 1 and isinstance(definitions[0],
-                                                                                                      str):
-                                cc += 1
-                            if isinstance(definitions, list) and all([
-                                isinstance(definition, str) or (
-                                        isinstance(definition, dict) and "type" in definition and definition[
-                                    "type"] == "structured-content") for definition in definitions
-                            ]):
-                                cs += 1
-                    ci += len(data)
-                    # print("\t\t",c,"/",len(data))
-        if ci > 0:
-            print(cc, "/", cs, "/", ci, dict_zipfilename)
-
 """
 with structured_content counts - as expected, it's all of the entries:
 
@@ -425,105 +357,3 @@ seems worthless, just google images links and similar
 
 0 / 118331 / 118331 Japanese/[JA-JA] 新選国語辞典　第十版.zip
 """
-
-# jesus christ the yomichan format is MASSIVE
-# we need an action plan here.
-# a lot of extraneous html data. really we'd be fine throwing most of it away
-# but we need it to be user readable. its probably better to parse it. word table will change quite a bit to accomodate
-# we look for one word (or several at a time)
-#  we could gather metadata (frequency ratings). you know what, that's probably a good idea and not too hard.
-#   let me check the dicts
-#    innocentranked looks like [["要る", "freq", 1], ["から", "freq", 2], ["板", "freq", 3]
-#    but aozora bunko looks a bit weird: [["見","freq",{"value":1,"displayValue":"1 (12407)"}],["思","freq",{"value":2,"displayValue":"2 (12319)"}]
-#    conjecture that "freq"/"value" is just a ranking of which kanjo are more common ON EACH DICT, not necessarily related
-#    display_value is well, meant for display, guessing aozora bunko displays the actual count of ocurrences
-#   let's not overcomplicate: just show sth like
-#   freq rankings:
-#    #67 on Aozora Bunko
-#    #316 on innocentranked
-#   users are smart, they can figure it out
-#   we get this data from term_meta_bank_i.json files in [JA Freq] dicts
-#  but most importantly we look for definitions.
-#   (...looked at the files for a while)
-#   jesus christ. look at jitendex:
-#    ["管理対象", "かんりたいしょう", "", "", 0, [{"type": "structured-content", "content": [{"tag": "div", "content":
-#    [{"tag": "span", "title": "noun (common) (futsuumeishi)", "style": {"fontSize": "0.8em", "fontWeight": "bold",
-#    "padding": "0.2em 0.3em", "wordBreak": "keep-all", "borderRadius": "0.3em", "verticalAlign": "text-bottom",
-#    "backgroundColor": "#565656", "color": "white", "cursor": "help", "marginRight": "0.25em"}, "data": {"code": "n"},
-#    "content": "noun"}, {"tag": "span", "style": {"fontSize": "0.8em", "fontWeight": "bold", "padding": "0.2em 0.3em",
-#    "wordBreak": "keep-all", "borderRadius": "0.3em", "verticalAlign": "text-bottom", "backgroundColor": "purple",
-#    "color": "white", "marginRight": "0.25em"}, "data": {"code": "comp"}, "content": "computing"}, {"tag": "div",
-#    "content": {"tag": "ul", "style": {"listStyleType": "none", "paddingLeft": "0"}, "data": {"content": "glossary"},
-#    "content": {"tag": "li", "content": "managed object"}}}]}, {"tag": "div", "style": {"fontSize": "0.7em",
-#    "textAlign": "right"}, "data": {"content": "attribution"}, "content": {"tag": "a", "href":
-#    "https://www.edrdg.org/jmwsgi/entr.py?svc=jmdict&q=2347770", "content": "JMdict"}}]}], 2347770, ""]
-#   the actual definition there is 'managed object', w the extra bit of 'computing', which i assume is language domain
-#   this is rather troubling. as far as i can't tell there isn't any canonical distinction in the json between the
-#   actual definition and the tag.
-#   which makes enough sense. yt's job is just to show you the dictionary, you do the thinking
-#   this in fact makes sense for us too (hence the fact that yt already has anki integration), but it means that we
-#   need to be able to parse this whole mess into html
-#   which despite my repeated googling doesn't seem like something that's readily available on github? what the hell is
-#   up with that???
-#   i guess we just have to
-#   figuring out how to display html in the boxes - you know, the boxes - shouldn't be too hard
-#   it'll need a redesign to make any sense.
-#   and the html parser can't be too complicated. it does concern me whether the yt structured-content format can
-#   actually be cleanly mapped onto html, but by god i'm just going to ignore anything that's too complicated to fit
-#   images will need a bit of extra processing.
-#   . . .
-#   or we could do some preliminary inspection - look through the dicts and count how many words each of them has
-#   if it turns out that 98% of the words are in like three dictionaries we might aswell just look at the specific formats
-#   like if we scrape jisho but jisho is in fact just jmedict/jitendex then surely jitendex's format is, despite all
-#   the fucking around, regular in itself, so we should be able to write a nice JitendexInterface (best pick a better name)
-#   that looks through the mess and kicks out a standarized Definition object (for either lang) - with the text of the
-#   definition itself, possibly support for furigana, definitely support for images, maybe some tags or whatever -
-#   depending on which dict we look at.
-#   but really, if we have pictures we'll end up having to redesign the word table either way. god
-#   ...
-#   some of the other dicts are thankfully pretty simple - more of that fifth element just being a ['<definition>']
-#   ...
-#   sometimes if you keep looking down through the 'content' elements it turns out you arrive at a single string.
-#   we can take those and ignore the html probably
-#   dude, no. wait a minute. look at the antonym dict.
-#   ["楽","らく","","",0,
-#     [{"type": "structured-content","content": [{
-#             "tag": "div","data": {"name": "解説部"},"content": [{
-#                 "tag": "div","data": {"name": "大語義"},"content": {
-#                   "tag": "div","data": {"name": "語義"},"content": [{
-#                       "tag": "span","data": {"name": "対義語"},
-#                       "content": "苦   (く)"}]}}]}]}],0,""]
-#   the "definition" is just 苦, which is an ANTONYM. the fact that it is an antonym is contained in the 'name' of the
-#   span that contains the definition. the 'name' isn't even something that shows up - i'm supposed to know how to
-#   interpret this myself? even if i am, does that mean I also have to care about the 解説部, 大語義, 語義 tags?
-#   or if i want to parse this naively am i supposed to tell the user each time that he's about to read a meaning,
-#   subsection of general meaning in the explanation section? what the hell, man?
-#   checked that 対義語 does not appear on the relevant schema. Seriously what the hell?
-#   and the dictionary does not appear to carry any css information or anything about how to handle it??????????????
-#   god! man! what do i do with this shit?
-#   all the [JA-JA something] might just be too spicy for me. best stick to [JA-JA]
-#   . . .
-#   okay, really, action plan: the first step is to programmatically investigate the dicts. for each count
-#   how many words within
-#   how many of these have a definition (or several) which is thankfully just a single string
-#   we might get favorable results from this
-#   . . .
-#   moreover be absolutely sure to include the images where possible
-#   . . .
-#   the donna toki doo tsukau nihongo something something makes good on its name: the definition is mostly just a bunch of examples
-#   oh yeah on that subject i forgot to say we should look through the [JA Grammar]-s too. I love the ones with the pictures
-#   a lot of the grammars blur the line between languages, though.
-#   . . .
-#   having slept on it (haven't done anything yet) i can't help but think it's really weird that yomitan doesn't expose an api for this
-#   there are some issues on gh about it. one with updates two weeks ago, in fact
-#   but i guess it's a bit too much to ask? what i'm asking for specifically, i mean, i don't know what those apis plan to expose
-#   but the fact of the matter is that all the info is there and turning it into html shouldn't be that hard, and more to the point,
-#   it's not particularly meaningful to want to do this in yomichan as opposed to python b/c it's not like the communication between them
-#   can be all that clean, either
-#   ...maybe. that's a bit of a flimsy argument. but it is true that it's a slightly odd request to want access to the _rendering_ portion of yomichan
-#   well, yomitan, whatever. speaking of, one thing we _should_ integrate is to look for dicts in yomitan's files
-#   speaking of, where are my yomitan's files?
-
-#   ...
-#   yeah a lot has been learned since i wrote that. i don't feel like elaborating now but an important point for later
-#   is we can probably just take structured-content-generator.js and translate that to python
