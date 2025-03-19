@@ -1,12 +1,13 @@
 from typing import Dict, List
 
 from PyQt6.QtCore import pyqtSignal, Qt
-from PyQt6.QtGui import QColor, QFontMetrics
+from PyQt6.QtGui import QFontMetrics
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
     QHeaderView, QScrollArea, QHBoxLayout, QPushButton, QStyledItemDelegate, QPlainTextEdit
 )
 
+from .default_gui_elements import SpecialColors
 from .process_dialog import ProgressDialog
 from .util import ask_yes_no_question
 from ..constants import SENTENCES_PER_CARD
@@ -116,13 +117,6 @@ class NewWordsTableWidget(QWidget):
         self.table.setHorizontalHeaderLabels(
             ['Include', 'Name', '# Sentences', '#S>50%', '#S>80%', 'Translation', 'Definition'])
 
-        self.white = QColor(255, 255, 255)
-        self.lightgrey = QColor(240, 240, 240)
-        self.darkgrey = QColor(220, 220, 220)
-        self.red = QColor(255, 230, 230)
-        self.green = QColor(220, 255, 220)
-        self.black = QColor(0, 0, 0)
-
         # some kinda progress bar during sentence/translation/definition search
         # possibly a link to a help menu
         # possibly a link to a sentence adder menu (we'll want to do that anyway)
@@ -138,20 +132,20 @@ class NewWordsTableWidget(QWidget):
 
             self.table.setItem(row, 1, QTableWidgetItem(name))
             self.table.item(row, 1).setFlags(self.table.item(row, 0).flags() & ~Qt.ItemFlag.ItemIsEditable)
-            self.table.item(row, 1).setBackground(self.lightgrey)
-            self.table.item(row, 1).setForeground(self.black)
+            self.table.item(row, 1).setBackground(SpecialColors.extra_light_grey)
+            self.table.item(row, 1).setForeground(SpecialColors.black)
 
             self.table.setItem(row, 2, QTableWidgetItem(""))
             self.table.item(row, 2).setFlags(self.table.item(row, 1).flags() & ~Qt.ItemFlag.ItemIsEditable)
-            self.table.item(row, 2).setForeground(self.black)
+            self.table.item(row, 2).setForeground(SpecialColors.black)
 
             self.table.setItem(row, 3, QTableWidgetItem(""))
             self.table.item(row, 3).setFlags(self.table.item(row, 2).flags() & ~Qt.ItemFlag.ItemIsEditable)
-            self.table.item(row, 3).setForeground(self.black)
+            self.table.item(row, 3).setForeground(SpecialColors.black)
 
             self.table.setItem(row, 4, QTableWidgetItem(""))
             self.table.item(row, 4).setFlags(self.table.item(row, 3).flags() & ~Qt.ItemFlag.ItemIsEditable)
-            self.table.item(row, 4).setForeground(self.black)
+            self.table.item(row, 4).setForeground(SpecialColors.black)
 
             self.table.setItem(row, 5, QTableWidgetItem(""))
 
@@ -221,12 +215,12 @@ class NewWordsTableWidget(QWidget):
 
     def _greyout_row(self, row: int):
         for col in range(1, self.table.columnCount()):
-            self.table.item(row, col).setBackground(self.darkgrey)
+            self.table.item(row, col).setBackground(SpecialColors.dark_grey)
 
     def _de_greyout_row(self, row: int):
-        self.table.item(row, 1).setBackground(self.lightgrey)
+        self.table.item(row, 1).setBackground(SpecialColors.extra_light_grey)
         for col in range(5, self.table.columnCount()):
-            self.table.item(row, col).setBackground(self.white)
+            self.table.item(row, col).setBackground(SpecialColors.white)
         self._update_sentence_counts_gui_at_row(row)
 
     def _update_sentence_counts_gui(self):
@@ -242,10 +236,13 @@ class NewWordsTableWidget(QWidget):
         self.table.item(row, 2).setText(str(s00))
         self.table.item(row, 3).setText(str(s50))
         self.table.item(row, 4).setText(str(s80))
-        # used palettes but they kind of suck... like 12 colors total and role where red fits
-        self.table.item(row, 2).setBackground(self.green if s00 >= self.sentences_per_word_quota else self.red)
-        self.table.item(row, 3).setBackground(self.green if s50 >= self.sentences_per_word_quota else self.red)
-        self.table.item(row, 4).setBackground(self.green if s80 >= self.sentences_per_word_quota else self.red)
+        # used palettes but they kind of suck... like 12 colors total and no role where red fits
+        self.table.item(row, 2).setBackground(SpecialColors.light_green if s00 >= self.sentences_per_word_quota
+                                              else SpecialColors.light_red)
+        self.table.item(row, 3).setBackground(SpecialColors.light_green if s50 >= self.sentences_per_word_quota
+                                              else SpecialColors.light_red)
+        self.table.item(row, 4).setBackground(SpecialColors.light_green if s80 >= self.sentences_per_word_quota
+                                              else SpecialColors.light_red)
 
     def _is_idx_selected(self, idx: int) -> bool:
         return self.table.item(idx, 0).checkState() == Qt.CheckState.Checked
@@ -346,7 +343,6 @@ class NewWordsTableWidget(QWidget):
 
     def _check_before_continuing(self):
         if min(self._n_sentences_per_word.values()) >= self.sentences_per_word_quota \
-                or ask_yes_no_question(
-            f"Some of the selected words have a low (<{self.sentences_per_word_quota}) amount" \
-            + " of example sentences available for them. Proceed anyway?"):
+                or ask_yes_no_question("Some of the selected words have a low (<{self.sentences_per_word_quota}) amount"
+                                       " of example sentences available for them. Proceed anyway?"):
             self.continuing_from.emit()

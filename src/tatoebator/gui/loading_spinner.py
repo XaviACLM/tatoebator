@@ -11,6 +11,7 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QColor, QPainter, QPaintEvent
 from PyQt6.QtWidgets import QWidget
 
+from .default_gui_elements import Colors
 from ..constants import PATH_TO_OTHER_DATA
 
 
@@ -23,7 +24,7 @@ class XavoSpinner(QWidget):
                  center_on_parent: bool = True,
                  disable_parent_when_spinning: bool = False,
                  radius: int = 20,
-                 color: QColor = QColor(0, 50, 170),
+                 color: QColor = Colors.tatoebator_blue,
                  phase_time=1.5):
         super().__init__(parent)
 
@@ -151,7 +152,7 @@ class XavoSpinner(QWidget):
             )
 
         painter = QPainter(self)
-        painter.fillRect(self.rect(), Qt.GlobalColor.transparent)
+        painter.fillRect(self.rect(), Colors.transparent)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 
         painter.setPen(Qt.PenStyle.NoPen)

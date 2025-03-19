@@ -3,6 +3,7 @@ from typing import Optional, Tuple, Dict, List, Iterable
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QComboBox, QSpacerItem, QSizePolicy, QFrame
 
+from .default_gui_elements import Colors
 from .util import ask_yes_no_question
 from ..anki_db_interface import AnkiDbInterface, FieldPointer
 
@@ -159,7 +160,7 @@ class AnkiRegistryEditorWidget(QWidget):
         self._field_selector = FieldSelectorWidget(self.anki_db_interface)
         layout.addWidget(self._field_selector)
         self._field_selector.setObjectName("field_selector")
-        self._field_selector.setStyleSheet('QFrame#field_selector {background-color: lightgray; border-radius: 10px;}')
+        self._field_selector.setStyleSheet(f'QFrame#field_selector {{background-color: {Colors.light_grey.name()}; border-radius: 10px;}}')
         self._field_selector.setContentsMargins(10, 10, 10, 10)
 
         # buttons

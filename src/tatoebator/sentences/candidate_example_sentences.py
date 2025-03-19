@@ -1,9 +1,11 @@
 import logging
+import os
 import re
 from enum import Enum
 from functools import cached_property
 from typing import Optional, List
 
+from ..constants import PATH_TO_LOGS
 from ..language_processing import Translator
 from ..language_processing import UnicodeRange as ur
 from ..language_processing import lexical_content, estimate_jp_sentence_distance
@@ -47,9 +49,6 @@ class CandidateExampleSentence:
     def lexical_words(self):
         return self._lexical_words or lexical_content(self.sentence)
 
-    # these used to be cached
-    # (in fact they used to be in an entirely different class that served only to hold caches on Candidates
-    # but surely the overhead is insignificant
     @property
     def sentence_len(self):
         return len(self.sentence)
@@ -61,8 +60,8 @@ class CandidateExampleSentence:
 
 discarded_sentences_logger = logging.getLogger("tatoebator.discarded_sentences")
 discarded_sentences_logger.setLevel(logging.INFO)
-# mode 'w' because i expect this to be rerun a lot on the same sentences during testing - might change later
-discarded_sentences_logger.addHandler(logging.FileHandler("discarded_sentences.log", mode='w', encoding='utf-8'))
+discarded_sentences_logger.addHandler(logging.FileHandler(os.path.join(PATH_TO_LOGS, "discarded_sentences.log"),
+                                                          mode='w', encoding='utf-8'))
 
 _strictly_japanese_chars_matcher = re.compile(fr"[{ur.hiragana}{ur.katakana}{ur.kanji}ー]")
 _format_tags_matcher = re.compile(
@@ -116,12 +115,13 @@ class ExampleSentenceQualityEvaluator:
     }
 
     @classmethod
-    def evaluate_quality(cls, example_sentence: CandidateExampleSentence, word: Optional[str] = None)\
+    def evaluate_quality(cls, example_sentence: CandidateExampleSentence, word: Optional[str] = None, log=False) \
             -> QualityEvaluationResult:
 
         for filter_name, filter_fun in cls._pre_translation_filters.items():
             if not filter_fun(example_sentence):
-                discarded_sentences_logger.info(f'{filter_name} :: {example_sentence.sentence}')
+                if log:
+                    discarded_sentences_logger.info(f'{filter_name} :: {example_sentence.sentence}')
                 return QualityEvaluationResult.UNSUITABLE
 
         if word is not None and word not in example_sentence.lexical_words:
@@ -131,15 +131,16 @@ class ExampleSentenceQualityEvaluator:
         # meant to cover translation being empty, but also might be "-" or something like that
         has_translation = example_sentence.translation is not None and len(example_sentence.translation) > 5
         if not has_translation:
-            discarded_sentences_logger.info(
-                f'Translation must be present :: {example_sentence.sentence} / {example_sentence.translation}'
-            )
+            if log:
+                discarded_sentences_logger.info(
+                    f'Translation must be present :: {example_sentence.sentence} / {example_sentence.translation}')
             return QualityEvaluationResult.UNSUITABLE
 
         for filter_name, filter_fun in cls._post_translation_filters.items():
             if not filter_fun(example_sentence):
-                discarded_sentences_logger.info(
-                    f'{filter_name} :: {example_sentence.sentence} / {example_sentence.translation}')
+                if log:
+                    discarded_sentences_logger.info(
+                        f'{filter_name} :: {example_sentence.sentence} / {example_sentence.translation}')
                 return QualityEvaluationResult.UNSUITABLE
 
         # we now know the sentence is good enough. now to see if it goes through the extra checks to be called good
@@ -154,17 +155,22 @@ class ExampleSentenceQualityEvaluator:
     @staticmethod
     def evaluate_translation_quality(example_sentence: CandidateExampleSentence,
                                      machine_translation: Optional[str] = None,
-                                     translator: Optional[Translator] = None) -> QualityEvaluationResult:
+                                     translator: Optional[Translator] = None,
+                                     log=False) -> QualityEvaluationResult:
         # careful! translation, and so this filter, is not deterministic
         # this is fine - the filter's design accepts having a significant amount of false negatives
         # as long as we get very little false positives that's fine
         if machine_translation is None:
             if translator is None:
-                raise Exception("ExampleSentenceQualityController.evaluate_translation_quality requires a machine_translation or translator be passed")
+                raise Exception(
+                    "ExampleSentenceQualityController.evaluate_translation_quality requires a machine_translation "
+                    "or translator be passed")
             machine_translation = translator.eng_to_jp(example_sentence.translation)
         if estimate_jp_sentence_distance(example_sentence.sentence, machine_translation) >= 0.25:
-            discarded_sentences_logger.info(
-                f'Sentence must reasonably match machine translation of translation :: {example_sentence.sentence} / {example_sentence.translation}'
-            )
+            if log:
+                discarded_sentences_logger.info(
+                    f'Sentence must reasonably match machine translation of translation :: '
+                    f'{example_sentence.sentence} / {example_sentence.translation}'
+                )
             return QualityEvaluationResult.UNSUITABLE
         return QualityEvaluationResult.SUITABLE

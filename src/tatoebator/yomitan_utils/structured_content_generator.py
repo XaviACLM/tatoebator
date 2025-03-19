@@ -1,4 +1,5 @@
-from typing import Dict, re
+from typing import Dict
+import re
 
 from bs4 import BeautifulSoup
 
@@ -205,7 +206,7 @@ class StructuredContentGenerator:
 
     def _get_node_style(self, node) -> Dict[str, str]:
         style = node.get('style')
-        if isinstance(style, None):
+        if style is None:
             style = dict()
         elif isinstance(style, str):
             # for proper formatting - again, assume js handles this automatically
@@ -220,9 +221,9 @@ class StructuredContentGenerator:
         self._set_node_attr(node, 'style', style)
 
     def create_definition_image(self, data, dictionary):
-        print("image data - checking if it's snakecase or what...:")
-        print(data)
-        input()
+        #print("image data - checking if it's snakecase or what...:")
+        #print(data)
+        #input()
         path = data.get("path")
         width = data.get("width") or 100
         height = data.get("height") or 100
@@ -268,7 +269,7 @@ class StructuredContentGenerator:
         image_container.append(overlay)
 
         link_text = self._create_element('span', 'gloss-image-link-text')
-        link_text.text = 'Image'
+        link_text['text'] = 'Image'
         node.append(link_text)
 
         # here yomitan would check if it has the adequate content manager, and if so

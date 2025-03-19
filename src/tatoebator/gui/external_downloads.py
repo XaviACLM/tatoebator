@@ -3,25 +3,21 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-
 import traceback
 import webbrowser
 from typing import List, Dict
 
 from PyQt6.QtCore import QThread, pyqtSignal
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QTextEdit, QPushButton, QWidget, QHBoxLayout, QSpacerItem, \
-    QSizePolicy, QStyle, QFrame, QMessageBox
+    QSizePolicy, QFrame, QMessageBox
 
+from .default_gui_elements import Colors, Pixmaps
 from .loading_spinner import XavoSpinner
 from ..external_download_requester import Downloadable, AutomaticallyDownloadable, ManualDownloadInstructions, \
     mdit
 
 
 class FileExistenceWidget(QWidget):
-    tick_pixmap = QStyle.StandardPixmap.SP_DialogApplyButton
-    cross_pixmap = QStyle.StandardPixmap.SP_DialogCancelButton
-    qmark_pixmap = QStyle.StandardPixmap.SP_TitleBarContextHelpButton
-
     def __init__(self, filepaths, show_dir_buttons=True):
         super().__init__()
         self.filepaths = filepaths
@@ -37,7 +33,7 @@ class FileExistenceWidget(QWidget):
 
         self._check_button = QPushButton("Check files exist")
         self._check_button.clicked.connect(self._check_files)
-        spacer_item = QSpacerItem(20,20,QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
+        spacer_item = QSpacerItem(20, 20, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
         left_layout.addWidget(self._check_button)
         left_layout.addSpacerItem(spacer_item)
 
@@ -49,7 +45,7 @@ class FileExistenceWidget(QWidget):
         for path in self.filepaths:
             item_layout = QHBoxLayout()
 
-            icon = self.style().standardIcon(self.qmark_pixmap)
+            icon = self.style().standardIcon(Pixmaps.q_mark)
             icon_label = QLabel()
             icon_label.setPixmap(icon.pixmap(16))
             self._icons.append(icon_label)
@@ -64,7 +60,7 @@ class FileExistenceWidget(QWidget):
             label = QLabel(path)
             item_layout.addWidget(label)
 
-            spacer = QSpacerItem(20,20,QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+            spacer = QSpacerItem(20, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
             item_layout.addSpacerItem(spacer)
 
             right_layout.addLayout(item_layout)
@@ -72,24 +68,25 @@ class FileExistenceWidget(QWidget):
         right_frame = QFrame()
         right_frame.setLayout(right_layout)
         right_frame.setObjectName("right_frame")
-        right_frame.setStyleSheet('QFrame#right_frame {background-color: lightgray; border-radius: 10px;}')
+        right_frame.setStyleSheet(
+            f'QFrame#right_frame {{background-color: {Colors.light_grey.name()}; border-radius: 10px;}}')
 
         frame_holder_layout = QVBoxLayout()
         frame_holder_layout.addWidget(right_frame)
         layout.addLayout(frame_holder_layout)
-        #layout.addWidget(right_frame)
+        # layout.addWidget(right_frame)
 
         self.setLayout(layout)
-        layout.setStretch(0,0)
-        layout.setStretch(1,1)
+        layout.setStretch(0, 0)
+        layout.setStretch(1, 1)
 
     def _check_files(self):
         for icon_label, filepath in zip(self._icons, self.filepaths):
             if os.path.exists(filepath):
-                icon = self.style().standardIcon(self.tick_pixmap)
+                icon = self.style().standardIcon(Pixmaps.tick)
                 icon_label.setPixmap(icon.pixmap(16))
             else:
-                icon = self.style().standardIcon(self.cross_pixmap)
+                icon = self.style().standardIcon(Pixmaps.cross)
                 icon_label.setPixmap(icon.pixmap(16))
 
     def _try_open_directory(self, filepath):
@@ -310,7 +307,8 @@ class DownloadableMenuItemWidget(QWidget):
         self._automatic_download_button.setDisabled(True)
         self._manual_download_button.setDisabled(True)
         self._size_label.setHidden(True)
-        self._state_label.setText(f"(Item{'s' if len(self.downloadable.item_filepaths)>1 else ''} already downloaded)")
+        self._state_label.setText(
+            f"(Item{'s' if len(self.downloadable.item_filepaths) > 1 else ''} already downloaded)")
 
 
 class ExternalDownloadDialog(QDialog):
@@ -338,7 +336,7 @@ class ExternalDownloadDialog(QDialog):
 
         for downloadable in self.sentence_corpus_downloadables:
             _downloadable_widget = DownloadableMenuItemWidget(
-                downloadable,self._user_has_refused_to_download[downloadable.name])
+                downloadable, self._user_has_refused_to_download[downloadable.name])
             self._downloadable_widgets.append(_downloadable_widget)
             layout.addWidget(_downloadable_widget)
 
