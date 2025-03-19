@@ -1,4 +1,3 @@
-tests/discarded_sentences.log
 backup/
 old tests/
 lib/*
@@ -10,3 +9,4 @@ src/tatoebator/tts2.py
 src/tatoebator/__pycache__/
 __pycache__/
 .idea/
+logs/*

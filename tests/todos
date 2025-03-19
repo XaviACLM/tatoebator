@@ -18,6 +18,8 @@ speaking of, will need to turn of lexical check, which is suspect
 and there is still the issue of how tl quality in jesc/jparacrawl is rather ass even when qc'd - there was a todo about
 this above, lemme find
 
+...and wouldn't it be a good idea to do the common TODOs before we fork, actually?
+
 TODO option to add machine translated sentences (tag them in db + gui)
 
 still a reasonable amount of stuff to do, but primarily gui/config - let's make a list

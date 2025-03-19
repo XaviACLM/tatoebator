@@ -368,10 +368,6 @@ class JParaCrawlASPM(ArbitrarySentenceProductionMethod):
 
 
 class SentenceProductionManager:
-    # TODO in the future we might want to consider giving this an option to also return machine-translated tatoebas
-    #  this should only be used when the client (in the app) explicitly asks for it
-    #  e.g. a "generate sentences" button, and if clicking it doesn't generate enough sentences,
-    #  then a "generate machine-translated sentences" button
 
     # regarding the absence of...
     # SentenceSearchNeocitiesASPM : dubious sourcing
