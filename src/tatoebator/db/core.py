@@ -210,10 +210,12 @@ class SentenceDbInterface:
             self._session.query(Keyword.keyword,
                                 SentenceKeyword.sentence_id,
                                 func.row_number()
-                                .over(partition_by=Keyword.keyword, order_by=SentenceKeyword.sentence_id)
+                                #.over(partition_by=Keyword.keyword, order_by=SentenceKeyword.sentence_id)
+                                .over(partition_by=Keyword.keyword, order_by=-Sentence.trusted)
                                 .label("rn")
                                 )
             .join(SentenceKeyword, SentenceKeyword.keyword_id == Keyword.id)
+            .join(Sentence, SentenceKeyword.sentence_id == Sentence.id)
             .filter(Keyword.keyword.in_(words))
             .subquery()
         )
@@ -225,6 +227,12 @@ class SentenceDbInterface:
             .join(Sentence, Sentence.id == ids_by_word_query.c.sentence_id)
             .all()
         )
+
+        # not 100% sqlalchemy optimizes away the joins
+        # leaving this here for debug in case we have performance issues down the line
+        # from sqlalchemy import text
+        # explain_query = text("EXPLAIN " + str(results.statement.compile(compile_kwargs={"literal_binds": True})))
+        # print("\n".join(map(str,self._session.execute(explain_query))))
 
         word_to_sentences = {word: [] for word in words}
         for word, sentence in results:

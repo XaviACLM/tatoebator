@@ -2,8 +2,18 @@ from tatoebator.audio import MediaManager
 from tatoebator.db import SentenceRepository
 
 
-sentence_repository = SentenceRepository(MediaManager())
+sentence_repository = SentenceRepository(MediaManager(), None)
 
+
+for word, sentences in sentence_repository.produce_sentences_for_words({"やるせない":3}, produce_new=False, ensure_audio=False, with_furigana=True).items():
+    print(word, len(sentences))
+    sentences.sort(key = lambda s:s.sentence)
+    for sentence in sentences:
+        print(sentence.trusted, f"\t{sentence.sentence} - {sentence.translation}")
+        print(f"\t{sentence.furigana}")
+        print("")
+
+print(jjsj)
 
 for word, sentences in sentence_repository.produce_sentences_for_words({"鳥":200,"空":200}, produce_new=False, ensure_audio=False, with_furigana=True).items():
     print(word)
