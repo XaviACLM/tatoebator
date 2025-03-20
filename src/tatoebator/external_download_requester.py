@@ -14,7 +14,6 @@ import re
 
 from requests import Session
 
-from .config import SEVENZIP_EXE
 from .constants import PATH_TO_EXTERNAL_DOWNLOADS, PATH_TO_TEMP_EXTERNAL_DOWNLOADS, USER_AGENT, PATH_TO_USER_FILES
 from .robots import RobotsAwareSession
 

@@ -3,9 +3,9 @@ from typing import List, Optional, Dict
 from aqt import gui_hooks
 from aqt.utils import showInfo
 
-from tatoebator.anki_interfacing.anki_db_interface import AnkiDbInterface
+from .anki_interfacing import AnkiDbInterface
 from .audio import MediaManager
-from .constants import SENTENCES_PER_WORD
+from .config import SENTENCES_PER_WORD
 from .db import SentenceRepository
 from .external_download_requester import ExternalDownloadRequester, ExternalDownloadGUIProtocol, Downloadable
 from .gui import MineNewWordsWidget, NewWordsTableWidget, AnkiRegistryEditorWidget, ExternalDownloadDialog, \

@@ -6,6 +6,7 @@ import re
 import time
 from difflib import SequenceMatcher
 from functools import lru_cache
+from math import ceil
 from typing import Optional, Iterator, List, Dict, Callable, Tuple
 
 import requests
@@ -18,7 +19,7 @@ from ..constants import PATH_TO_SOURCES_FILE, USER_AGENT, \
 from ..external_download_requester import ExternalDownloadRequester
 from ..language_processing import approximate_jp_root_form, Translator
 from ..robots import RobotsAwareSession
-from ..util import AutoRemovingThread
+from ..util import AutoRemovingThread, RankedBuffer
 
 
 def _get_source_tag(source_name: str, license: str):
@@ -216,8 +217,10 @@ class ManyThingsTatoebaASPM(ArbitrarySentenceProductionMethod):
     @property
     def _filepath(self):
         filepaths = self._external_download_requester.get_external_downloadable('ManyThingsTatoeba')
-        if filepaths is None: return None
-        else: return filepaths['filepath']
+        if filepaths is None:
+            return None
+        else:
+            return filepaths['filepath']
 
     def yield_sentences(self, start_at: int = 0) -> Iterator[CandidateExampleSentence]:
         filepath = self._filepath
@@ -305,8 +308,10 @@ class JapaneseEnglishSubtitleCorpusASPM(ArbitrarySentenceProductionMethod):
     @property
     def _filepath(self):
         filepaths = self._external_download_requester.get_external_downloadable('JapaneseEnglishSubtitleCorpus')
-        if filepaths is None: return None
-        else: return filepaths['filepath']
+        if filepaths is None:
+            return None
+        else:
+            return filepaths['filepath']
 
     def yield_sentences(self, start_at: int = 0) -> Iterator[CandidateExampleSentence]:
         filepath = self._filepath
@@ -336,8 +341,10 @@ class JParaCrawlASPM(ArbitrarySentenceProductionMethod):
     @property
     def _filepath(self):
         filepaths = self._external_download_requester.get_external_downloadable('JParaCrawl')
-        if filepaths is None: return None
-        else: return filepaths['filepath']
+        if filepaths is None:
+            return None
+        else:
+            return filepaths['filepath']
 
     def yield_sentences(self, start_at: int = 0) -> Iterator[CandidateExampleSentence]:
         filepath = self._filepath
@@ -368,7 +375,6 @@ class JParaCrawlASPM(ArbitrarySentenceProductionMethod):
 
 
 class SentenceProductionManager:
-
     # regarding the absence of...
     # SentenceSearchNeocitiesASPM : dubious sourcing
     # TatoebaSPM :  fixing every new bug that crops up is a hassle, moreover easier to not have to include spms in model
@@ -471,14 +477,17 @@ class SentenceProductionManager:
                                       max_parallel_translations: int = 50,
                                       translation_batch_size: int = 5,
                                       max_retranslation_attempts: int = 3,
-                                      progress_callback: Optional[Callable[..., None]] = None) \
+                                      progress_callback: Optional[Callable[[str, float], None]] = None,
+                                      scoring_callback: Optional[Callable[[ExampleSentence], float]] = None,
+                                      max_oversearch_factor: float = 5) \
             -> Dict[str, List[ExampleSentence]]:
-
-        # todo there is a fundamental disconnect here (and above) where this func only cares about getting you sentences
-        #  but at the gui level we care about _comprehensible_ sentences
-        #  actually it would be relatively easy to pass a second callback for that...
-        #  the logic would be a bit complicated, I guess. We'd have to...
-        #  yeah etc etc. you can figure it out. not that hard though and definitely worth it
+        #  issue: someone who knows 0 words issues a lookup for sentences containing "kare"
+        #  all sentences will have score =-0.75<0, and so the spm will feel the need to evaluate every single
+        #  sentence with kare, which may well be over a million, with a similar amount of TLs (/batch_size)
+        #  how do we do this? the spm (or perhaps the repository?) should somehow be aware of whether a request
+        #  is unfeasible
+        #  ...
+        #  fixed w max_oversearch_factor. silly name and possibly nonoptimal approach, though, might have to revisit
         """
         searches the searchable aspms for example sentences containing any of the words in word_desired_amts
          puts them through quality control, incl. tl quality. tries to return as many sentences
@@ -494,21 +503,37 @@ class SentenceProductionManager:
         :param max_parallel_translations: -
         :param translation_batch_size: -
         :param max_retranslation_attempts: -
+        :param progress_callback: callback used to update client code, likely gui, on process. takes a string
+                                   (the name of the source currently being searched) and float (overall 0-1 progress)
+        :param scoring_callback: callback used to score the sentences being sorted. will consider a sentence 'good
+                                 enough' (to return early without searching all aspms) if its score is >=0
+        :param max_oversearch_factor: related to scoring_callback - limits how much the search for good scores can
+                                      impact the amount of words searched
+                                      e.g. we are looking for 20 sentences w a particular word and max_oversearch_factor
+                                      is 5. If we have looked through 100(20*5) sentences and still we don't have
+                                      enough with a positive score, at that point we just return the best 20 we found
         :return: dict (word -> ExampleSentence) where word is in ExampleSentence (lexically, as verified by qc)
         """
 
-        found_sentences = {word: [] for word in word_desired_amts}
+        if not word_desired_amts or max(word_desired_amts.values()) <= 0:
+            return {word: [] for word in word_desired_amts}
+
+        progress_callback = progress_callback or (lambda *_: None)
+        scoring_callback = scoring_callback or (lambda e: 0)
+
+        found_sentences = {word: RankedBuffer(desired_amt) for word, desired_amt in word_desired_amts.items()}
 
         word_desired_amts = {word: desired_amt for word, desired_amt in word_desired_amts.items()
                              if desired_amt > 0}
-        if not word_desired_amts or max(word_desired_amts.values()) <= 0: return found_sentences
 
         words_by_root = {approximate_jp_root_form(word): word for word in word_desired_amts}
 
         # same as word_desired_amts but with roots (roots are passed around more easily)
         root_desired_amts = {root: word_desired_amts[word] for root, word in words_by_root.items()}
-        # same as root_desired_amts but updated along the way to reflect how many we've already found
-        root_desired_remaining = root_desired_amts.copy()
+        # to remove items along the way as search completes
+        roots_being_searched = set(root_desired_amts.keys())
+        # max amount of sentences for each root that are allowed to get through all the checks before we abort search
+        root_remaining = {root: ceil(amt * max_oversearch_factor) for root, amt in root_desired_amts.items()}
         # counts sentences that are currently going through TL eval
         root_being_processed_amts = {root: 0 for root in words_by_root}
 
@@ -527,7 +552,6 @@ class SentenceProductionManager:
         # root, e.sentence
         passed_all_checks_type = Tuple[str, ExampleSentence]
 
-
         def batch_translation_job(batch: List[awaiting_translation_type]):
             translation_batch = "\n".join([sentence.translation for _, _, _, _, sentence in batch])
             machine_translations = self._translator.eng_to_jp(translation_batch).split("\n")
@@ -545,7 +569,7 @@ class SentenceProductionManager:
                 evaluation = self._quality_control.evaluate_translation_quality(sentence, machine_translation)
                 if evaluation is not QualityEvaluationResult.UNSUITABLE:
                     res: passed_all_checks_type = (
-                    found_root, ExampleSentence.from_candidate(sentence, source_tag, is_good))
+                        found_root, ExampleSentence.from_candidate(sentence, source_tag, is_good))
                     passed_all_checks.append(res)
                 elif amt_tries + 1 < max_retranslation_attempts:
                     awaiting_batched_translation.append((amt_tries + 1, found_root, is_good, source_tag, sentence))
@@ -575,11 +599,11 @@ class SentenceProductionManager:
             for idx in range(len(further_processing_queue)):
                 idx -= t
                 root = further_processing_queue[idx][1]
-                if root not in root_desired_remaining:
+                if root not in roots_being_searched:
                     further_processing_queue.pop(idx)
                     t += 1
                     continue
-                if root_desired_remaining[root] <= root_being_processed_amts[root]:
+                if max(translation_batch_size, root_remaining[root]) <= root_being_processed_amts[root]:
                     continue
                 res = further_processing_queue.pop(idx)
                 awaiting_batched_translation.append(res)
@@ -612,27 +636,28 @@ class SentenceProductionManager:
         def gather_approved_sentences():
             while passed_all_checks:
                 found_root, example_sentence = passed_all_checks.pop(0)
-                root_desired_remaining[found_root] -= 1
+
+                root_remaining[found_root] -= 1
                 root_being_processed_amts[found_root] -= 1
                 if example_sentence.sentence in seen_sentences:
                     continue
                 seen_sentences.append(example_sentence.sentence)
 
                 found_word = words_by_root[found_root]
-                found_sentences[found_word].append(example_sentence)
+                score = scoring_callback(example_sentence)
+                found_sentences[found_word].insert(score, example_sentence)
 
-                if root_desired_remaining[found_root] == 0:
-                    root_desired_remaining.pop(found_root)
-                    assert root_being_processed_amts[found_root] == 0
-                    root_being_processed_amts.pop(found_root)
+                if (root_remaining[found_root] == 0
+                        or (found_sentences[found_word].is_full() and found_sentences[found_word].lowest_value() >= 0)):
+                    roots_being_searched.remove(found_root)
 
-                    # clear further_processing queue of this root
+                    # clear further_processing queue and seen_sentences of this root
                     for idx in range(len(further_processing_queue) - 1, -1):
                         fpq_root = further_processing_queue[idx][1]
                         if fpq_root == found_root:
                             further_processing_queue.pop(idx)
 
-                    other_roots = set(root_desired_remaining) - {found_root}
+                    other_roots = roots_being_searched - {found_root}
                     for idx in range(len(seen_sentences) - 1, -1):
                         if found_root in seen_sentences[idx]:
                             if not any((other_root in seen_sentences[idx] for other_root in other_roots)):
@@ -646,7 +671,7 @@ class SentenceProductionManager:
                 search_idx += 1
                 search_ratio = search_idx / self.amt_searchable_sentences
 
-                if search_idx % 10000 == 0 and progress_callback is not None:
+                if search_idx % 10000 == 0:
                     progress_callback(aspm.source_name, search_ratio)
 
                 if search_idx % 10000 == 0 or further_processing_queue or passed_all_checks:
@@ -654,13 +679,11 @@ class SentenceProductionManager:
                     create_tl_tasks()
                     gather_approved_sentences()
 
-                    if len(root_desired_remaining) == 0:
-                        assert len(single_translation_tasks) == 0
-                        assert len(batch_translation_tasks) == 0
-                        return found_sentences
+                    if len(roots_being_searched) == 0:
+                        return {word: sentences.get_items() for word, sentences in found_sentences.items()}
 
                 # skip sentence if it doesn't contain root of any word we're searching for
-                found_root = next((root for root in root_desired_remaining if root in sentence.sentence), None)
+                found_root = next((root for root in roots_being_searched if root in sentence.sentence), None)
                 if found_root is None: continue
 
                 # evaluate quality, check contains word lexically
@@ -674,8 +697,8 @@ class SentenceProductionManager:
                 # if the proportion of sentences found for this word is lesser than the proportion of the
                 # searching db we've looked through, mark it as urgent:
                 # meaning it will attempt to be retranslated a few times if the quality check fails
-                found_ratio = root_desired_remaining[found_root] / root_desired_amts[found_root]
-                urgent = search_ratio + found_ratio > 1
+                found_ratio = found_sentences[found_word].amt_items() / root_desired_amts[found_root]
+                urgent = search_ratio > found_ratio
                 starting_index = 0 if urgent else max_retranslation_attempts - 1
 
                 if evaluate_translations:
@@ -692,9 +715,7 @@ class SentenceProductionManager:
             time.sleep(0.1)
             create_tl_tasks(ignore_batch_size=True)
             gather_approved_sentences()
-            if len(root_desired_remaining) == 0:
-                assert len(single_translation_tasks) == 0
-                assert len(batch_translation_tasks) == 0
-                return found_sentences
+            if len(roots_being_searched) == 0:
+                break
 
-        return found_sentences
+        return {word: sentences.get_items() for word, sentences in found_sentences.items()}

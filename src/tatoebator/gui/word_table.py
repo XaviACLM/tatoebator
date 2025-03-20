@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
 from .default_gui_elements import SpecialColors
 from .process_dialog import ProgressDialog
 from .util import ask_yes_no_question
-from ..constants import SENTENCES_PER_WORD
+from ..config import SENTENCES_PER_WORD
 from ..db import SentenceRepository
 from ..language_processing import grammaticalized_words, DefinitionFetcher, Definitions
 

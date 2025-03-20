@@ -5,7 +5,7 @@ from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QLabel, QTextEdit, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QSpacerItem, QSizePolicy
 
 from .word_displays import QWordDisplay, QSelectableWordDisplay
-from tatoebator.anki_interfacing.anki_db_interface import AnkiDbInterface
+from ..anki_interfacing import AnkiDbInterface
 from ..word_classification import group_text_by_learnability, WordLearnableType
 
 

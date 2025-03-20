@@ -24,8 +24,6 @@ VOICEPEAK_EXE = os.path.join(VOICEPEAK_DIR, "voicepeak.exe")
 
 AUDIO_BITRATE = '64k'
 
-SEVENZIP_EXE = os.path.join("C:", os.sep, "Program Files", "7-Zip", "7z.exe")
-
 SENTENCES_PER_WORD = 20 # todo are we equipped to handle changes in this value, or should it be a constant?
 SENTENCES_PER_CARD_FRONT = 2
 SENTENCES_PER_CARD_BACK = 5

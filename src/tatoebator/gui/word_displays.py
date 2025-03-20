@@ -4,7 +4,7 @@ from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtGui import QTextOption, QTextCharFormat, QTextCursor, QFont
 from PyQt6.QtWidgets import QTextEdit, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton
 
-from tatoebator.gui.default_gui_elements import Colors, SpecialColors
+from .default_gui_elements import Colors, SpecialColors
 
 
 class QSelectableTextEdit(QTextEdit):
@@ -17,7 +17,7 @@ class QSelectableTextEdit(QTextEdit):
         self.setReadOnly(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
-        self.setStyleSheet(f"background-color: {Colors.transparent.name()}; font-size: 20px;")
+        self.setStyleSheet(f"background-color: transparent; font-size: 20px;")
         self.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
         self.setWordWrapMode(QTextOption.WrapMode.WordWrap)
         self.words = []
@@ -104,7 +104,7 @@ class QWordDisplay(QWidget):
         self.title_label.setText(self.title)
         self.text_edit = QTextEdit()
         self.text_edit.setReadOnly(True)
-        self.text_edit.setStyleSheet(f"background-color: {Colors.transparent.name()}; font-size: 20px;")
+        self.text_edit.setStyleSheet(f"background-color: transparent; font-size: 20px;")
         self.text_edit.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
         self.text_edit.setWordWrapMode(QTextOption.WrapMode.WordWrap)
 

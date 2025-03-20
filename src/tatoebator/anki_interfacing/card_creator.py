@@ -2,10 +2,10 @@ from typing import List
 
 import anki.collection
 
-from tatoebator.audio import MediaManager
-from tatoebator.constants import INTER_FIELD_SEPARATOR
-from tatoebator.language_processing import Definitions, add_furigana_html
-from tatoebator.sentences import ExampleSentence
+from ..audio import MediaManager
+from ..constants import INTER_FIELD_SEPARATOR
+from ..language_processing import Definitions, add_furigana_html
+from ..sentences import ExampleSentence
 
 
 class CardCreator:

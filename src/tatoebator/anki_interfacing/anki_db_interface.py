@@ -3,10 +3,10 @@ from typing import Dict, Tuple, Set
 
 from aqt import mw
 
-from tatoebator.anki_interfacing.card_creator import CardCreator
-from tatoebator.anki_interfacing.notetype_registrar import NotetypeRegistrar
-from tatoebator.anki_interfacing.vocab_field_registry import FieldPointer, VocabFieldRegistry
-from tatoebator.audio import MediaManager
+from .card_creator import CardCreator
+from .notetype_registrar import NotetypeRegistrar
+from .vocab_field_registry import FieldPointer, VocabFieldRegistry
+from ..audio import MediaManager
 
 
 class WordInLibraryType(Enum):
@@ -22,7 +22,7 @@ class AnkiDbInterface:
         self.other_vocab_fields = VocabFieldRegistry.load_or_create()
 
         notetype_registrar = NotetypeRegistrar.load_or_create()
-        notetype_registrar.ensure_notetype_exists()
+        notetype_registrar.ensure_notetype_exists(self.col)
         self.tatoebator_notetype_id = notetype_registrar.notetype_id
 
         self.card_creator = CardCreator(self.col, self.tatoebator_notetype_id, media_manager)

@@ -2,9 +2,9 @@ import os
 from dataclasses import dataclass
 from typing import List
 
-from tatoebator.constants import PATH_TO_USER_FILES
-from tatoebator.language_extensions import TransientSingleton
-from tatoebator.persistence import PossiblyEmptyPersistable
+from ..constants import PATH_TO_USER_FILES
+from ..language_extensions import TransientSingleton
+from ..persistence import PossiblyEmptyPersistable
 
 
 @dataclass(frozen=True)

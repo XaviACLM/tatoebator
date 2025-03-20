@@ -1,15 +1,31 @@
 from tatoebator.audio import MediaManager
 from tatoebator.db import SentenceRepository
+from tatoebator.external_download_requester import ExternalDownloadRequester
 
+ed = ExternalDownloadRequester()
+sentence_repository = SentenceRepository(MediaManager(), ed)
 
-sentence_repository = SentenceRepository(MediaManager(), None)
+class Cbr:
+    def __init__(self):
+        self.counter = 0
 
+    def f(self, *args):
+        self.counter += 1
+        if self.counter == 100:
+            self.counter = 0
+            print(*args)
+c=Cbr()
 
-for word, sentences in sentence_repository.produce_sentences_for_words({"鳥":5}, produce_new=False, ensure_audio=False, with_furigana=True).items():
+for word, sentences in sentence_repository.produce_sentences_for_words({"やるせない":20,"感知":20,"遣る瀬無い":20},
+                                                                       produce_new=True,
+                                                                       ensure_audio=False,
+                                                                       with_furigana=True,
+                                                                       progress_callback=c.f,
+                                                                       ).items():
     print(word, len(sentences))
     sentences.sort(key = lambda s:s.sentence)
     for sentence in sentences:
-        print(sentence.trusted, f"\t{sentence.sentence} - {sentence.translation}")
+        print(sentence.trusted,"(",sentence.n_unknown_words,"/",sentence.n_lexical_words,")", f"\t{sentence.sentence} - {sentence.translation}")
         print(f"\t{sentence.furigana}")
         print("")
 

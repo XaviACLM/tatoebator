@@ -3,7 +3,7 @@ import sys
 import bisect
 from hashlib import sha256
 import threading
-from typing import Callable, Any, Tuple, Dict, Set
+from typing import Callable, Any, Tuple, Dict, Set, List
 
 
 def deterministic_hash(string: str) -> str:
@@ -108,19 +108,34 @@ class AutoRemovingThread(threading.Thread):
             self.thread_set.discard(self)
 
 
-class SortedLimiter:
+class RankedItem:
+    def __init__(self, value, item):
+        self.value = value
+        self.item = item
+
+    def __lt__(self, other):
+        return self.value < other.value  # Compare only values
+
+
+class RankedBuffer:
     def __init__(self, max_size: int):
         self.max_size = max_size
-        self._items = []  # Stores (value, item) tuples
+        self._items: List[RankedItem] = []  # Stores (value, item) tuples
 
-    def insert(self, item, value: float):
-        bisect.insort(self._items, (value, item))
+    def insert(self, value, item):
+        bisect.insort(self._items, RankedItem(value, item))
 
         if len(self._items) > self.max_size:
             self._items.pop(0)
 
+    def is_full(self):
+        return self.amt_items() == self.max_size
+
+    def amt_items(self):
+        return len(self._items)
+
     def get_items(self):
-        return [item for _, item in self._items]
+        return [ranked_item.item for ranked_item in self._items]
 
     def lowest_value(self, default_value=None):
-        return self._items[0][0] if self._items else default_value
+        return self._items[0].value if self._items else default_value

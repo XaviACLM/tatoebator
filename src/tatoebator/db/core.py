@@ -185,6 +185,7 @@ class SentenceDbInterface:
         :param ensure_audio: if true, sentences with no audio_fileid will generate one
         :return: list of found sentences, as ExampleSentences
         """
+        # todo update so it uses the proper order
         if self._session is None: self._open_session()
 
         results = (
@@ -321,3 +322,14 @@ class SentenceDbInterface:
         self._session.query(Keyword).filter(Keyword.keyword.in_(known_words)).update({"known": True},
                                                                                      synchronize_session=False)
         self._session.commit()
+
+    def get_known_keywords_subset(self, keywords: List[str]):
+        if self._session is None: self._open_session()
+        result = (
+            self._session.query(Keyword.keyword)
+                .distinct(Keyword.keyword)
+                .filter(Keyword.keyword.in_(keywords))
+                .filter(Keyword.known)
+                .all()
+        )
+        return result

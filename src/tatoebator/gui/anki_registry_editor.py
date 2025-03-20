@@ -5,8 +5,7 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QCom
 
 from .default_gui_elements import Colors
 from .util import ask_yes_no_question
-from tatoebator.anki_interfacing.anki_db_interface import AnkiDbInterface
-from ..anki_interfacing.vocab_field_registry import FieldPointer
+from ..anki_interfacing import AnkiDbInterface, FieldPointer
 
 
 class CascadingDropdownWidget(QWidget):
