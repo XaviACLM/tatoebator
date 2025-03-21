@@ -77,7 +77,6 @@ class OutputDeckSelectionWidget(QWidget):
             self.warning_label.hide()
 
     def _create_new_deck(self):
-        # todo created deck doesn't show up on the dashboard until you hit sync
         if self._creating_new_deck:
             # if we don't have this lock, the dropdown updates during deck creation trip another deck creation prompt
             return

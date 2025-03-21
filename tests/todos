@@ -28,13 +28,12 @@ TODO option to add machine translated sentences (tag them in db + gui)
 
 still a reasonable amount of stuff to do, but primarily gui/config - let's make a list
 
-todo figure out autoplay
-
-TODO cleanup note creation, w a widget to pick which deck stuff goes to
+todo finish autoplay. i.e. link word audio and test whether it is necessary to include [sound:] tags in an unused field
+ st anki won't delete our files
 
 other todos that are still relevant but not that urgent
 
-TODO help menus
+TODO write help menus
 
 TODO port decks (incl. rtk to migaku... somehow?)
 
@@ -93,7 +92,6 @@ TODO better dicts. either:
 
 TODO main bits of gui
  standalone sentence adder
- the cards themselves (when do the notes get created? must be in the table gui, no?
 
 TODO make it so it doesnt crash instantly if robots requests fail. Offline mode in general
  -> this should be easily fixable by making the robots sessions lazy
