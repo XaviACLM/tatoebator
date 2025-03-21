@@ -87,16 +87,65 @@ function main(){
         sentence_container_elem.appendChild(sentence_elems[i]);
     }
 
+    const replay_button_html = `
+<a class="replay-button soundLink" href="#" onclick="return false;">
+<svg class="playImage" viewBox="0 0 64 64" version="1.1">
+<circle cx="32" cy="32" r="29"></circle>
+<path d="M56.502,32.301l-37.502,20.101l0.329,-40.804l37.173,20.703Z"></path>
+</svg>
+</a>";
+`
+    let sentence_audio_elems = [];
+
     //populate sentence elems
 		let j;
     for(i=0;i<amt_sentences_back;i++){
         j = selected_indices[i];
-        sentence_elems[i].querySelector(".sentence-audio").innerHTML = sentence_data[5*j+3];
+        sentence_elems[i].querySelector(".sentence-audio-button").outerHTML = replay_button_html;
         sentence_elems[i].querySelector(".sentence-jpn").innerHTML = sentence_data[5*j+1];
         sentence_elems[i].querySelector(".sentence-eng").innerHTML = sentence_data[5*j+2];
         sentence_elems[i].querySelector(".sentence-source").innerHTML = sentence_data[5*j+4];
+        sentence_audio_elems.push(sentence_elems[i].querySelector(".sentence-audio"));
+        sentence_audio_elems[i].querySelector("source").src = sentence_data[5*j+3];
     }
 
+    //audio autoplay control
+    let autoplaying = true;
+    let front_of_card = true;
+
+    //daisy chain audio playback
+    //local indexer st we get a different variable for each iter (?!), avoiding capturing issues
+    for(let vi=0;vi<amt_sentences_back-1;vi++){
+        sentence_audio_elems[vi].onended = function() {
+            if (autoplaying){
+                sentence_audio_elems[vi+1].play();
+            }
+        };
+    }
+
+    //link replay buttons to corresponding audio
+    for (let i = 0; i < amt_sentences_back; i++) {
+        let button = sentence_elems[i].querySelector(".replay-button");
+        button.onclick = function () {
+            autoplaying = false; // Stop autoplay
+            sentence_audio_elems.forEach(audio => {
+                audio.pause();
+                audio.currentTime = 0; // Reset audio to start
+            });
+            sentence_audio_elems[i].play(); // Play corresponding audio
+        };
+    }
+
+    //break playback chain at first sentence not in front of card
+    if (amt_sentences_front<amt_sentences_back){
+        sentence_audio_elems[amt_sentences_front].onplay = function () {
+            sentence_audio_elems[amt_sentences_front].pause();
+        }
+    }
+
+    // leave information abt which audio is unlinked so that the back of card can re-link it
+    message_passing_elem = document.getElementById("message-passing-div");
+    message_passing_elem.textContent = amt_sentences_front;
 
 		// hiding stuff that shouldn't be on the front of the card. will be unhid by the back
     for (i=amt_sentences_front; i<amt_sentences_back; i++) sentence_elems[i].style.display = 'none';
@@ -104,29 +153,9 @@ function main(){
     document.getElementById("definition-eng-elem").style.display = 'none';
     document.getElementById("definition-jpn-elem").style.display = 'none';
 
-    // autoplay visible sentences
-    let front_autoplay_command = 'autoplay:q:0';
-    for (i=0; i<amt_sentences_front; i++) {
-        front_autoplay_command += ','+(selected_indices[i]+1);
-    }
-    let full_autoplay_command = front_autoplay_command;
-    for (i=amt_sentences_front; i<amt_sentences_back; i++) {
-        full_autoplay_command += ','+(selected_indices[i]+1);
-    }
-    //TODO pull request relevant here
-    pycmd(front_autoplay_command);
-
-    // leave the full autoplay command where the backside script block can find it
-    message_passing_elem = document.getElementById("message-passing-div");
-    message_passing_elem.textContent = full_autoplay_command;
-
-    // leave the full autoplay command where the backside script block can find it
-    message_passing_elem = document.getElementById("message-passing-div");
-    message_passing_elem.textContent = full_autoplay_command;
-
     //debug stuff
     const debug_elem = document.getElementById("debug-div");
     debug_elem.textContent = "";
 }
 main();
-</script>        
+</script>

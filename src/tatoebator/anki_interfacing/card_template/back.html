@@ -12,11 +12,14 @@ function main(){
     document.getElementById("definition-eng-elem").style.display = 'block';
     document.getElementById("definition-jpn-elem").style.display = 'block';
 
-    // get the full autoplay command from front
+    let front_of_card = false;
+
+    // get the amt of sentences at the front from the message passing div
     message_passing_elem = document.getElementById("message-passing-div");
-    full_autoplay_command = message_passing_elem.textContent;
-    //TODO uncomment this once we succesfully pushed changes
-    pycmd(full_autoplay_command);
+    amt_sentences_front = Number(message_passing_elem.textContent);
+    if (amt_sentences_front<amt_sentences_back) {
+        sentence_elems[amt_sentences_front].querySelector(".sentence-audio").onplay = function () {}
+    }
 
     const debug_elem = document.getElementById("debug-div");
     debug_elem.textContent = "";
