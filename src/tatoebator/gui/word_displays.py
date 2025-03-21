@@ -10,6 +10,10 @@ from .default_gui_elements import Colors, SpecialColors
 class QSelectableTextEdit(QTextEdit):
     state_changed = pyqtSignal()
 
+    # todo should change colors acc. to night mode
+    #  word table too, actually... that'll be a pain
+    #  actually, i guess it's pretty easy to just change default_gui_elements.Colors according to whether it's night mode
+
     def __init__(self, parent=None, all_selected=False):
         super().__init__(parent)
         self.num_words = 0

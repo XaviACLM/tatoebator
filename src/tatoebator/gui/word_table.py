@@ -4,13 +4,16 @@ from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtGui import QFontMetrics
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
-    QHeaderView, QScrollArea, QHBoxLayout, QPushButton, QStyledItemDelegate, QPlainTextEdit
+    QHeaderView, QScrollArea, QHBoxLayout, QPushButton, QStyledItemDelegate, QPlainTextEdit, QSpacerItem, QSizePolicy
 )
 
+from .deck_select_dropdown import OutputDeckSelectionWidget
 from .default_gui_elements import SpecialColors
+from .gui_data_cache import GuiDataCache
 from .process_dialog import ProgressDialog
 from .util import ask_yes_no_question
-from ..config import SENTENCES_PER_WORD
+from ..anki_interfacing import AnkiDbInterface
+from ..config import SENTENCES_PER_WORD, SENTENCES_PER_CARD_BACK
 from ..db import SentenceRepository
 from ..language_processing import grammaticalized_words, DefinitionFetcher, Definitions
 
@@ -63,7 +66,7 @@ class NewWordsTableWidget(QWidget):
     backing_up_from = pyqtSignal()
     continuing_from = pyqtSignal()
 
-    sentences_per_word_quota = 5
+    sentences_per_word_quota = SENTENCES_PER_CARD_BACK
     sentences_per_word_ideally = SENTENCES_PER_WORD
 
     # SELECTOR_ROW = 0
@@ -77,10 +80,14 @@ class NewWordsTableWidget(QWidget):
 
     def __init__(self, words,
                  sentence_repository: SentenceRepository,
-                 definition_fetcher: DefinitionFetcher):
+                 definition_fetcher: DefinitionFetcher,
+                 anki_db_interface: AnkiDbInterface,
+                 gui_data_cache: GuiDataCache):
         super().__init__()
         self.sentence_repository = sentence_repository
         self.definition_fetcher = definition_fetcher
+        self.anki_db_interface = anki_db_interface
+        self.gui_data_cache = gui_data_cache
 
         self._n_sentences_per_word = {word: 0 for word in words}
         self._n_sentences_per_word_50 = {word: 0 for word in words}
@@ -109,8 +116,21 @@ class NewWordsTableWidget(QWidget):
                                                                        self.table.item(i, 6).text())
                 for i in range(self._n_rows) if self._is_idx_selected(i)}
 
+    def get_selected_deck_id(self) -> int:
+        return self.deck_select_widget.get_selected_deck_id()
+
     def _init_ui(self):
         layout = QVBoxLayout()
+
+        top_bar_layout = QHBoxLayout()
+
+        spacer = QSpacerItem(20, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.deck_select_widget = OutputDeckSelectionWidget(self.anki_db_interface,
+                                                            starting_deck_id=self.gui_data_cache.last_selected_deck_id)
+        top_bar_layout.addSpacerItem(spacer)
+        top_bar_layout.addWidget(self.deck_select_widget)
+
+        layout.addLayout(top_bar_layout)
 
         # Create the table
         self.table = AutoResizeTableWidget(self._n_rows, 7, forced_resize_columns=[5, 6])
@@ -186,7 +206,7 @@ class NewWordsTableWidget(QWidget):
         buttons_bar.addWidget(self.button_continue)
 
         # signals
-        self.button_back.clicked.connect(self.backing_up_from.emit)
+        self.button_back.clicked.connect(self._on_go_back_clicked)
         self.button_continue.clicked.connect(self._check_before_continuing)
         self.table.itemChanged.connect(self._handle_table_change)
 
@@ -195,6 +215,10 @@ class NewWordsTableWidget(QWidget):
         self.setLayout(layout)
 
         self._update_sentence_counts()
+
+    def _on_go_back_clicked(self):
+        self.gui_data_cache.last_selected_deck_id = self.get_selected_deck_id()
+        self.backing_up_from.emit()
 
     def _uncheck_grammaticalized(self, amt_grammaticalized: int):
         for row in range(self._n_rows - amt_grammaticalized, self._n_rows):
@@ -345,4 +369,5 @@ class NewWordsTableWidget(QWidget):
         if min(self._n_sentences_per_word.values()) >= self.sentences_per_word_quota \
                 or ask_yes_no_question("Some of the selected words have a low (<{self.sentences_per_word_quota}) amount"
                                        " of example sentences available for them. Proceed anyway?"):
+            self.gui_data_cache.last_selected_deck_id = self.get_selected_deck_id()
             self.continuing_from.emit()

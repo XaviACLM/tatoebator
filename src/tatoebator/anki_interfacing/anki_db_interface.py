@@ -27,18 +27,23 @@ class AnkiDbInterface:
 
         self.card_creator = CardCreator(self.col, self.tatoebator_notetype_id, media_manager)
 
-    def create_new_deck(self, deck_name: str) -> int:
+    def create_new_deck(self, deck_name: str, refresh_deck_browser=False) -> int:
+        # todo throw an error if name already exists (anki can handle it fine, actually, but we don't want to)
         col = self.col
         deck = col.decks.new_deck()
         deck.name = deck_name
         id_ = col.decks.add_deck(deck).id
+        if refresh_deck_browser:
+            mw.deckBrowser.refresh()
         return id_
 
     def get_deck_ids_by_name(self) -> Dict[str, int]:
         return {name: id_ for id_, name in self.col.db.all("SELECT id,name FROM decks")}
 
     def _get_notetype_ids_in_deck(self, deck_id: int) -> Set[int]:
-        data = self.col.db.all(f"SELECT DISTINCT nid FROM cards WHERE did = {deck_id}")
+        data = self.col.db.all("SELECT DISTINCT mid FROM notes WHERE id IN "
+                               f"(SELECT nid FROM cards WHERE did = {deck_id})")
+        data = [row[0] for row in data]
         return set(data)
 
     def does_deck_contain_non_tatoebator_notetypes(self, deck_id: int):

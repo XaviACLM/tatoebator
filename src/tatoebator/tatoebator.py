@@ -10,6 +10,7 @@ from .db import SentenceRepository
 from .external_download_requester import ExternalDownloadRequester, ExternalDownloadGUIProtocol, Downloadable
 from .gui import MineNewWordsWidget, NewWordsTableWidget, AnkiRegistryEditorWidget, ExternalDownloadDialog, \
     MinerFieldDataCache
+from .gui.gui_data_cache import GuiDataCache
 from .language_processing import japanese_chars_ratio, DefinitionFetcher
 from .util import get_clipboard_text
 
@@ -20,6 +21,7 @@ class Tatoebator:
         self.external_download_requester = ExternalDownloadRequester(ExternalDownloadRequestConductor)
         self.sentence_repository = SentenceRepository(self.media_manager, self.external_download_requester)
         self.definition_fetcher = DefinitionFetcher()
+        self.gui_data_cache = GuiDataCache.load_or_create()
         self.anki_db_interface: Optional[AnkiDbInterface] = None
 
         gui_hooks.main_window_did_init.append(self._init_anki_inteface)
@@ -32,7 +34,8 @@ class Tatoebator:
 
         self.mining_conductor = MiningProcessConductor(self.sentence_repository,
                                                        self.anki_db_interface,
-                                                       self.definition_fetcher)
+                                                       self.definition_fetcher,
+                                                       self.gui_data_cache)
         self.mining_conductor.start(starting_text)
 
     def open_registry_editor(self):
@@ -50,8 +53,26 @@ class Tatoebator:
         self.anki_db_interface = AnkiDbInterface(self.media_manager)
 
     def word_table_test(self, words: List[str]):
-        self.table_widget = NewWordsTableWidget(words, self.sentence_repository, self.definition_fetcher)
+        self.table_widget = NewWordsTableWidget(words, self.sentence_repository, self.definition_fetcher,
+                                                self.anki_db_interface, self.gui_data_cache)
+
+        def _create_cards():
+            new_words_data = self.table_widget.get_new_word_data()
+            deck_id = self.table_widget.get_selected_deck_id()
+
+            self.table_widget.close()
+            sentences_per_word_ideally = SENTENCES_PER_WORD
+            request = {word: sentences_per_word_ideally for word in new_words_data}
+            sentences = self.sentence_repository.produce_sentences_for_words(request,
+                                                                             produce_new=False,
+                                                                             ensure_audio=True,
+                                                                             with_furigana=True)
+            for word, definitions in new_words_data.items():
+                self.anki_db_interface.card_creator.create_note_in_deck(deck_id, word, definitions, sentences[word])
+
+        self.table_widget.continuing_from.connect(_create_cards)
         self.table_widget.show()
+
 
     def anki_db_test(self):
         fp = self.anki_db_interface.other_vocab_fields[0]
@@ -63,22 +84,23 @@ class Tatoebator:
                                                                    "手紙", "仕事", "休み", "旅行", "お金", "時間",
                                                                    "今日", "明日", "昨日", "今", "後で"])))
 
-    def note_creation_test(self):
-        self.anki_db_interface.card_creator.create_note("balls", None, None)
-
     def ensure_data_health(self):
         self.sentence_repository.update_known(self.anki_db_interface.get_known_words())
-        self.sentence_repository.cleanup_orphaned_audio_files()
-        self.sentence_repository.regenerate_missing_audio_files()
+        # todo this used to do more stuff but we cut down on redundancy. at this point its worth it
+        #  to remove this function altogether and somehow ensure the above always happens
+        #  ...or is it? never bad to hook this to startup either
 
 
 class MiningProcessConductor:
     def __init__(self, sentence_repository: SentenceRepository,
                  anki_db_interface: AnkiDbInterface,
-                 definition_fetcher: DefinitionFetcher):
+                 definition_fetcher: DefinitionFetcher,
+                 gui_data_cache: GuiDataCache):
         self.sentence_repository = sentence_repository
         self.definition_fetcher = definition_fetcher
         self.anki_db_interface = anki_db_interface
+        self.gui_data_cache = gui_data_cache
+
         self.cached_mining_widget_data = None
         self.words_mined = []
 
@@ -93,7 +115,8 @@ class MiningProcessConductor:
         self.cached_mining_widget_data = self.mining_widget.get_cached_fields()
         self.words_mined = self.mining_widget.get_selected_words()
         self.mining_widget.close()
-        self.table_widget = NewWordsTableWidget(self.words_mined, self.sentence_repository, self.definition_fetcher)
+        self.table_widget = NewWordsTableWidget(self.words_mined, self.sentence_repository, self.definition_fetcher,
+                                                self.anki_db_interface, self.gui_data_cache)
         self.table_widget.backing_up_from.connect(self._back_from_card_creation_to_mining)
         self.table_widget.continuing_from.connect(self._create_cards)
         self.table_widget.show()
@@ -104,6 +127,8 @@ class MiningProcessConductor:
 
     def _create_cards(self):
         new_words_data = self.table_widget.get_new_word_data()
+        deck_id = self.table_widget.get_selected_deck_id()
+
         self.table_widget.close()
 
         from aqt.utils import showInfo
@@ -120,7 +145,7 @@ class MiningProcessConductor:
                                                                          with_furigana=True)
 
         for word, definitions in new_words_data.items():
-            self.anki_db_interface.card_creator.create_note(word, definitions, sentences[word])
+            self.anki_db_interface.card_creator.create_note(deck_id, word, definitions, sentences[word])
 
 
 class ExternalDownloadRequestConductor(ExternalDownloadGUIProtocol):

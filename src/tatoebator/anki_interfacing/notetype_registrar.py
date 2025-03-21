@@ -26,6 +26,7 @@ class NotetypeRegistrar(PossiblyEmptyPersistable):
         id_ = self.notetype_id
         if id_ is None or col.models.get(id_) is None:
             self._create_notetype(col)
+            self.save()
 
     def _create_notetype(self, col: anki.collection.Collection):
         mm = col.models

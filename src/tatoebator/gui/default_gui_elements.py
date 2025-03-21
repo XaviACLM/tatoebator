@@ -15,6 +15,10 @@ class Colors:
     # no real need to be here, but to avoid ambiguity
     transparent = QColor(0, 0, 0, 0)
 
+    # for use only as text color
+    warning_red = QColor(200, 0, 0)
+    medium_grey = QColor(150, 150, 150)
+
 
 class SpecialColors:
     # not for general use, only some specific gui elements

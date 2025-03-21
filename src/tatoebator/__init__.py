@@ -89,10 +89,10 @@ if running_as_anki_addon():
         mw.tatoebator.anki_db_test()
 
     def testfun2() -> None:
-        mw.tatoebator.note_creation_test()
+        print("uhhhh")
 
     def testfun3() -> None:
-        print("uuuh")
+        mw.tatoebator.word_table_test(["時計","電話","テレビ","音楽","映画","写真","手紙","仕事","休み","旅行","お金","時間","今日","明日","昨日","今","後で"])
 
     for idx, testfun in enumerate([testfun1, testfun2, testfun3]):
         action = QAction(f"test{idx + 1}", mw)

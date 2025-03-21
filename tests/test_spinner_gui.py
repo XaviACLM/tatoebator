@@ -1,5 +1,3 @@
-import time
-
 from PyQt6.QtWidgets import QApplication, QWidget, QMainWindow, QVBoxLayout, QPushButton
 
 from tatoebator.gui.loading_spinner import XavoSpinner
