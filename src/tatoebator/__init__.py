@@ -1,3 +1,21 @@
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..\\..\\lib"))
+
+from .util import running_as_anki_addon, ensure_aqt
+
+# if not running in anki, insert mock_aqt module into sys.modules['aqt']
+ensure_aqt()
+
+
+
+
+
+
+
+
+
 
 
 from .util import running_as_anki_addon
@@ -30,15 +48,9 @@ if running_as_anki_addon():
 
 
 
-import os
-import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..\\..\\lib"))
 
-from .util import running_as_anki_addon, ensure_aqt
 
-# if not running in anki, insert mock_aqt module into sys.modules['aqt']
-ensure_aqt()
 
 from .tatoebator import Tatoebator
 

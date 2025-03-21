@@ -20,31 +20,23 @@ this above, lemme find
 
 ...and wouldn't it be a good idea to do the common TODOs before we fork, actually?
 
+...and thinking about it, i'm too lazy to do all the common TODOs and i know it'll be a pain to port them later so
+it seems to me like the best choice is to just add more features to what we currently got
+and pare things down later if necessary
+
 TODO option to add machine translated sentences (tag them in db + gui)
 
 still a reasonable amount of stuff to do, but primarily gui/config - let's make a list
 
-todo fork - tatoebator-lite
-
-todo wait for the pr to get accepted
-
-TODO help menus
+todo figure out autoplay
 
 TODO cleanup note creation, w a widget to pick which deck stuff goes to
 
 other todos that are still relevant but not that urgent
 
-TODO use the trusted field
-
-TODO callbacks st sentence production manager can prefer grabbing comprehensible sentences (in principle:
-      callback returns a score 0-1. spm grabs sentences, at most the desired amount, popping stuff if it finds better
-      options. considers itself to be done if it has found comprehensibility >0.8 for all sentences
+TODO help menus
 
 TODO port decks (incl. rtk to migaku... somehow?)
-
-TODO probably is a good idea to make it obvious when a new card is shown iykyk
- -> this should be easy with some gui hook. separate into its own addon. we can do it as a toy example
- ... but it's annoying that it won't work on ankidroid
 
 TODO set up hooks st if a deck is deleted the corresponding words in our db stop being marked as known
  there lurks there a more complicated question ab how much redundance there should be between the two dbs
