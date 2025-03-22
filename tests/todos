@@ -92,6 +92,3 @@ TODO better dicts. either:
 
 TODO main bits of gui
  standalone sentence adder
-
-TODO make it so it doesnt crash instantly if robots requests fail. Offline mode in general
- -> this should be easily fixable by making the robots sessions lazy

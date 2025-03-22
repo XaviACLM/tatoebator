@@ -359,7 +359,6 @@ class JParaCrawlASPM(ArbitrarySentenceProductionMethod):
                 source_1, source_2, score, en_text, jp_text = line_matcher.fullmatch(line).groups()
                 common_source = self._common_source(source_1, source_2)
                 credit = f"{common_source} (JParaCrawl)" if len(common_source) > 8 else "JParaCrawl"
-                # TODO this can lead to really long credits (>60 chars) - we'll need to ensure the HTML can resize
 
                 yield CandidateExampleSentence(jp_text, en_text, credit=credit)
                 self.last_seen_index += 1

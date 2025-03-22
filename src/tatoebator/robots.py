@@ -14,8 +14,14 @@ class RobotsAwareSession(requests.Session):
         self.user_agent = user_agent#"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.3"
         self.headers['User-Agent'] = user_agent
         self._robots_parser = RobotFileParser()
-        self._load_robots_txt()
-        self._setup_rate_constraints()
+
+        self._setup_finished = False
+
+    def _ensure_setup_finished(self):
+        if not self._setup_finished:
+            self._load_robots_txt()
+            self._setup_rate_constraints()
+        self._setup_finished = True
 
     def _setup_rate_constraints(self):
         self.crawl_delay = self._robots_parser.crawl_delay(self.user_agent) or 0
@@ -50,6 +56,7 @@ class RobotsAwareSession(requests.Session):
             self._robots_parser.parse(robots_data.content.decode("utf-8").splitlines())
 
     def request(self, method, url, *args, **kwargs):
+        self._ensure_setup_finished()
         # Parse the URL to get the path
         parsed_url = urlparse(url)
         path = parsed_url.path
@@ -64,6 +71,7 @@ class RobotsAwareSession(requests.Session):
         return super().request(method, url, *args, **kwargs)
 
     def get_maximum_rate(self):
+        self._ensure_setup_finished()
         delay = self.crawl_delay or 0
         if self.request_buffer:
             delay = max(delay, len(self.request_buffer.buffer) / self.request_rate_seconds)

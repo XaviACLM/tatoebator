@@ -190,8 +190,9 @@ class WeblioDictionary(Dictionary):
 class DefinitionFetcher:
     _dictionaries: List[Dictionary] = [WeblioDictionary(), TanoshiiDictionary(), JishoDictionary()]
 
-    def __init__(self):
-        self._dictionaries.sort(key=lambda x: -x.get_maximum_rate())
+    @cached_property
+    def _sorted_dictionaries(self):
+        return sorted(self._dictionaries, key=lambda x: -x.get_maximum_rate())
 
     def get_definitions(self, word: str) -> Definitions:
         for definitions in self._yield_aggregated_definitions(word):
@@ -210,7 +211,7 @@ class DefinitionFetcher:
 
     def _yield_aggregated_definitions(self, word: str):
         definitions = Definitions.empty()
-        for dictionary in self._dictionaries:
+        for dictionary in self._sorted_dictionaries:
             definitions = definitions + dictionary.get_definitions(word)
             yield definitions
 

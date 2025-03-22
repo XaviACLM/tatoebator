@@ -1,4 +1,9 @@
-{{word_audio}} {{word_furigana}}
+<div id="word-audio-button"></div>
+<audio id="word-audio">
+    <source src="{{word_audio}}" type="audio/mp3"></source>
+</audio>
+{{word_furigana}}
+
 <hr>
 <div id='definition-eng-elem'>{{definition_eng}}
 <hr>
@@ -12,10 +17,13 @@
 
 <div id="sentences-container">
     <div class="sentence">
-        <div class="sentence-audio" style="display: inline-block;"></div>
+        <div class="sentence-audio-button"></div>
         <div class="sentence-jpn" style="display: inline-block;"></div>
         <div class="sentence-eng"></div>
         <div class="sentence-source"></div>
+        <audio class="sentence-audio">
+            <source src="" type="audio/mp3"></source>
+        </audio>
     </div>
 </div>
 
@@ -45,7 +53,7 @@ function main(){
       h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
       h2  = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
       h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-  
+
       return 4294967296 * (2097151 & h2) + (h1 >>> 0);
     };
 
@@ -67,7 +75,6 @@ function main(){
     const n_sentences = Math.floor(sentence_data.length/5);
 
     //generate indices for back/front sentences
-    //TODO these numbers have to be set by config (much like parts of the html)
     const amt_sentences_back = Math.min(n_sentences, <<REPLACE_TAG:max_amt_sentences_back>>);
     const amt_sentences_front = Math.min(n_sentences, <<REPLACE_TAG:max_amt_sentences_front>>);
     let selected_indices = [];
@@ -93,8 +100,8 @@ function main(){
 <circle cx="32" cy="32" r="29"></circle>
 <path d="M56.502,32.301l-37.502,20.101l0.329,-40.804l37.173,20.703Z"></path>
 </svg>
-</a>";
-`
+</a>
+`;
     let sentence_audio_elems = [];
 
     //populate sentence elems
@@ -132,6 +139,7 @@ function main(){
                 audio.currentTime = 0; // Reset audio to start
             });
             sentence_audio_elems[i].play(); // Play corresponding audio
+            return false;
         };
     }
 
@@ -141,6 +149,34 @@ function main(){
             sentence_audio_elems[amt_sentences_front].pause();
         }
     }
+
+    //link word audio to start of daisy chain
+    word_audio_elem = document.getElementById("word-audio");
+    if (amt_sentences_front>0) {
+        word_audio_elem.onended = function () {
+            if (autoplaying) {
+                sentence_audio_elems[0].play();
+            }
+        }
+    }
+    word_audio_elem.play();
+
+    //setup word audio button
+    word_audio_button_container = document.getElementById("word-audio-button");
+    word_audio_button_container.innerHTML = replay_button_html;
+    word_audio_button = word_audio_button_container.querySelector(".replay-button");
+    word_audio_button.onclick = function () {
+        autoplaying = false;
+        sentence_audio_elems.forEach(audio => {
+            audio.pause();
+            audio.currentTime = 0;
+        });
+        word_audio_elem.play();
+        return false;
+    }
+
+    //start autoplay
+    word_audio_elem.play();
 
     // leave information abt which audio is unlinked so that the back of card can re-link it
     message_passing_elem = document.getElementById("message-passing-div");

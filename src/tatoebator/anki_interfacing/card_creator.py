@@ -20,15 +20,13 @@ class CardCreator:
         word_audio_file_ref = self.media_manager.create_audio_file(word, 0.8, None)
 
         note['word'] = word
-        note['word_audio'] = f'[sound:{word_audio_file_ref}]'
-        #note['word_audio'] = word_audio_file_ref'
+        note['word_audio'] = word_audio_file_ref
         note['word_furigana'] = add_furigana_html(word, ignore_unknown_words=True)
         note['definition_eng'] = "\n- ".join(definitions.en)
         note['definition_jpn'] = "\n- ".join(definitions.jp)
         note['sentence_data'] = INTER_FIELD_SEPARATOR.join((INTER_FIELD_SEPARATOR.join([sentence.sentence,
                                                                                         sentence.furigana,
                                                                                         sentence.translation,
-                                                                                        #f"[sound:{sentence.audio_file_ref}]",
                                                                                         sentence.audio_file_ref,
                                                                                         sentence.credit])
                                                             for sentence in sentences))
