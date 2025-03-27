@@ -1,55 +1,14 @@
 import os
 import sys
 
+import anki.collection
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..\\..\\lib"))
 
 from .util import running_as_anki_addon, ensure_aqt
 
 # if not running in anki, insert mock_aqt module into sys.modules['aqt']
 ensure_aqt()
-
-
-
-
-
-
-
-
-
-
-
-from .util import running_as_anki_addon
-if running_as_anki_addon():
-    from typing import Any
-
-    from anki.cards import Card
-    from aqt.sound import av_player
-    from aqt import gui_hooks
-    from aqt.reviewer import Reviewer
-
-    def handle_play_command(handled, message, context):
-        if not message.startswith("play_multiple:"):
-            return handled
-        _, q_or_a, idxs = message.split(":")
-        idxs = list(map(int, idxs.split(",")))
-        if isinstance(context, Reviewer):
-            card = context.card
-        else:
-            card = context.rendered_card
-        tags = card.question_av_tags() if q_or_a == "q" else card.answer_av_tags
-        selected_tags = [tags[idx] for idx in idxs]
-        av_player.play_tags(selected_tags)
-        return True, None
-
-    gui_hooks.webview_did_receive_js_message.append(handle_play_command)
-
-
-
-
-
-
-
-
 
 
 from .tatoebator import Tatoebator
@@ -59,6 +18,7 @@ from .tatoebator import Tatoebator
 # commented out b/c it messes with tracebacks (because we were lazy about it)
 # from .language_extensions.ast_transformers import install_unless
 # install_unless()
+
 
 if running_as_anki_addon():
 
@@ -89,7 +49,7 @@ if running_as_anki_addon():
         mw.tatoebator.anki_db_test()
 
     def testfun2() -> None:
-        print("uhhhh")
+        mw.tatoebator.yomichan_intercept_test()
 
     def testfun3() -> None:
         mw.tatoebator.word_table_test(["時計","電話","テレビ","音楽","映画","写真","手紙","仕事","休み","旅行","お金","時間","今日","明日","昨日","今","後で"])
@@ -98,3 +58,4 @@ if running_as_anki_addon():
         action = QAction(f"test{idx + 1}", mw)
         qconnect(action.triggered, testfun)
         mw.form.menuTools.addAction(action)
+

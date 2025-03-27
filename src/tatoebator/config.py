@@ -29,3 +29,5 @@ SENTENCES_PER_CARD_FRONT = 2
 SENTENCES_PER_CARD_BACK = 5
 assert SENTENCES_PER_CARD_FRONT <= SENTENCES_PER_CARD_BACK
 # not actually necessary to add '<= SENTENCES_PER_WORD' but best know what you're doing
+
+USE_FURIGANA = True

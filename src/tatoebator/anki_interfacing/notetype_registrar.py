@@ -3,7 +3,8 @@ from typing import Optional
 
 import anki.collection
 
-from ..config import SENTENCES_PER_CARD_FRONT, SENTENCES_PER_CARD_BACK
+from .tatoebator_fields import TatoebatorFields
+from ..config import SENTENCES_PER_CARD_FRONT, SENTENCES_PER_CARD_BACK, USE_FURIGANA
 from ..constants import PATH_TO_USER_FILES
 from ..persistence import PossiblyEmptyPersistable
 
@@ -32,13 +33,8 @@ class NotetypeRegistrar(PossiblyEmptyPersistable):
         mm = col.models
         m = mm.new(self.default_tatoebator_notetype_name)
 
-        mm.addField(m, mm.new_field("word"))
-        mm.addField(m, mm.new_field("word_audio"))
-        mm.addField(m, mm.new_field("word_furigana"))
-        mm.addField(m, mm.new_field("definition_eng"))
-        mm.addField(m, mm.new_field("definition_jpn"))
-        mm.addField(m, mm.new_field("sentence_data"))
-        mm.addField(m, mm.new_field("other_data"))
+        for field_name in TatoebatorFields.all:
+            mm.addField(m, mm.new_field(field_name))
 
         t = mm.new_template(self.recognition_cardtype_name)
 
@@ -48,6 +44,9 @@ class NotetypeRegistrar(PossiblyEmptyPersistable):
             m["css"] = f.read()
         with open(os.path.join(local_dir, 'card_template/front.html'), 'r') as f:
             front_html = f.read()
+        front_html = front_html.replace("<<REPLACE_TAG:word_furigana_option>>",
+                                        TatoebatorFields.WORD_FURIGANA if USE_FURIGANA
+                                        else TatoebatorFields.WORD)
         front_html = front_html.replace("<<REPLACE_TAG:max_amt_sentences_front>>", str(SENTENCES_PER_CARD_FRONT))
         front_html = front_html.replace("<<REPLACE_TAG:max_amt_sentences_back>>", str(SENTENCES_PER_CARD_BACK))
         t["qfmt"] = front_html

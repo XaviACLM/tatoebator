@@ -8,3 +8,5 @@ app = QApplication([])
 
 requester = ExternalDownloadRequester(ExternalDownloadRequestConductor)
 requester.get_external_downloadable("ManyThingsTatoeba", prompt_user=True)
+
+requester._prompt_user_for_download("test")

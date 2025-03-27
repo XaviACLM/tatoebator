@@ -1,6 +1,7 @@
 from enum import Enum
-from typing import Dict, Tuple, Set
+from typing import Dict, Tuple, Set, List
 
+from anki.notes import NoteId
 from aqt import mw
 
 from .card_creator import CardCreator
@@ -37,6 +38,9 @@ class AnkiDbInterface:
             mw.deckBrowser.refresh()
         return id_
 
+    def remove_notes_by_ids(self, note_ids: List[NoteId]):
+        self.col.remove_notes(note_ids)
+        
     def get_deck_ids_by_name(self) -> Dict[str, int]:
         return {name: id_ for id_, name in self.col.db.all("SELECT id,name FROM decks")}
 

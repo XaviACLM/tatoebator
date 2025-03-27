@@ -39,6 +39,7 @@ class AutoResizeTableWidget(QTableWidget):
 
         self.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectItems)
         self.original_row_height = self.rowHeight(0)
+        print(self.original_row_height)
         self.forced_resize_columns = forced_resize_columns or []
 
         self.cellClicked.connect(self._adjust_row_height)
@@ -227,8 +228,6 @@ class NewWordsTableWidget(QWidget):
     def _handle_table_change(self, item: QTableWidgetItem):
         if item.column() == 0:
             self._handle_checkbox_change(item.row(), item.checkState() == Qt.CheckState.Checked)
-        # from aqt.utils import showInfo
-        # showInfo(f"updated item at col/row {item.column()}/{item.row()}")
 
     def _handle_checkbox_change(self, idx: int, checked: bool):
         self._update_sentence_button_highlighting()

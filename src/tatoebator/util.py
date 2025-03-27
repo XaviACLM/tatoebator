@@ -139,3 +139,18 @@ class RankedBuffer:
 
     def lowest_value(self, default_value=None):
         return self._items[0].value if self._items else default_value
+
+
+def subclass_must_define_attributes(attrs):
+    def decorator(cls):
+        @classmethod
+        def new_init_subclass(subcls, **kwargs):
+            super(cls, subcls).__init_subclass__(**kwargs)
+            for attr in attrs:
+                if not hasattr(subcls, attr) or getattr(subcls, attr) is None:
+                    raise TypeError(f"Subclass {subcls.__name__} must define the '{attr}' attribute.")
+
+        cls.__init_subclass__ = new_init_subclass
+        return cls
+
+    return decorator

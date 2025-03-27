@@ -11,6 +11,7 @@ from .external_download_requester import ExternalDownloadRequester, ExternalDown
 from .gui import MineNewWordsWidget, NewWordsTableWidget, AnkiRegistryEditorWidget, ExternalDownloadDialog, \
     MinerFieldDataCache
 from .gui.gui_data_cache import GuiDataCache
+from .gui.yomitan_intercept_table import YomichanInterceptTable
 from .language_processing import japanese_chars_ratio, DefinitionFetcher
 from .util import get_clipboard_text
 
@@ -83,6 +84,13 @@ class Tatoebator:
                                                                   ["時計", "電話", "テレビ", "音楽", "映画", "写真",
                                                                    "手紙", "仕事", "休み", "旅行", "お金", "時間",
                                                                    "今日", "明日", "昨日", "今", "後で"])))
+
+    def yomichan_intercept_test(self):
+
+        self.intercept_widget = YomichanInterceptTable(self.sentence_repository, self.anki_db_interface)
+        self.intercept_widget.backing_up_from.connect(lambda: self.intercept_widget.close())
+        self.intercept_widget.continuing_from.connect(lambda: self.intercept_widget.close())
+        self.intercept_widget.show()
 
     def ensure_data_health(self):
         self.sentence_repository.update_known(self.anki_db_interface.get_known_words())

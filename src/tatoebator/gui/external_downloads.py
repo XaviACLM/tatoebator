@@ -9,9 +9,9 @@ from typing import List, Dict
 
 from PyQt6.QtCore import QThread, pyqtSignal
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QTextEdit, QPushButton, QWidget, QHBoxLayout, QSpacerItem, \
-    QSizePolicy, QFrame, QMessageBox
+    QSizePolicy, QFrame, QMessageBox, QGraphicsDropShadowEffect
 
-from .default_gui_elements import Colors, Pixmaps
+from .default_gui_elements import Colors, Pixmaps, SpecialColors
 from .loading_spinner import XavoSpinner
 from ..external_download_requester import Downloadable, AutomaticallyDownloadable, ManualDownloadInstructions, \
     mdit
@@ -26,6 +26,11 @@ class FileExistenceWidget(QWidget):
         self._init_ui()
 
     def _init_ui(self):
+
+        self.setObjectName("file-existence-widget")
+        self.setStyleSheet(
+            f'QWidget#file-existence-widget {{'
+            f'background-color: {Colors.std_bg.name()}}}')
 
         layout = QHBoxLayout()
 
@@ -69,7 +74,10 @@ class FileExistenceWidget(QWidget):
         right_frame.setLayout(right_layout)
         right_frame.setObjectName("right_frame")
         right_frame.setStyleSheet(
-            f'QFrame#right_frame {{background-color: {Colors.light_grey.name()}; border-radius: 10px;}}')
+            f'QFrame#right_frame {{'
+            f'background-color: {Colors.light_emph_bg.name()};'
+            f'border-radius: 1em;}}')
+
 
         frame_holder_layout = QVBoxLayout()
         frame_holder_layout.addWidget(right_frame)

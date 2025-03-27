@@ -3,21 +3,25 @@ from PyQt6.QtWidgets import QStyle
 
 
 class Colors:
+    std_bg = QColor(249, 249, 249)
+    light_emph_bg = QColor(230, 230, 230)
     # for subwidget backgrounds
-    light_grey = QColor(220, 220, 220)
+    emph_bg = QColor(220, 220, 220)
 
     # for highlights/logos
     tatoebator_blue = QColor(000, 50, 170)
 
     # for buttons the gui wants you to click
-    highlight_blue = QColor(220, 220, 220)
+    highlight_blue = QColor(100, 150, 255)
 
     # no real need to be here, but to avoid ambiguity
     transparent = QColor(0, 0, 0, 0)
 
     # for use only as text color
     warning_red = QColor(200, 0, 0)
-    medium_grey = QColor(150, 150, 150)
+
+    # for shadow graphics
+    shadow = QColor(0, 0, 0)
 
 
 class SpecialColors:

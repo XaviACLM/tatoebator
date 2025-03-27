@@ -155,12 +155,21 @@ class AnkiRegistryEditorWidget(QWidget):
         self._init_ui()
 
     def _init_ui(self):
+
+        self.setObjectName("AnkiRegistryEditorWidget")
+        self.setStyleSheet(
+            f'QWidget#AnkiRegistryEditorWidget {{'
+            f'background-color: {Colors.std_bg.name()}}}')
+
         layout = QVBoxLayout()
 
         self._field_selector = FieldSelectorWidget(self.anki_db_interface)
         layout.addWidget(self._field_selector)
         self._field_selector.setObjectName("field_selector")
-        self._field_selector.setStyleSheet(f'QFrame#field_selector {{background-color: {Colors.light_grey.name()}; border-radius: 10px;}}')
+        self._field_selector.setStyleSheet(
+            f'QFrame#field_selector {{'
+            f'background-color: {Colors.light_emph_bg.name()};'
+            f'border-radius: 1em;}}')
         self._field_selector.setContentsMargins(10, 10, 10, 10)
 
         # buttons
