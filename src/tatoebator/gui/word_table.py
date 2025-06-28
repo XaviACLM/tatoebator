@@ -12,6 +12,7 @@ from .default_gui_elements import SpecialColors
 from .gui_data_cache import GuiDataCache
 from .process_dialog import ProgressDialog
 from .util import ask_yes_no_question
+from .yomitan_intercept_table import MinedWordsTableWidget
 from ..anki_interfacing import AnkiDbInterface
 from ..config import SENTENCES_PER_WORD, SENTENCES_PER_CARD_BACK
 from ..db import SentenceRepository

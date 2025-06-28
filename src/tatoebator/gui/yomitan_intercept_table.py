@@ -11,13 +11,16 @@ from anki.decks import DeckId
 from anki.notes import Note
 from bs4 import BeautifulSoup
 
+from .deck_select_dropdown import OutputDeckSelectionWidget
 from .default_gui_elements import Colors, SpecialColors
+from .gui_data_cache import GuiDataCache
 from .toggle_switch import QToggle
 from .util import ask_yes_no_question
 from ..anki_interfacing import TatoebatorFields, AnkiDbInterface
 from ..config import SENTENCES_PER_CARD_BACK, SENTENCES_PER_WORD
 from ..constants import INTER_FIELD_SEPARATOR
 from ..db import SentenceRepository
+from ..language_processing import DefinitionFetcher
 from ..util import subclass_must_define_attributes
 
 
@@ -153,9 +156,8 @@ class WordTableWidget(AutoResizeTableWidget):
 
     # todo getter functions for finishing up
 
-    def search_sentences_then_update_counts_and_gui(self,
-                                                    progress_callback: Optional[Callable[..., None]] = None):
-        self._produce_missing_sentences(progress_callback=progress_callback)
+    def search_sentences_then_update_counts_and_gui(self):
+        self._produce_missing_sentences(progress_callback=print) # todo the actual callback
         self.update_sentence_counts_and_gui()
 
     def update_sentence_counts_and_gui(self):
@@ -355,6 +357,107 @@ class MinedWordsTableWidget(WordTableWidget):
         else:
             self._greyout_row(idx)
 
+    def remove_unselected(self):
+        idxs_to_remove = filter(self._is_idx_selected, range(self._n_words))
+        idxs_to_remove = list(idxs_to_remove)[::-1]
+
+        for idx in idxs_to_remove:
+            self._remove_word_at_idx(idx)
+
+
+# todo finish up this transition
+class MinedWordsTableMenu(QWidget):
+    backing_up_from = pyqtSignal()
+    continuing_from = pyqtSignal()
+
+    def __init__(self, words,
+                 sentence_repository: SentenceRepository,
+                 definition_fetcher: DefinitionFetcher,
+                 anki_db_interface: AnkiDbInterface,
+                 gui_data_cache: GuiDataCache):
+        super().__init__()
+        self.sentence_repository = sentence_repository
+        self.definition_fetcher = definition_fetcher
+        self.anki_db_interface = anki_db_interface
+        self.gui_data_cache = gui_data_cache
+
+        # reorder to put grammaticalized words at the end
+        # funny indexing mostly to preserve order but also to count amt_grammaticalized
+        self.starting_words = words
+
+        self._init_ui()
+
+    def _init_ui(self):
+        layout = QVBoxLayout()
+
+        top_layout = QHBoxLayout()
+
+        spacer = QSpacerItem(20, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.deck_select_widget = OutputDeckSelectionWidget(self.anki_db_interface,
+                                                            starting_deck_id=self.gui_data_cache.last_selected_deck_id)
+        top_layout.addSpacerItem(spacer)
+        top_layout.addWidget(self.deck_select_widget)
+
+        layout.addLayout(top_layout)
+
+        words = (self.starting_words)
+        words.sort()
+        grammaticalized_words = []
+        amt_grammaticalized = 0
+        for i in range(len(words)):
+            j = i - amt_grammaticalized
+            if words[j] in grammaticalized_words:
+                grammaticalized_words.append(words.pop(j))
+                amt_grammaticalized += 1
+
+        self.table = MinedWordsTableWidget(words, grammaticalized_words, self.sentence_repository)
+        # todo
+        #self.table.sentence_search_required_change.connect(self._update_button_sentences)
+        #self.table.found_new_sentences_for_word.connect(self._update_sentences_for_note_by_word)
+        #self.table.word_selected_definition_changed.connect(self._update_selected_definition_for_note_by_word)
+
+        layout.addWidget(self.table)
+
+        # buttons
+        bottom_layout = QHBoxLayout()
+        self.button_back = QPushButton('Go back')
+        self.button_back.clicked.connect(self._on_go_back_clicked)
+        self.button_sentences = QPushButton('Produce missing sentences')
+        self.button_sentences.clicked.connect(self.table.search_sentences_then_update_counts_and_gui)
+        self.button_translations = QPushButton("Fill empty translations")
+        self.button_translations.clicked.connect(self._generate_translations)
+        self.button_definitions = QPushButton("Fill empty definitions")
+        self.button_definitions.clicked.connect(self._generate_definitions)
+        self.button_remove = QPushButton("Remove unselected")
+        self.button_remove.clicked.connect(self.table.remove_unselected)
+        self.button_continue = QPushButton('Create cards')
+        bottom_layout.addWidget(self.button_back)
+        bottom_layout.addWidget(self.button_sentences)
+        bottom_layout.addWidget(self.button_translations)
+        bottom_layout.addWidget(self.button_definitions)
+        bottom_layout.addWidget(self.button_remove)
+        bottom_layout.addWidget(self.button_continue)
+
+        # signals
+        self.button_continue.clicked.connect(self._check_before_continuing)
+
+        layout.addLayout(bottom_layout)
+
+        self.setLayout(layout)
+
+        self._update_sentence_counts()
+
+    def _check_before_continuing(self):
+        if self.table.is_quota_satisfied() or ask_yes_no_question(
+                f"Some of the selected words have a low (<{self.table._sentences_per_word_quota}) amount"
+                " of example sentences available for them. Proceed anyway?"
+        ):
+            self.continuing_from.emit()
+
+    def _on_go_back_clicked(self):
+        self.gui_data_cache.last_selected_deck_id = self.get_selected_deck_id()
+        self.backing_up_from.emit()
+
 
 class WordsFromCollectionTableWidget(WordTableWidget):
     _control_row_name = ""
@@ -396,7 +499,7 @@ class WordsFromCollectionTableWidget(WordTableWidget):
 
 # todo gui progress callback
 
-class YomichanInterceptTable(QWidget):
+class YomichanInterceptTableMenu(QWidget):
     backing_up_from = pyqtSignal()
     continuing_from = pyqtSignal()
 
@@ -505,6 +608,9 @@ class YomichanInterceptTable(QWidget):
         # remove sound tag from audio
         audio = note.fields[TatoebatorFields.index(TatoebatorFields.WORD_AUDIO)].strip()
         if audio:
+            # todo why does this randomly fail at times???????????
+            print(audio)
+            print([audio])
             audio, = re.fullmatch(r"\[sound:(.+?)]", audio).groups()
             note.fields[TatoebatorFields.index(TatoebatorFields.WORD_AUDIO)] = audio
 
@@ -544,7 +650,7 @@ class YomichanInterceptTable(QWidget):
 
     def _check_before_continuing(self):
         if self.table.is_quota_satisfied() or ask_yes_no_question(
-                "Some of the selected words have a low (<{self.sentences_per_word_quota}) amount"
+                f"Some of the selected words have a low (<{self.table._sentences_per_word_quota}) amount"
                 " of example sentences available for them. Proceed anyway?"
         ):
             self.continuing_from.emit()

@@ -11,7 +11,7 @@ from .external_download_requester import ExternalDownloadRequester, ExternalDown
 from .gui import MineNewWordsWidget, NewWordsTableWidget, AnkiRegistryEditorWidget, ExternalDownloadDialog, \
     MinerFieldDataCache
 from .gui.gui_data_cache import GuiDataCache
-from .gui.yomitan_intercept_table import YomichanInterceptTable
+from .gui.yomitan_intercept_table import YomichanInterceptTableMenu
 from .language_processing import japanese_chars_ratio, DefinitionFetcher
 from .util import get_clipboard_text
 
@@ -27,6 +27,8 @@ class Tatoebator:
 
         gui_hooks.main_window_did_init.append(self._init_anki_inteface)
         gui_hooks.main_window_did_init.append(self._update_known_counts)
+        # assuming this gets called after the above...
+        gui_hooks.main_window_did_init.append(self.sentence_repository.ensure_database_initialized)
         gui_hooks.reviewer_will_end.append(self._update_known_counts)
 
     def mining_to_deck_flow(self):
@@ -87,7 +89,7 @@ class Tatoebator:
 
     def yomichan_intercept_test(self):
 
-        self.intercept_widget = YomichanInterceptTable(self.sentence_repository, self.anki_db_interface)
+        self.intercept_widget = YomichanInterceptTableMenu(self.sentence_repository, self.anki_db_interface)
         self.intercept_widget.backing_up_from.connect(lambda: self.intercept_widget.close())
         self.intercept_widget.continuing_from.connect(lambda: self.intercept_widget.close())
         self.intercept_widget.show()

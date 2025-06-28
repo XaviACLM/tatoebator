@@ -145,7 +145,6 @@ class ExampleSentenceQualityEvaluator:
 
         # we now know the sentence is good enough. now to see if it goes through the extra checks to be called good
 
-        if not has_translation: return QualityEvaluationResult.SUITABLE
         for filter_name, filter_fun in cls._extra_quality_filters.items():
             if not filter_fun(example_sentence):
                 return QualityEvaluationResult.SUITABLE

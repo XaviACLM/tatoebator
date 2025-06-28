@@ -319,6 +319,21 @@ class SentenceDbInterface:
     def update_known_field(self, known_words):
         if self._session is None:
             self._open_session()
+        existing_keywords = {kw[0] for kw in
+                             self._session.query(Keyword.keyword).filter(Keyword.keyword.in_(known_words)).all()}
+        new_keywords = [Keyword(keyword=word, known=True) for word in known_words if word not in existing_keywords]
+        self._session.query(Keyword).filter(Keyword.keyword.in_(existing_keywords)).update({"known": True},
+                                                                                           synchronize_session=False)
+
+        # keywords that aren't in any sentence in the db are inserted anyway - this is important so we can calculate
+        # comprehensibility for sentence search
+        if new_keywords:
+            self._session.add_all(new_keywords)
+
+        self._session.commit()
+        return
+        if self._session is None:
+            self._open_session()
         self._session.query(Keyword).filter(Keyword.keyword.in_(known_words)).update({"known": True},
                                                                                      synchronize_session=False)
         self._session.commit()

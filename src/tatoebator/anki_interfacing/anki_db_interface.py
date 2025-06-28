@@ -136,7 +136,7 @@ class AnkiDbInterface:
         classified[WordInLibraryType.IN_LIBRARY_NEW] -= classified[WordInLibraryType.IN_LIBRARY_KNOWN]
         return classified
 
-    def get_known_words(self):
+    def get_known_words(self) -> Set[str]:
         known_words = set()
         for field_pointer in self.other_vocab_fields:
             known_words.update(self._get_known_words_in_deck(field_pointer))

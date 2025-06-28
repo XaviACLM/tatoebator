@@ -16,17 +16,17 @@ class Cbr:
             print(*args)
 c=Cbr()
 
-for word, sentences in sentence_repository.produce_sentences_for_words({"やるせない":20,"感知":20,"遣る瀬無い":20},
+for word, sentences in sentence_repository.produce_sentences_for_words({"やるせない":20,"やる":20,"感知":20,"遣る瀬無い":20},
                                                                        produce_new=True,
                                                                        ensure_audio=False,
-                                                                       with_furigana=True,
+                                                                       with_furigana=False,
                                                                        progress_callback=c.f,
                                                                        ).items():
     print(word, len(sentences))
     sentences.sort(key = lambda s:s.sentence)
     for sentence in sentences:
         print(sentence.trusted,"(",sentence.n_unknown_words,"/",sentence.n_lexical_words,")", f"\t{sentence.sentence} - {sentence.translation}")
-        print(f"\t{sentence.furigana}")
+        print(f"\t{sentence.sentence}")
         print("")
 
 print(jjsj)

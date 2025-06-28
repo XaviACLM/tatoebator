@@ -14,7 +14,7 @@ put a hook on note creation, passthrough if it doesn't fit the yomitan/chan rq f
     (but print to console if this is the case - it's weird to have the toggle activated and be creating *other* cards...)
 if it does fit, capture the request (rt True, None) and push it into the wordtable. bam, we have the word we want
 + definition, no need to use mecab or any of that
-speaking of, will need to turn of lexical check, which is suspect
+speaking of, will need to turn off lexical check, which is suspect
 and there is still the issue of how tl quality in jesc/jparacrawl is rather ass even when qc'd - there was a todo about
 this above, lemme find
 

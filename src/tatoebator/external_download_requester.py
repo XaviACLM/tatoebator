@@ -1,16 +1,14 @@
 from __future__ import annotations
 
 import bz2
-import csv
 import os
-import subprocess
+import re
 import tarfile
 import zipfile
 from asyncio import Protocol
 from enum import Enum
 from typing import Dict, List, Optional, Type, Tuple
 from urllib import parse as parse_url
-import re
 
 from requests import Session
 
@@ -67,7 +65,6 @@ class ManyThingsTatoebaDownloadable(Downloadable, AutomaticallyDownloadable):
 
     @classmethod
     def _download_zipped_files(cls) -> None:
-
         session = RobotsAwareSession('https://www.manythings.org', USER_AGENT)
         url = cls._direct_download_url
         response = session.get(url)
@@ -109,7 +106,7 @@ class ManyThingsTatoebaDownloadable(Downloadable, AutomaticallyDownloadable):
             (mdit.FILE_CHECK_WIDGET, list(cls.item_filepaths.values())),
             (mdit.TEXT, "If the Process file button did not work, it should be fine to manually extract the file you "
                         "downloaded. You might need to redownload - locate the zip file, and extract from within "
-                        "it the file called 'jpn.txt'. Rename it to " 
+                        "it the file called 'jpn.txt'. Rename it to "
                         f"'{os.path.split(cls.item_filepaths['filepath'])[1]}' and move it to the path specified above.")
         ]
 
@@ -120,11 +117,12 @@ class TatoebaDownloadable(Downloadable, AutomaticallyDownloadable):
                       'eng': os.path.join(PATH_TO_EXTERNAL_DOWNLOADS, 'tatoeba_eng_culled.tsv'),
                       'jpn': os.path.join(PATH_TO_EXTERNAL_DOWNLOADS, 'tatoeba_jpn_culled.tsv')}
 
-    _partial_download_filepaths = {'pairs_unculled': os.path.join(PATH_TO_TEMP_EXTERNAL_DOWNLOADS, 'tatoeba_pairs_unculled.tsv'),
-                                   'eng_zipped': os.path.join(PATH_TO_TEMP_EXTERNAL_DOWNLOADS, 'tatoeba_eng.tsv.bz2'),
-                                   'jpn_zipped': os.path.join(PATH_TO_TEMP_EXTERNAL_DOWNLOADS, 'tatoeba_jpn.tsv.bz2'),
-                                   'eng_unculled': os.path.join(PATH_TO_TEMP_EXTERNAL_DOWNLOADS, 'tatoeba_eng.tsv'),
-                                   'jpn_unculled': os.path.join(PATH_TO_TEMP_EXTERNAL_DOWNLOADS, 'tatoeba_jpn.tsv')}
+    _partial_download_filepaths = {
+        'pairs_unculled': os.path.join(PATH_TO_TEMP_EXTERNAL_DOWNLOADS, 'tatoeba_pairs_unculled.tsv'),
+        'eng_zipped': os.path.join(PATH_TO_TEMP_EXTERNAL_DOWNLOADS, 'tatoeba_eng.tsv.bz2'),
+        'jpn_zipped': os.path.join(PATH_TO_TEMP_EXTERNAL_DOWNLOADS, 'tatoeba_jpn.tsv.bz2'),
+        'eng_unculled': os.path.join(PATH_TO_TEMP_EXTERNAL_DOWNLOADS, 'tatoeba_eng.tsv'),
+        'jpn_unculled': os.path.join(PATH_TO_TEMP_EXTERNAL_DOWNLOADS, 'tatoeba_jpn.tsv')}
 
     size = '54.1MB'
     processed_size = '31.1MB'
@@ -255,7 +253,7 @@ class TatoebaDownloadable(Downloadable, AutomaticallyDownloadable):
 
         culled_lan_filepath = cls.item_filepaths[language]
         with open(unculled_lan_filepath, 'r', encoding='utf-8') as temp_file, open(culled_lan_filepath, 'w',
-                                                                           encoding='utf-8') as lan_file:
+                                                                                   encoding='utf-8') as lan_file:
             pair_idx = next(common_idx)
             lan_line = next(temp_file)
             lan_idx = int(first_number_matcher.match(lan_line).group(1))
@@ -340,7 +338,6 @@ class JapaneseEnglishSubtitleCorpusDownloadable(Downloadable, AutomaticallyDownl
 
     @classmethod
     def _download_zipped_files(cls) -> None:
-
         session = RobotsAwareSession('https://nlp.stanford.edu/', USER_AGENT)
         url = cls._direct_download_url
         response = session.get(url)
