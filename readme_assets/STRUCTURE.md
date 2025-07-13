@@ -27,7 +27,7 @@ The client code's call of `.produce_sentences_for_words(...)` queries the reposi
 
 The sentence repository in itself doesn't do anything very complicated - it manages some settings on the database and SP, but apart from that it just runs the two-step process described above while interpreting instructions from the queries it receives (`produce_new`, `ensure_audio`, etc.) to decide which internal subsystems to fire up.
 
-Before we go into detail about these subsystems, it is useful to briefly explain one of the more fundamental capabilities of Tatoebator:
+Before we go into detail about these subsystems, it is useful to briefly explain one of the more fundamental capabilities of Tansō:
 
 ## Japanese Language Processing
 
@@ -37,7 +37,7 @@ The `tatoebator.language_processing` submodule interfaces with a japanese langua
   - E.g. in english: "Tom's boss ran a marathon yesterday" -> {verbs: to run; nouns: boss, marathon; adverbs: yesterday; grammatical words: 's, a; proper nouns: Tom},
 - To generate and add furigana to text.
 
-It bears mentioning that, as this submodule allows the rest of the code to distinguish words that are grammatical (e.g. to, of, a) from words that are semantic (e.g. house, thousand, to dance), Tatoebator generally only cares about semantic words, e.g. it will never try to find example sentences for "of" nor will it count the word "of" when looking through a sentence that contains it. This is on purpose - grammatical words are better off being learned from a book or an anki deck tailor-made for them.
+It bears mentioning that, as this submodule allows the rest of the code to distinguish words that are grammatical (e.g. to, of, a) from words that are semantic (e.g. house, thousand, to dance), Tansō generally only cares about semantic words, e.g. it will never try to find example sentences for "of" nor will it count the word "of" when looking through a sentence that contains it. This is on purpose - grammatical words are better off being learned from a book or an anki deck tailor-made for them.
 
 Also worth mentioning are a couple functionalities that help the SP make some judgement calls to optimize its search process:
 
@@ -46,7 +46,7 @@ Also worth mentioning are a couple functionalities that help the SP make some ju
 
 ## The Sentence Database
 
-Corresponding to `tatoebator.db.core.SentenceDbInterface`. This is a contains data about all the sentences that Tatoebator has made use of (i.e. sentences that actually are in cards). It is an SQLAlchemy database with three tables:
+Corresponding to `tatoebator.db.core.SentenceDbInterface`. This is a contains data about all the sentences that Tansō has made use of (i.e. sentences that actually are in cards). It is an SQLAlchemy database with three tables:
 
 - *Sentences.* Contains sentence id, text in english and japanese, credit (i.e. where it's from), source_tag (indicates license under which the source is distributed), and some extra data used for priority during querying.
 - *Keywords.* This contains the dictionary forms of words that have been recognized by the language processing module. It also keeps a boolean indicating whether the user has learned this particular word yet.
@@ -54,11 +54,11 @@ Corresponding to `tatoebator.db.core.SentenceDbInterface`. This is a contains da
 
 Realistically speaking it would be very unlikely for the amount of sentences on this database to ever go above 100.000. Because of this and some covering indices on the keywords, database search is relatively fast - wait times on repository queries are never due to the database.
 
-`SentenceDbInterface` is relatively straightforward and has all the (/batch) querying/updating functions you'd expect. Of note is that it uses its knowledge of which words are known by the user to maintain comprehensibility scores for every sentence (% words understood by user), which it uses to prefer returning more comprehensible sentences, and allow the repository to impose hard limits on comprehensibility.
+`SentenceDbInterface` is relatively straightforward and has all the (/batch) querying/updating functions one would expect. Of note is that it uses its knowledge of which words are known by the user to maintain comprehensibility scores for every sentence (% words understood by user), which it uses to prefer returning more comprehensible sentences, and allow the repository to impose hard limits on comprehensibility.
 
 ## Sentence Production
 
-Sentence production is handled by an instance of `tatoebator.sentences.SentenceProducer` kept by the repository. Internally, this SP keeps a number of `SentenceProductionMethod`s (SPMs) - these are objects from which the SP can get an interator of bilingual sentence pairs. The SP also keeps an instance of a `ExampleSentenceQualityEvaluator`, used to reject sentences that fail certain quality checks before they can be ingested into the database.
+Sentence production is handled by an instance of `tatoebator.sentences.SentenceProducer` kept by the repository. Internally, this SP keeps a number of `SentenceProductionMethod`s (SPMs) - these are objects from which the SP can get an iterator of bilingual sentence pairs. The SP also keeps an instance of a `ExampleSentenceQualityEvaluator`, used to reject sentences that fail certain quality checks before they can be ingested into the database.
 
 Upon receiving a request for some sentences containing some words, the SP will proceed to search through every sentence from every SPM in order, pushing these sentences through a highly customized pipeline that makes sure to keep sentences at a certain level of quality and comprehensibility (via callback to the repository), while also minimizing the amount of unnecessary computation, using multithreading to maximize speed, and providing regular UI callbacks to update the user on progress. The settings of this pipeline also depend on the specifics of the request passed by the repository and how much the SP trusts the SPM that it is currently using.
 
@@ -92,7 +92,7 @@ so the QC and the SP are somewhat coupled, though to the QC this only means that
 
 It is also worth mentioning that we told a small lie earlier: the SPMs are in fact capable of making promises about quality, by having a class variable `translations_reliable = True`. When this is the case, the SP can judiciously skip the second step of the checks above.
 
-### Search process.
+### Search process
 
 The SP sequentially takes sentences from its SPMs and pushes them into a multiprocessing pipeline. This pipeline several steps, at any of which a sentence may drop out. The steps are:
 
@@ -143,4 +143,4 @@ The above outlines the four functionalities that the repository requires from th
 
 **Persistables.** Some classes defined in `persistence.py` are used across the codebase as a drop-in way to persist data across executions - this works as a sort of json-type serialization and is best suited to dataclasses (where the fields are basic python types or compositions thereof, incl. dataclasses). It is essentially meant to be a version of Pickle that doesn't require the codebase to be entirely static, but only the elements of it that are referenced by the persisted data (i.e. the class and attribute names).
 
-**Card data.** The decks generated by Tatoebator are intended to work fine when exported, so none of this codebase can be relied on to helps when it comes to rendering the cards. For this reason, the cards have to keep within themselves the data about the sentences that they contain (and a reference to the audio file).
+**Card data.** The decks generated by Tansō are intended to work fine even in the abscence of Tansō (e.g. when exported), so none of this codebase can be relied on to help when it comes to rendering the cards. For this reason, the cards have to keep within themselves the data about the sentences that they contain (and a reference to the audio file).
